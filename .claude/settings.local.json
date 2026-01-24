@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(copy \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\logo avec texte neoflow agency.png\" \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\mvp maison de la literie v1\\\\public\\\\logo-neoflow.png\")",
+      "Bash(copy:*)"
+    ]
+  }
+}
