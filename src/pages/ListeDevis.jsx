@@ -6,6 +6,8 @@ export default function ListeDevis() {
   const navigate = useNavigate()
   const [devis, setDevis] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatut, setFilterStatut] = useState('all')
 
   useEffect(() => {
     loadDevis()
@@ -15,7 +17,7 @@ export default function ListeDevis() {
     try {
       const { data } = await supabase
         .from('devis')
-        .select('*, clients(nom, prenom)')
+        .select('*, clients(nom, prenom, email)')
         .order('created_at', { ascending: false })
 
       setDevis(data || [])
@@ -26,105 +28,187 @@ export default function ListeDevis() {
     }
   }
 
+  const filteredDevis = devis.filter(d => {
+    const matchesSearch = searchTerm === '' ||
+      d.numero_devis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.clients?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.clients?.prenom?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatut = filterStatut === 'all' || d.statut === filterStatut
+
+    return matchesSearch && matchesStatut
+  })
+
+  const getStatutBadge = (statut) => {
+    const badges = {
+      brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
+      envoye: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyé' },
+      accepte: { bg: 'bg-green-100', text: 'text-green-600', label: 'Accepté' },
+      refuse: { bg: 'bg-red-100', text: 'text-red-600', label: 'Refusé' }
+    }
+    const badge = badges[statut] || badges.brouillon
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+        {badge.label}
+      </span>
+    )
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#1e1b4b] border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent"></div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 min-h-screen">
+    <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        {/* Logo Maison de la Literie */}
-        <img
-          src="/logo-maison-literie.png"
-          alt="Maison de la Literie"
-          className="h-16 object-contain rounded-xl"
-        />
-
-        {/* Bouton Créer nouveau devis */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes devis</h1>
+          <p className="text-gray-500">{devis.length} devis au total</p>
+        </div>
         <button
           onClick={() => navigate('/creer-devis')}
-          className="bg-[#1e1b4b] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#2d2a5d] transition-colors shadow-lg"
+          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
         >
-          Crée un nouveau devis
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Nouveau devis
         </button>
       </div>
 
-      {/* Grille de devis */}
-      {devis.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-500 mb-6 text-lg">Aucun devis trouvé</p>
+      {/* Filtres et Recherche */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        {/* Recherche */}
+        <div className="flex-1 min-w-[250px] relative">
+          <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Rechercher par nom, numéro..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+          />
+        </div>
+
+        {/* Filtre statut */}
+        <select
+          value={filterStatut}
+          onChange={(e) => setFilterStatut(e.target.value)}
+          className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 cursor-pointer"
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="brouillon">Brouillon</option>
+          <option value="envoye">Envoyé</option>
+          <option value="accepte">Accepté</option>
+          <option value="refuse">Refusé</option>
+        </select>
+      </div>
+
+      {/* Liste des devis */}
+      {filteredDevis.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-12 text-center">
+          <div className="w-16 h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <p className="text-gray-500 mb-6 text-lg">
+            {searchTerm || filterStatut !== 'all' ? 'Aucun devis trouvé avec ces critères' : 'Aucun devis pour le moment'}
+          </p>
           <button
             onClick={() => navigate('/creer-devis')}
-            className="bg-[#1e1b4b] text-white px-8 py-3 rounded-full font-semibold hover:bg-[#2d2a5d] transition-colors"
+            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
           >
             Créer votre premier devis
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {devis.map((d) => (
-            <div
-              key={d.id}
-              onClick={() => navigate(`/apercu-devis/${d.id}`)}
-              className="bg-white rounded-lg border-2 border-[#3b82f6] p-3 cursor-pointer hover:shadow-xl transition-all hover:scale-[1.02] aspect-[3/4] flex flex-col"
-            >
-              {/* Mini aperçu facture */}
-              <div className="flex-1 flex flex-col text-[7px] leading-tight">
-                {/* En-tête */}
-                <div className="flex items-start justify-between mb-2">
-                  <img
-                    src="/logo-maison-literie.png"
-                    alt="Logo"
-                    className="h-5 w-auto rounded"
-                  />
-                  <div className="text-right">
-                    <p className="font-bold text-[9px]">FACTURE</p>
-                    <p className="text-gray-500 text-[5px]">N°: {d.numero_devis}</p>
-                    <p className="text-gray-500 text-[5px]">DATE: {new Date(d.created_at).toLocaleDateString('fr-FR')}</p>
-                  </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+          {/* En-tête tableau */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
+            <div className="col-span-2">N° Devis</div>
+            <div className="col-span-3">Client</div>
+            <div className="col-span-2">Date</div>
+            <div className="col-span-2 text-right">Montant TTC</div>
+            <div className="col-span-2 text-center">Statut</div>
+            <div className="col-span-1"></div>
+          </div>
+
+          {/* Lignes */}
+          <div className="divide-y divide-gray-100">
+            {filteredDevis.map((d) => (
+              <div
+                key={d.id}
+                onClick={() => navigate(`/apercu-devis/${d.id}`)}
+                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors items-center"
+              >
+                {/* Numéro */}
+                <div className="md:col-span-2">
+                  <p className="font-bold text-[#040741]">{d.numero_devis || `DEV-${d.id?.slice(0, 6)}`}</p>
                 </div>
 
-                {/* Émetteur / Destinataire */}
-                <div className="flex justify-between mb-2 text-[5px]">
-                  <div>
-                    <p className="font-bold text-[#d97706]">ÉMETTEUR:</p>
-                    <p>Maison de la Literie</p>
-                    <p className="text-gray-400">contact@literie.fr</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-[#d97706]">DESTINATAIRE:</p>
-                    <p>{d.clients ? `${d.clients.prenom} ${d.clients.nom}` : 'Client'}</p>
-                  </div>
+                {/* Client */}
+                <div className="md:col-span-3">
+                  <p className="font-medium text-[#040741]">
+                    {d.clients ? `${d.clients.prenom} ${d.clients.nom}` : 'Client'}
+                  </p>
+                  {d.clients?.email && (
+                    <p className="text-sm text-gray-500">{d.clients.email}</p>
+                  )}
                 </div>
 
-                {/* Tableau simplifié */}
-                <div className="flex-1 border-t border-gray-100 pt-1">
-                  <div className="flex justify-between text-[5px] font-bold border-b border-gray-100 pb-0.5">
-                    <span>DESCRIPTION</span>
-                    <span>TOTAL HT</span>
-                  </div>
-                  <div className="text-gray-500 space-y-0.5 mt-0.5">
-                    <div className="flex justify-between"><span>Produit 1</span><span>---</span></div>
-                    <div className="flex justify-between"><span>Produit 2</span><span>---</span></div>
-                  </div>
+                {/* Date */}
+                <div className="md:col-span-2">
+                  <p className="text-gray-600">
+                    {new Date(d.created_at).toLocaleDateString('fr-FR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </p>
                 </div>
 
-                {/* Totaux */}
-                <div className="border-t border-gray-200 pt-1 mt-auto text-[5px]">
-                  <div className="flex justify-between"><span>TOTAL HT:</span><span>{d.total_ht?.toFixed(2) || '0.00'}€</span></div>
-                  <div className="flex justify-between"><span>TVA:</span><span>{d.montant_tva?.toFixed(2) || '0.00'}€</span></div>
-                  <div className="flex justify-between font-bold text-[6px]"><span>TOTAL TTC:</span><span>{d.total_ttc?.toFixed(2) || '0.00'}€</span></div>
+                {/* Montant */}
+                <div className="md:col-span-2 text-right">
+                  <p className="font-bold text-[#313ADF] text-lg">
+                    {d.total_ttc?.toFixed(2) || '0.00'} €
+                  </p>
+                </div>
+
+                {/* Statut */}
+                <div className="md:col-span-2 text-center">
+                  {getStatutBadge(d.statut)}
+                </div>
+
+                {/* Action */}
+                <div className="md:col-span-1 text-right">
+                  <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Bouton Retour */}
+      <button
+        onClick={() => navigate('/dashboard')}
+        className="mt-8 inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Retour à l'accueil
+      </button>
     </div>
   )
 }

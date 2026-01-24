@@ -2,11 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
 import CreerDevis from './pages/CreerDevis'
 import ApercuDevis from './pages/ApercuDevis'
 import ListeDevis from './pages/ListeDevis'
 import Livraisons from './pages/Livraisons'
 import Sidebar from './components/Sidebar'
+import BackgroundPattern from './components/ui/BackgroundPattern'
 
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true)
@@ -28,7 +30,10 @@ function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#1e1b4b] border-t-transparent"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent"></div>
+          <p className="text-[#040741] font-medium">Chargement...</p>
+        </div>
       </div>
     )
   }
@@ -44,34 +49,8 @@ function Layout({ children }) {
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
       <Sidebar />
-      {/* Forme décorative bleue - exactement comme le design */}
-      <div className="fixed right-0 top-0 bottom-0 w-[280px] pointer-events-none z-0 overflow-hidden">
-        <svg
-          viewBox="0 0 280 800"
-          className="absolute right-0 top-0 h-full w-full"
-          preserveAspectRatio="xMaxYMid slice"
-        >
-          {/* Couche bleue claire (derrière) */}
-          <path
-            d="M280,0 L280,800 L180,800
-               C120,720 140,640 100,560
-               C60,480 100,400 140,320
-               C180,240 120,160 160,80
-               C180,40 200,0 220,0 Z"
-            fill="#3b82f6"
-          />
-          {/* Couche bleu marine (devant) */}
-          <path
-            d="M280,0 L280,800 L220,800
-               C180,700 200,620 160,540
-               C120,460 180,380 200,300
-               C220,220 180,140 210,60
-               C230,20 250,0 280,0 Z"
-            fill="#1e1b4b"
-          />
-        </svg>
-      </div>
-      <main className="ml-[200px] min-h-screen overflow-y-auto relative z-10 pr-[100px]">
+      <BackgroundPattern />
+      <main className="ml-[240px] min-h-screen overflow-y-auto relative z-10">
         {children}
       </main>
     </div>
@@ -83,6 +62,16 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/creer-devis"
           element={
@@ -123,8 +112,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   )
