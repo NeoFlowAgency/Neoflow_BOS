@@ -38,6 +38,7 @@ export default function CreerDevis() {
   const [remiseType, setRemiseType] = useState('percent') // 'percent' or 'euro'
   const [remiseValeur, setRemiseValeur] = useState(0)
   const [avecLivraison, setAvecLivraison] = useState(true)
+  const [dateLivraison, setDateLivraison] = useState('')
   const [notes, setNotes] = useState('')
   const [produits, setProduits] = useState(produitsDemo)
 
@@ -163,6 +164,27 @@ export default function CreerDevis() {
       setError('Veuillez remplir tous les champs client obligatoires')
       return
     }
+
+    // VALIDATION EMAIL
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (client.email && !emailRegex.test(client.email)) {
+      setError('Veuillez entrer une adresse email valide (ex: exemple@mail.com)')
+      return
+    }
+
+    // VALIDATION TÉLÉPHONE
+    const phoneDigits = client.telephone.replace(/\D/g, '')
+    if (phoneDigits.length < 8) {
+      setError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
+      return
+    }
+
+    // VALIDATION DATE LIVRAISON SI OPTION COCHÉE
+    if (avecLivraison && !dateLivraison) {
+      setError('Veuillez sélectionner une date de livraison')
+      return
+    }
+
     const lignesValides = lignes.filter(l => l.produit_id !== null)
     if (lignesValides.length === 0) {
       setError('Veuillez sélectionner au moins un produit')
@@ -171,20 +193,27 @@ export default function CreerDevis() {
 
     setLoading(true)
     try {
+      // ✅ CORRECTION CRITIQUE : Garantir que remise_globale est toujours un nombre (jamais vide/null)
+      const discountAmount = Number(totaux.montantRemise) || 0
+
       const data = {
         client: { nom: client.nom, prenom: client.prenom, telephone: client.telephone, email: client.email || null, adresse: client.adresse },
         lignes: lignesValides.map(l => ({ produit_id: l.produit_id, nom_produit_libre: null, quantite: l.quantite, prix_unitaire: l.prix_unitaire })),
-        remise_globale: totaux.montantRemise,
+        remise_globale: discountAmount,  // ← Toujours un nombre, jamais vide
+        remise_type: remiseType || 'percent',  // ← Valeur par défaut si vide
+        has_delivery: avecLivraison || false,
+        delivery_date: dateLivraison || null,
         notes: notes || null
       }
 
-      // === DIAGNOSTIC DEVIS ===
-      console.log('=== DIAGNOSTIC DEVIS ===')
+      // === PAYLOAD FINAL ENVOYÉ AU WEBHOOK ===
+      console.log('=== PAYLOAD FINAL ENVOYÉ AU WEBHOOK ===')
+      console.log('discount_amount:', discountAmount, '(type:', typeof discountAmount, ')')
+      console.log('remise_type:', data.remise_type)
       console.log('Nombre de lignes produits:', lignesValides.length)
       console.log('Quantité totale:', lignesValides.reduce((sum, l) => sum + l.quantite, 0))
-      console.log('Détail des lignes:', lignesValides.map(l => ({ id: l.produit_id, nom: l.nom_produit, qte: l.quantite, prix: l.prix_unitaire })))
       console.log('Payload complet:', JSON.stringify(data, null, 2))
-      console.log('========================')
+      console.log('=======================================')
 
       const result = await creerDevis(data)
 
@@ -478,6 +507,22 @@ export default function CreerDevis() {
                 Non
               </button>
             </div>
+
+            {/* Champ date de livraison si option cochée */}
+            {avecLivraison && (
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-[#040741] mb-2">
+                  Date de livraison <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={dateLivraison}
+                  onChange={(e) => setDateLivraison(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                />
+              </div>
+            )}
           </div>
 
           {/* Notes */}

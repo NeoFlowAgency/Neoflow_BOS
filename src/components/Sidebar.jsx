@@ -107,20 +107,29 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         {/* Desktop toggle */}
         <DesktopToggle />
 
-        {/* Logo Neoflow Agency */}
+        {/* Logo Neoflow Agency - 2 versions selon état sidebar */}
         <button
           onClick={() => navigate('/dashboard')}
           className={`mb-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden ${
             isOpen || isMobile ? 'p-3' : 'p-2'
           }`}
         >
-          <img
-            src="/logo-neoflow.png"
-            alt="Neoflow Agency"
-            className={`object-contain transition-all ${
-              isOpen || isMobile ? 'h-12 w-full' : 'h-10 w-10'
-            }`}
-          />
+          {/* Logo complet quand sidebar ouverte */}
+          {(isOpen || isMobile) && (
+            <img
+              src="/logo-neoflow-full.png"
+              alt="Neoflow Agency"
+              className="h-14 w-auto object-contain"
+            />
+          )}
+          {/* Icône seule quand sidebar fermée */}
+          {!isOpen && !isMobile && (
+            <img
+              src="/logo-neoflow-icon.png"
+              alt="Neoflow Agency"
+              className="h-10 w-10 object-contain"
+            />
+          )}
         </button>
 
         {/* Subtitle */}
