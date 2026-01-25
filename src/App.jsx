@@ -7,6 +7,7 @@ import CreerDevis from './pages/CreerDevis'
 import ApercuDevis from './pages/ApercuDevis'
 import ListeDevis from './pages/ListeDevis'
 import Livraisons from './pages/Livraisons'
+import DashboardFinancier from './pages/DashboardFinancier'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 
@@ -46,11 +47,34 @@ function ProtectedRoute({ children }) {
 }
 
 function Layout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile and set initial sidebar state
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile) {
+        setSidebarOpen(false)
+      }
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <BackgroundPattern />
-      <main className="ml-[240px] min-h-screen overflow-y-auto relative z-10">
+      <main
+        className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-300 ${
+          isMobile
+            ? 'ml-0 pt-16'
+            : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
+        }`}
+      >
         {children}
       </main>
     </div>
@@ -108,6 +132,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Livraisons />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard-financier"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <DashboardFinancier />
               </Layout>
             </ProtectedRoute>
           }

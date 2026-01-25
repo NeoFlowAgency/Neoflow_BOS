@@ -118,21 +118,41 @@ export default function CreerDevis() {
     setLignes(prev => prev.filter(l => l.id !== ligneId))
   }
 
-  // BUG #6 FIX: Calculate totals with % or € remise
-  const calculerTotaux = () => {
-    const subtotal = lignes.reduce((sum, l) => sum + l.total, 0)
-    let montantRemise = 0
+  // Fonction utilitaire pour arrondir à 2 décimales
+  const round = (num) => Math.round(num * 100) / 100
 
+  // CORRECTION CALCULS FINANCIERS
+  const calculerTotaux = () => {
+    // 1. SOUS-TOTAL HT = Somme de toutes les lignes produits
+    const subtotal = lignes.reduce((sum, l) => sum + (l.quantite * l.prix_unitaire), 0)
+
+    // 2. CALCUL DE LA REMISE
+    let montantRemise = 0
     if (remiseType === 'percent') {
+      // Remise en pourcentage
       montantRemise = subtotal * (remiseValeur / 100)
     } else {
-      montantRemise = Math.min(remiseValeur, subtotal) // Can't discount more than subtotal
+      // Remise en euros (montant fixe) - ne peut pas dépasser le sous-total
+      montantRemise = Math.min(remiseValeur, subtotal)
     }
 
+    // 3. TOTAL HT APRÈS REMISE
     const total_ht = subtotal - montantRemise
+
+    // 4. TVA (20% du total HT après remise)
     const montant_tva = total_ht * 0.20
+
+    // 5. TOTAL TTC
     const total_ttc = total_ht + montant_tva
-    return { subtotal, montantRemise, total_ht, montant_tva, total_ttc }
+
+    // 6. ARRONDIR TOUS LES MONTANTS À 2 DÉCIMALES
+    return {
+      subtotal: round(subtotal),
+      montantRemise: round(montantRemise),
+      total_ht: round(total_ht),
+      montant_tva: round(montant_tva),
+      total_ttc: round(total_ttc)
+    }
   }
 
   const totaux = calculerTotaux()
@@ -158,7 +178,20 @@ export default function CreerDevis() {
         notes: notes || null
       }
 
+      // === DIAGNOSTIC DEVIS ===
+      console.log('=== DIAGNOSTIC DEVIS ===')
+      console.log('Nombre de lignes produits:', lignesValides.length)
+      console.log('Quantité totale:', lignesValides.reduce((sum, l) => sum + l.quantite, 0))
+      console.log('Détail des lignes:', lignesValides.map(l => ({ id: l.produit_id, nom: l.nom_produit, qte: l.quantite, prix: l.prix_unitaire })))
+      console.log('Payload complet:', JSON.stringify(data, null, 2))
+      console.log('========================')
+
       const result = await creerDevis(data)
+
+      console.log('=== RÉPONSE WEBHOOK ===')
+      console.log('Résultat:', result)
+      console.log('=======================')
+
       const devisId = result.devis_id || result.id
 
       if (!devisId) throw new Error('Aucun ID de devis retourné par le serveur')
@@ -169,6 +202,12 @@ export default function CreerDevis() {
 
       navigate(`/apercu-devis/${devisId}`)
     } catch (err) {
+      // === LOG ERREUR DÉTAILLÉ ===
+      console.error('❌ ERREUR CRÉATION DEVIS ===')
+      console.error('Message:', err.message)
+      console.error('Erreur complète:', err)
+      console.error('Stack:', err.stack)
+      console.error('============================')
       setError(err.message || 'Erreur lors de la création du devis')
     } finally {
       setLoading(false)
