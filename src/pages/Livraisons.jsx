@@ -2,17 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { creerLivraison } from '../lib/api'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Livraisons() {
   const navigate = useNavigate()
+  const { workspace, loading: wsLoading } = useWorkspace()
   const [livraisons, setLivraisons] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // BUG #7 FIX: Modal state for new delivery workflow
+  // Modal state for new delivery workflow
   const [showModal, setShowModal] = useState(false)
-  const [modalStep, setModalStep] = useState('choice') // 'choice', 'existing', 'new'
-  const [devisDisponibles, setDevisDisponibles] = useState([])
-  const [selectedDevis, setSelectedDevis] = useState(null)
+  const [modalStep, setModalStep] = useState('choice')
+  const [facturesDisponibles, setFacturesDisponibles] = useState([])
+  const [selectedFacture, setSelectedFacture] = useState(null)
   const [livraisonForm, setLivraisonForm] = useState({
     date_prevue: '',
     adresse_livraison: '',
@@ -22,36 +24,42 @@ export default function Livraisons() {
   const [createError, setCreateError] = useState('')
 
   useEffect(() => {
+    if (wsLoading) return
+    if (!workspace?.id) {
+      setLoading(false)
+      return
+    }
     loadLivraisons()
-  }, [])
+  }, [workspace?.id, wsLoading])
 
   const loadLivraisons = async () => {
     try {
       const { data } = await supabase
-        .from('livraisons')
-        .select('*, devis(numero_devis, total_ttc, clients(nom, prenom, adresse))')
+        .from('deliveries')
+        .select('*, invoices(invoice_number, total_ttc, customers(nom, prenom, adresse))')
+        .eq('workspace_id', workspace?.id)
         .order('date_prevue', { ascending: true })
 
       setLivraisons(data || [])
     } catch (err) {
-      console.error(err)
+      console.error('[Livraisons] Erreur chargement:', err.message, err)
     } finally {
       setLoading(false)
     }
   }
 
-  // BUG #7 FIX: Load available devis for linking
-  const loadDevisDisponibles = async () => {
+  const loadFacturesDisponibles = async () => {
     try {
       const { data } = await supabase
-        .from('devis')
-        .select('*, clients(nom, prenom, adresse)')
-        .in('statut', ['accepte', 'envoye', 'brouillon'])
+        .from('invoices')
+        .select('*, customers(nom, prenom, adresse)')
+        .eq('workspace_id', workspace?.id)
+        .in('statut', ['brouillon', 'envoyée', 'payée'])
         .order('created_at', { ascending: false })
 
-      setDevisDisponibles(data || [])
+      setFacturesDisponibles(data || [])
     } catch (err) {
-      console.error('Erreur chargement devis:', err)
+      console.error('Erreur chargement factures:', err)
     }
   }
 
@@ -71,39 +79,37 @@ export default function Livraisons() {
       }
 
       await supabase
-        .from('livraisons')
+        .from('deliveries')
         .update(updateData)
         .eq('id', livraisonId)
+        .eq('workspace_id', workspace.id)
 
       await loadLivraisons()
     } catch (err) {
-      console.error(err)
+      console.error('[Livraisons] Erreur changement statut:', err.message, err)
     }
   }
 
-  // BUG #7 FIX: Open modal and load available devis
   const openNewLivraisonModal = async () => {
     setShowModal(true)
     setModalStep('choice')
-    setSelectedDevis(null)
+    setSelectedFacture(null)
     setLivraisonForm({ date_prevue: '', adresse_livraison: '', notes: '' })
     setCreateError('')
-    await loadDevisDisponibles()
+    await loadFacturesDisponibles()
   }
 
-  // BUG #7 FIX: Handle devis selection
-  const handleSelectDevis = (devis) => {
-    setSelectedDevis(devis)
+  const handleSelectFacture = (facture) => {
+    setSelectedFacture(facture)
     setLivraisonForm({
       ...livraisonForm,
-      adresse_livraison: devis.clients?.adresse || ''
+      adresse_livraison: facture.customers?.adresse || ''
     })
   }
 
-  // BUG #7 FIX: Create livraison linked to existing devis
   const handleCreateLivraison = async () => {
-    if (!selectedDevis) {
-      setCreateError('Veuillez sélectionner une commande')
+    if (!selectedFacture) {
+      setCreateError('Veuillez sélectionner une facture')
       return
     }
     if (!livraisonForm.date_prevue) {
@@ -116,7 +122,7 @@ export default function Livraisons() {
 
     try {
       await creerLivraison({
-        devis_id: selectedDevis.id,
+        invoice_id: selectedFacture.id,
         date_prevue: livraisonForm.date_prevue,
         adresse_livraison: livraisonForm.adresse_livraison,
         notes: livraisonForm.notes
@@ -132,7 +138,7 @@ export default function Livraisons() {
   }
 
   const LivraisonCard = ({ livraison, onClick, showComplete = false }) => {
-    const client = livraison.devis?.clients
+    const client = livraison.invoices?.customers
     const clientName = client ? `${client.prenom} ${client.nom}` : 'Client inconnu'
     const adresse = livraison.adresse_livraison || client?.adresse || ''
     const datePrevue = livraison.date_prevue ? new Date(livraison.date_prevue).toLocaleDateString('fr-FR') : ''
@@ -141,9 +147,9 @@ export default function Livraisons() {
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
         <div className="flex items-start justify-between mb-2">
           <p className="font-bold text-[#040741] text-lg">{clientName}</p>
-          {livraison.devis?.total_ttc && (
+          {livraison.invoices?.total_ttc && (
             <span className="text-sm font-semibold text-[#313ADF]">
-              {livraison.devis.total_ttc.toFixed(0)} €
+              {livraison.invoices.total_ttc.toFixed(0)} €
             </span>
           )}
         </div>
@@ -285,7 +291,7 @@ export default function Livraisons() {
         </div>
       </div>
 
-      {/* BUG #7 FIX: Modal Nouvelle Livraison */}
+      {/* Modal Nouvelle Livraison */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -318,14 +324,14 @@ export default function Livraisons() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-semibold text-[#040741]">Lier à une commande existante</p>
-                      <p className="text-sm text-gray-500">Sélectionner un devis déjà créé</p>
+                      <p className="font-semibold text-[#040741]">Lier à une facture existante</p>
+                      <p className="text-sm text-gray-500">Sélectionner une facture déjà créée</p>
                     </div>
                   </div>
                 </button>
 
                 <button
-                  onClick={() => navigate('/creer-devis')}
+                  onClick={() => navigate('/factures/nouvelle')}
                   className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-[#313ADF] hover:bg-[#313ADF]/5 transition-all text-left group"
                 >
                   <div className="flex items-center gap-4">
@@ -335,15 +341,15 @@ export default function Livraisons() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-semibold text-[#040741]">Créer une nouvelle commande</p>
-                      <p className="text-sm text-gray-500">D'abord créer le devis, puis la livraison</p>
+                      <p className="font-semibold text-[#040741]">Créer une nouvelle facture</p>
+                      <p className="text-sm text-gray-500">D'abord créer la facture, puis la livraison</p>
                     </div>
                   </div>
                 </button>
               </div>
             )}
 
-            {/* Step: Select Existing Devis */}
+            {/* Step: Select Existing Facture */}
             {modalStep === 'existing' && (
               <div>
                 <button
@@ -356,21 +362,20 @@ export default function Livraisons() {
                   Retour
                 </button>
 
-                {/* Liste des devis disponibles */}
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-[#040741] mb-3">
-                    Sélectionner une commande
+                    Sélectionner une facture
                   </label>
                   <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl">
-                    {devisDisponibles.length === 0 ? (
-                      <p className="p-4 text-center text-gray-500">Aucune commande disponible</p>
+                    {facturesDisponibles.length === 0 ? (
+                      <p className="p-4 text-center text-gray-500">Aucune facture disponible</p>
                     ) : (
-                      devisDisponibles.map((devis) => (
+                      facturesDisponibles.map((facture) => (
                         <button
-                          key={devis.id}
-                          onClick={() => handleSelectDevis(devis)}
+                          key={facture.id}
+                          onClick={() => handleSelectFacture(facture)}
                           className={`w-full p-3 text-left border-b last:border-b-0 transition-colors ${
-                            selectedDevis?.id === devis.id
+                            selectedFacture?.id === facture.id
                               ? 'bg-[#313ADF]/10 border-[#313ADF]'
                               : 'hover:bg-gray-50'
                           }`}
@@ -378,14 +383,14 @@ export default function Livraisons() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium text-[#040741]">
-                                {devis.clients?.prenom} {devis.clients?.nom}
+                                {facture.customers?.prenom} {facture.customers?.nom}
                               </p>
                               <p className="text-sm text-gray-500">
-                                {devis.numero_devis} - {new Date(devis.created_at).toLocaleDateString('fr-FR')}
+                                {facture.invoice_number} - {new Date(facture.created_at).toLocaleDateString('fr-FR')}
                               </p>
                             </div>
                             <span className="font-semibold text-[#313ADF]">
-                              {devis.total_ttc?.toFixed(0)} €
+                              {facture.total_ttc?.toFixed(0)} €
                             </span>
                           </div>
                         </button>
@@ -394,8 +399,7 @@ export default function Livraisons() {
                   </div>
                 </div>
 
-                {/* Formulaire livraison */}
-                {selectedDevis && (
+                {selectedFacture && (
                   <div className="space-y-4 border-t border-gray-100 pt-4">
                     <div>
                       <label className="block text-sm font-semibold text-[#040741] mb-2">

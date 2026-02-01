@@ -1,57 +1,57 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerDevis, creerLivraison } from '../lib/api'
+import { creerFacture, creerLivraison } from '../lib/api'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
 
-const produitsDemo = [
-  { id: '1', nom: 'Matelas mousse haute densité', prix_unitaire: 483.99 },
-  { id: '2', nom: 'Oreiller mémoire de forme', prix_unitaire: 45.00 },
-  { id: '3', nom: 'Sommier Tapissier 160x200', prix_unitaire: 299.00 },
-  { id: '4', nom: 'Couette 4 Saisons', prix_unitaire: 129.00 },
-  { id: '5', nom: 'Protège-Matelas', prix_unitaire: 39.00 },
-  { id: '6', nom: 'Matelas ressorts ensachés', prix_unitaire: 699.00 },
-  { id: '7', nom: 'Lit coffre 160x200', prix_unitaire: 549.00 },
-  { id: '8', nom: 'Tête de lit capitonnée', prix_unitaire: 199.00 }
-]
-
-export default function CreerDevis() {
+export default function CreerFacture() {
   const navigate = useNavigate()
+  const { workspace } = useWorkspace()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // Client state
   const [client, setClient] = useState({
-    nom: '', prenom: '', telephone: '', email: '', adresse: ''
+    id: null, nom: '', prenom: '', telephone: '', email: '', adresse: ''
   })
   const [clientSuggestions, setClientSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  // Products state - BUG #4 FIX: Default quantity = 1
+  // Products state
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, nom_produit: '', quantite: 1, prix_unitaire: 0, total: 0 },
-    { id: 2, produit_id: null, nom_produit: '', quantite: 1, prix_unitaire: 0, total: 0 }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 },
+    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }
   ])
 
-  // BUG #6 FIX: Remise type toggle (% or €)
-  const [remiseType, setRemiseType] = useState('percent') // 'percent' or 'euro'
+  // Discount & options
+  const [remiseType, setRemiseType] = useState('percent')
   const [remiseValeur, setRemiseValeur] = useState(0)
   const [avecLivraison, setAvecLivraison] = useState(true)
   const [dateLivraison, setDateLivraison] = useState('')
   const [notes, setNotes] = useState('')
-  const [produits, setProduits] = useState(produitsDemo)
+  const [produits, setProduits] = useState([])
+  const [produitsLoading, setProduitsLoading] = useState(false)
 
   useEffect(() => {
-    loadProduits()
-  }, [])
+    if (workspace?.id) loadProduits()
+  }, [workspace?.id])
 
   const loadProduits = async () => {
+    setProduitsLoading(true)
     try {
-      const { data } = await supabase.from('produits').select('*').eq('actif', true)
-      if (data && data.length > 0) setProduits(data)
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('workspace_id', workspace?.id)
+      if (error) throw error
+      setProduits(data || [])
     } catch (err) {
-      console.log('Utilisation des produits démo')
+      console.error('Erreur chargement produits:', err)
+      setProduits([])
+    } finally {
+      setProduitsLoading(false)
     }
   }
 
@@ -61,8 +61,15 @@ export default function CreerDevis() {
       setShowSuggestions(false)
       return
     }
+    if (!workspace?.id) return
     try {
-      const { data } = await supabase.from('clients').select('*').ilike('telephone', `%${telephone}%`).limit(5)
+      const { data } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('workspace_id', workspace.id)
+        .ilike('telephone', `%${telephone}%`)
+        .limit(5)
+
       if (data && data.length > 0) {
         setClientSuggestions(data)
         setShowSuggestions(true)
@@ -71,12 +78,13 @@ export default function CreerDevis() {
         setShowSuggestions(false)
       }
     } catch (err) {
-      console.log('Erreur recherche clients')
+      console.error('[CreerFacture] Erreur recherche clients:', err.message, err)
     }
   }
 
   const selectClient = (selectedClient) => {
     setClient({
+      id: selectedClient.id,
       nom: selectedClient.nom,
       prenom: selectedClient.prenom,
       telephone: selectedClient.telephone,
@@ -93,9 +101,9 @@ export default function CreerDevis() {
       l.id === ligneId ? {
         ...l,
         produit_id: produitSelected.id,
-        nom_produit: produitSelected.nom,
-        prix_unitaire: produitSelected.prix_unitaire,
-        total: produitSelected.prix_unitaire * l.quantite
+        product_name: produitSelected.name,
+        unit_price: produitSelected.unit_price,
+        total: produitSelected.unit_price * l.quantity
       } : l
     ))
   }
@@ -103,50 +111,36 @@ export default function CreerDevis() {
   const handleQuantiteChange = (ligneId, newQuantite) => {
     const qty = Math.max(1, parseInt(newQuantite) || 1)
     setLignes(prev => prev.map(l =>
-      l.id === ligneId ? { ...l, quantite: qty, total: l.prix_unitaire * qty } : l
+      l.id === ligneId ? { ...l, quantity: qty, total: l.unit_price * qty } : l
     ))
   }
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id)) + 1
-    // BUG #4 FIX: Default quantity = 1
-    setLignes([...lignes, { id: newId, produit_id: null, nom_produit: '', quantite: 1, prix_unitaire: 0, total: 0 }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }])
   }
 
-  // BUG #5 FIX: Remove line function
   const supprimerLigne = (ligneId) => {
-    if (lignes.length <= 1) return // Minimum 1 ligne
+    if (lignes.length <= 1) return
     setLignes(prev => prev.filter(l => l.id !== ligneId))
   }
 
-  // Fonction utilitaire pour arrondir à 2 décimales
   const round = (num) => Math.round(num * 100) / 100
 
-  // CORRECTION CALCULS FINANCIERS
   const calculerTotaux = () => {
-    // 1. SOUS-TOTAL HT = Somme de toutes les lignes produits
-    const subtotal = lignes.reduce((sum, l) => sum + (l.quantite * l.prix_unitaire), 0)
+    const subtotal = lignes.reduce((sum, l) => sum + (l.quantity * l.unit_price), 0)
 
-    // 2. CALCUL DE LA REMISE
     let montantRemise = 0
     if (remiseType === 'percent') {
-      // Remise en pourcentage
       montantRemise = subtotal * (remiseValeur / 100)
     } else {
-      // Remise en euros (montant fixe) - ne peut pas dépasser le sous-total
       montantRemise = Math.min(remiseValeur, subtotal)
     }
 
-    // 3. TOTAL HT APRÈS REMISE
     const total_ht = subtotal - montantRemise
-
-    // 4. TVA (20% du total HT après remise)
     const montant_tva = total_ht * 0.20
-
-    // 5. TOTAL TTC
     const total_ttc = total_ht + montant_tva
 
-    // 6. ARRONDIR TOUS LES MONTANTS À 2 DÉCIMALES
     return {
       subtotal: round(subtotal),
       montantRemise: round(montantRemise),
@@ -165,21 +159,18 @@ export default function CreerDevis() {
       return
     }
 
-    // VALIDATION EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (client.email && !emailRegex.test(client.email)) {
       setError('Veuillez entrer une adresse email valide (ex: exemple@mail.com)')
       return
     }
 
-    // VALIDATION TÉLÉPHONE
     const phoneDigits = client.telephone.replace(/\D/g, '')
     if (phoneDigits.length < 8) {
       setError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
       return
     }
 
-    // VALIDATION DATE LIVRAISON SI OPTION COCHÉE
     if (avecLivraison && !dateLivraison) {
       setError('Veuillez sélectionner une date de livraison')
       return
@@ -193,51 +184,58 @@ export default function CreerDevis() {
 
     setLoading(true)
     try {
-      // ✅ CORRECTION CRITIQUE : Garantir que remise_globale est toujours un nombre (jamais vide/null)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Utilisateur non authentifié')
+
       const discountAmount = Number(totaux.montantRemise) || 0
 
-      const data = {
-        client: { nom: client.nom, prenom: client.prenom, telephone: client.telephone, email: client.email || null, adresse: client.adresse },
-        lignes: lignesValides.map(l => ({ produit_id: l.produit_id, nom_produit_libre: null, quantite: l.quantite, prix_unitaire: l.prix_unitaire })),
-        remise_globale: discountAmount,  // ← Toujours un nombre, jamais vide
-        remise_type: remiseType || 'percent',  // ← Valeur par défaut si vide
-        has_delivery: avecLivraison || false,
-        delivery_date: dateLivraison || null,
-        notes: notes || null
+      const payload = {
+        workspace_id: workspace?.id,
+        user_id: user.id,
+        customer: {
+          id: client.id || null,
+          nom: client.nom,
+          prenom: client.prenom,
+          telephone: client.telephone,
+          email: client.email || null,
+          adresse: client.adresse,
+          adresse_livraison_defaut: client.adresse
+        },
+        invoice: {
+          remise_globale: discountAmount,
+          remise_type: remiseType || 'percent',
+          notes: notes || '',
+          validite_jours: 30,
+          statut: 'brouillon',
+          has_delivery: avecLivraison || false,
+          delivery_date: dateLivraison || null
+        },
+        items: lignesValides.map(l => ({
+          produit_id: l.produit_id,
+          quantity: parseInt(l.quantity)
+        }))
       }
 
-      // === PAYLOAD FINAL ENVOYÉ AU WEBHOOK ===
-      console.log('=== PAYLOAD FINAL ENVOYÉ AU WEBHOOK ===')
-      console.log('discount_amount:', discountAmount, '(type:', typeof discountAmount, ')')
-      console.log('remise_type:', data.remise_type)
-      console.log('Nombre de lignes produits:', lignesValides.length)
-      console.log('Quantité totale:', lignesValides.reduce((sum, l) => sum + l.quantite, 0))
-      console.log('Payload complet:', JSON.stringify(data, null, 2))
-      console.log('=======================================')
+      const result = await creerFacture(payload)
 
-      const result = await creerDevis(data)
+      const factureId = result.invoice_id || result.id
 
-      console.log('=== RÉPONSE WEBHOOK ===')
-      console.log('Résultat:', result)
-      console.log('=======================')
+      if (!factureId) throw new Error('Aucun ID de facture retourné par le serveur')
 
-      const devisId = result.devis_id || result.id
-
-      if (!devisId) throw new Error('Aucun ID de devis retourné par le serveur')
-
-      if (avecLivraison && devisId) {
-        try { await creerLivraison({ devis_id: devisId }) } catch (e) { console.warn('Erreur livraison:', e) }
+      if (avecLivraison && factureId) {
+        try { await creerLivraison({ invoice_id: factureId }) } catch (e) { console.warn('Erreur livraison:', e) }
       }
 
-      navigate(`/apercu-devis/${devisId}`)
+      navigate(`/factures/${factureId}`)
     } catch (err) {
-      // === LOG ERREUR DÉTAILLÉ ===
-      console.error('❌ ERREUR CRÉATION DEVIS ===')
-      console.error('Message:', err.message)
-      console.error('Erreur complète:', err)
-      console.error('Stack:', err.stack)
-      console.error('============================')
-      setError(err.message || 'Erreur lors de la création du devis')
+      console.error('Erreur création facture:', err.message)
+      if (err.message.includes('Failed to fetch')) {
+        setError('Impossible de contacter le serveur. Vérifiez votre connexion.')
+      } else if (err.message.includes('required')) {
+        setError('Veuillez remplir tous les champs obligatoires.')
+      } else {
+        setError(err.message || 'Une erreur est survenue lors de la création de la facture.')
+      }
     } finally {
       setLoading(false)
     }
@@ -247,8 +245,8 @@ export default function CreerDevis() {
     <div className="p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
-        <p className="text-gray-500">Créer un devis pour un client</p>
+        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
+        <p className="text-gray-500">Créer une facture pour un client</p>
       </div>
 
       {error && (
@@ -292,7 +290,6 @@ export default function CreerDevis() {
             />
           </div>
 
-          {/* BUG #3 FIX: International phone input */}
           <div className="relative">
             <label className="block text-sm font-semibold text-[#040741] mb-2">Téléphone *</label>
             <PhoneInput
@@ -360,15 +357,23 @@ export default function CreerDevis() {
         <div className="space-y-3">
           {lignes.map((ligne) => (
             <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
-              {/* Sélecteur produit */}
               <div className="md:col-span-5 relative">
                 <select
                   value={ligne.produit_id || ''}
                   onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                  disabled={produitsLoading}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50"
                 >
-                  <option value="">Sélectionner un produit</option>
-                  {produits.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+                  {produitsLoading ? (
+                    <option value="">Chargement des produits...</option>
+                  ) : produits.length === 0 ? (
+                    <option value="">Aucun produit disponible</option>
+                  ) : (
+                    <>
+                      <option value="">Sélectionner un produit</option>
+                      {produits.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </>
+                  )}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,32 +382,28 @@ export default function CreerDevis() {
                 </div>
               </div>
 
-              {/* Quantité - BUG #4 FIX: default = 1 */}
               <div className="md:col-span-2">
                 <input
                   type="number"
                   min={1}
-                  value={ligne.quantite}
+                  value={ligne.quantity}
                   onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)}
                   className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
                 />
               </div>
 
-              {/* Prix unitaire */}
               <div className="md:col-span-2">
                 <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600">
-                  {ligne.prix_unitaire.toFixed(2)} €
+                  {ligne.unit_price.toFixed(2)} €
                 </div>
               </div>
 
-              {/* Total ligne */}
               <div className="md:col-span-2">
                 <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
                   {ligne.total.toFixed(2)} €
                 </div>
               </div>
 
-              {/* BUG #5 FIX: Bouton supprimer */}
               <div className="md:col-span-1 flex justify-center">
                 <button
                   type="button"
@@ -424,7 +425,6 @@ export default function CreerDevis() {
           ))}
         </div>
 
-        {/* Bouton ajouter ligne */}
         <button
           type="button"
           onClick={ajouterLigne}
@@ -448,7 +448,6 @@ export default function CreerDevis() {
             Options
           </h2>
 
-          {/* BUG #6 FIX: Remise avec toggle % / € */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-[#040741] mb-3">Remise globale</label>
             <div className="flex items-center gap-4 flex-wrap">
@@ -508,7 +507,6 @@ export default function CreerDevis() {
               </button>
             </div>
 
-            {/* Champ date de livraison si option cochée */}
             {avecLivraison && (
               <div className="mt-4">
                 <label className="block text-sm font-semibold text-[#040741] mb-2">
@@ -578,7 +576,6 @@ export default function CreerDevis() {
             </div>
           </div>
 
-          {/* Bouton Générer */}
           <button
             onClick={handleSubmit}
             disabled={loading}
@@ -597,7 +594,7 @@ export default function CreerDevis() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Générer le devis
+                Générer la facture
               </>
             )}
           </button>
@@ -606,7 +603,7 @@ export default function CreerDevis() {
 
       {/* Bouton Retour */}
       <button
-        onClick={() => navigate('/devis')}
+        onClick={() => navigate('/factures')}
         className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -614,6 +611,17 @@ export default function CreerDevis() {
         </svg>
         Retour à la liste
       </button>
+
+      {/* Loader plein écran pendant la création */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#313ADF] mx-auto"></div>
+            <p className="mt-4 text-[#040741] font-medium">Création de la facture en cours...</p>
+            <p className="mt-1 text-sm text-gray-500">Veuillez patienter</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

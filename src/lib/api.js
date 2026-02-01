@@ -1,27 +1,28 @@
 const WEBHOOKS = {
-  creerDevis: 'https://n8n.srv1137119.hstgr.cloud/webhook/creer-devis',
+  creerFacture: 'https://n8n.srv1137119.hstgr.cloud/webhook/create-invoice',
   genererPdf: 'https://n8n.srv1137119.hstgr.cloud/webhook/generer-pdf',
   envoyerEmail: 'https://n8n.srv1137119.hstgr.cloud/webhook/envoyer-email',
   creerLivraison: 'https://n8n.srv1137119.hstgr.cloud/webhook/creer-livraison',
 }
 
-export const creerDevis = async (data) => {
-  const response = await fetch(WEBHOOKS.creerDevis, {
+export const creerFacture = async (data) => {
+  const response = await fetch(WEBHOOKS.creerFacture, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
   if (!response.ok) {
-    throw new Error('Erreur lors de la création du devis')
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.message || 'Erreur lors de la création de la facture')
   }
   return response.json()
 }
 
-export const genererPdf = async (devisId) => {
+export const genererPdf = async (factureId) => {
   const response = await fetch(WEBHOOKS.genererPdf, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ devis_id: devisId }),
+    body: JSON.stringify({ invoice_id: factureId }),
   })
   if (!response.ok) {
     throw new Error('Erreur lors de la génération du PDF')
@@ -29,11 +30,11 @@ export const genererPdf = async (devisId) => {
   return response.json()
 }
 
-export const envoyerEmail = async (devisId) => {
+export const envoyerEmail = async (factureId) => {
   const response = await fetch(WEBHOOKS.envoyerEmail, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ devis_id: devisId }),
+    body: JSON.stringify({ invoice_id: factureId }),
   })
   if (!response.ok) {
     throw new Error("Erreur lors de l'envoi de l'email")

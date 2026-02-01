@@ -1,21 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { workspace, loading: wsLoading } = useWorkspace()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState({
-    totalDevis: 0,
+    totalFactures: 0,
     livraisonsEnCours: 0,
     totalCA: 0,
-    devisEnAttente: 0
+    facturesEnAttente: 0
   })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (wsLoading) return
+    if (!workspace?.id) {
+      setLoading(false)
+      return
+    }
     loadData()
-  }, [])
+  }, [workspace?.id, wsLoading])
 
   const loadData = async () => {
     try {
@@ -24,22 +31,22 @@ export default function Dashboard() {
       setUser(currentUser)
 
       // Get stats
-      const [devisResult, livraisonsResult] = await Promise.all([
-        supabase.from('devis').select('id, total_ttc, statut'),
-        supabase.from('livraisons').select('id, statut')
+      const [invoicesResult, deliveriesResult] = await Promise.all([
+        supabase.from('invoices').select('id, total_ttc, statut').eq('workspace_id', workspace?.id),
+        supabase.from('deliveries').select('id, statut').eq('workspace_id', workspace?.id)
       ])
 
-      const devisList = devisResult.data || []
-      const livraisonsList = livraisonsResult.data || []
+      const invoicesList = invoicesResult.data || []
+      const deliveriesList = deliveriesResult.data || []
 
       setStats({
-        totalDevis: devisList.length,
-        livraisonsEnCours: livraisonsList.filter(l => l.statut === 'en_cours').length,
-        totalCA: devisList.reduce((sum, d) => sum + (d.total_ttc || 0), 0),
-        devisEnAttente: devisList.filter(d => d.statut === 'brouillon' || d.statut === 'envoye').length
+        totalFactures: invoicesList.length,
+        livraisonsEnCours: deliveriesList.filter(l => l.statut === 'en_cours').length,
+        totalCA: invoicesList.reduce((sum, d) => sum + (d.total_ttc || 0), 0),
+        facturesEnAttente: invoicesList.filter(d => d.statut === 'brouillon' || d.statut === 'envoyée').length
       })
     } catch (err) {
-      console.error('Erreur chargement données:', err)
+      console.error('[Dashboard] Erreur chargement données:', err.message, err)
     } finally {
       setLoading(false)
     }
@@ -93,7 +100,7 @@ export default function Dashboard() {
           Bonjour, {userName} !
         </h1>
         <p className="text-gray-500 text-lg">
-          Bienvenue sur votre tableau de bord Maison de la Literie
+          Bienvenue sur votre tableau de bord {workspace?.name || ''}
         </p>
       </div>
 
@@ -105,10 +112,10 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           }
-          label="Total Devis"
-          value={stats.totalDevis}
+          label="Total Factures"
+          value={stats.totalFactures}
           color="text-[#313ADF]"
-          onClick={() => navigate('/devis')}
+          onClick={() => navigate('/factures')}
         />
         <StatCard
           icon={
@@ -117,9 +124,9 @@ export default function Dashboard() {
             </svg>
           }
           label="En attente"
-          value={stats.devisEnAttente}
+          value={stats.facturesEnAttente}
           color="text-orange-500"
-          onClick={() => navigate('/devis')}
+          onClick={() => navigate('/factures')}
         />
         <StatCard
           icon={
@@ -141,6 +148,7 @@ export default function Dashboard() {
           label="CA Total"
           value={`${stats.totalCA.toLocaleString('fr-FR')} €`}
           color="text-green-600"
+          onClick={() => navigate('/dashboard-financier')}
         />
       </div>
 
@@ -154,9 +162,9 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             }
-            title="Nouveau devis"
-            description="Créer un devis pour un client"
-            onClick={() => navigate('/creer-devis')}
+            title="Nouvelle facture"
+            description="Créer une facture pour un client"
+            onClick={() => navigate('/factures/nouvelle')}
             gradient="bg-gradient-to-br from-[#313ADF] to-[#040741]"
           />
           <ActionCard
@@ -165,9 +173,9 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             }
-            title="Mes devis"
-            description="Consulter tous les devis"
-            onClick={() => navigate('/devis')}
+            title="Mes factures"
+            description="Consulter toutes les factures"
+            onClick={() => navigate('/factures')}
             gradient="bg-gradient-to-br from-[#040741] to-[#1a1a5e]"
           />
           <ActionCard
@@ -193,7 +201,7 @@ export default function Dashboard() {
             </svg>
           </div>
           <div>
-            <p className="font-semibold">Application Maison de la Literie</p>
+            <p className="font-semibold">{workspace?.name || 'Application'}</p>
             <p className="text-white/70 text-sm">Propulsé par Neoflow Agency</p>
           </div>
         </div>

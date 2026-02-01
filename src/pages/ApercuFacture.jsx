@@ -2,44 +2,63 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { envoyerEmail, genererPdf, creerLivraison } from '../lib/api'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 
-export default function ApercuDevis() {
-  const { devisId } = useParams()
+export default function ApercuFacture() {
+  const { factureId } = useParams()
   const navigate = useNavigate()
-  const [devis, setDevis] = useState(null)
+  const { workspace, loading: wsLoading } = useWorkspace()
+  const [facture, setFacture] = useState(null)
   const [lignes, setLignes] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
-    loadDevis()
-  }, [devisId])
+    if (wsLoading) return
+    if (!workspace?.id) {
+      setLoading(false)
+      return
+    }
+    loadFacture()
+  }, [factureId, workspace?.id, wsLoading])
 
-  const loadDevis = async () => {
+  const loadFacture = async () => {
     try {
-      const { data: devisData } = await supabase
-        .from('devis')
-        .select('*, clients(*)')
-        .eq('id', devisId)
+      const { data: factureData, error: factureError } = await supabase
+        .from('invoices')
+        .select('*, customers(*)')
+        .eq('id', factureId)
+        .eq('workspace_id', workspace.id)
         .single()
 
-      const { data: lignesData } = await supabase
-        .from('devis_lignes')
-        .select('*')
-        .eq('devis_id', devisId)
+      if (factureError) {
+        console.error('[ApercuFacture] Erreur chargement facture:', factureError.message)
+        setFacture(null)
+        setLoading(false)
+        return
+      }
 
-      setDevis(devisData)
+      const { data: lignesData, error: lignesError } = await supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', factureId)
+
+      if (lignesError) {
+        console.error('[ApercuFacture] Erreur chargement lignes:', lignesError.message)
+      }
+
+      setFacture(factureData)
       setLignes(lignesData || [])
     } catch (err) {
-      console.error(err)
+      console.error('[ApercuFacture] Erreur:', err.message, err)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSendEmail = async () => {
-    if (!devis?.clients?.email) {
+    if (!facture?.customers?.email) {
       setActionMessage({ type: 'error', text: 'Pas d\'email client disponible' })
       return
     }
@@ -48,12 +67,11 @@ export default function ApercuDevis() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await envoyerEmail(devisId)
+      await envoyerEmail(factureId)
       setActionMessage({ type: 'success', text: 'Email envoyé avec succès !' })
 
-      // Update status to "envoye"
-      await supabase.from('devis').update({ statut: 'envoye' }).eq('id', devisId)
-      loadDevis()
+      await supabase.from('invoices').update({ statut: 'envoyée' }).eq('id', factureId).eq('workspace_id', workspace.id)
+      loadFacture()
     } catch (err) {
       setActionMessage({ type: 'error', text: err.message || 'Erreur lors de l\'envoi' })
     } finally {
@@ -66,7 +84,7 @@ export default function ApercuDevis() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      const response = await genererPdf(devisId)
+      const response = await genererPdf(factureId)
 
       if (response.pdf_url) {
         window.open(response.pdf_url, '_blank')
@@ -86,7 +104,7 @@ export default function ApercuDevis() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await creerLivraison({ devis_id: devisId, adresse_livraison: devis?.clients?.adresse })
+      await creerLivraison({ invoice_id: factureId, adresse_livraison: facture?.customers?.adresse })
       setActionMessage({ type: 'success', text: 'Livraison créée !' })
     } catch (err) {
       setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la création' })
@@ -103,7 +121,7 @@ export default function ApercuDevis() {
     )
   }
 
-  if (!devis) {
+  if (!facture) {
     return (
       <div className="p-8 text-center">
         <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -111,26 +129,26 @@ export default function ApercuDevis() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <p className="text-gray-500 mb-4">Devis non trouvé</p>
+        <p className="text-gray-500 mb-4">Facture non trouvée</p>
         <button
-          onClick={() => navigate('/devis')}
+          onClick={() => navigate('/factures')}
           className="bg-[#313ADF] text-white px-6 py-2 rounded-xl font-semibold"
         >
-          Retour aux devis
+          Retour aux factures
         </button>
       </div>
     )
   }
 
-  const client = devis.clients
+  const client = facture.customers
 
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Aperçu du devis</h1>
-          <p className="text-gray-500">N° {devis.numero_devis}</p>
+          <h1 className="text-3xl font-bold text-[#040741] mb-1">Aperçu de la facture</h1>
+          <p className="text-gray-500">N° {facture.invoice_number}</p>
         </div>
 
         {/* Actions */}
@@ -220,12 +238,12 @@ export default function ApercuDevis() {
                 alt="Neoflow Agency"
                 className="h-12 mb-2"
               />
-              <p className="text-sm text-gray-500">Maison de la Literie</p>
+              <p className="text-sm text-gray-500">{workspace?.name || ''}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-3xl font-bold text-[#040741] mb-2">DEVIS</h2>
-              <p className="text-sm text-gray-600">N°: {devis.numero_devis}</p>
-              <p className="text-sm text-gray-600">Date: {new Date(devis.created_at).toLocaleDateString('fr-FR')}</p>
+              <h2 className="text-3xl font-bold text-[#040741] mb-2">FACTURE</h2>
+              <p className="text-sm text-gray-600">N°: {facture.invoice_number}</p>
+              <p className="text-sm text-gray-600">Date: {new Date(facture.created_at).toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
 
@@ -233,10 +251,9 @@ export default function ApercuDevis() {
           <div className="grid grid-cols-2 gap-8 mb-8">
             <div>
               <p className="font-bold text-[#313ADF] text-sm mb-2">ÉMETTEUR</p>
-              <p className="font-medium text-[#040741]">Maison de la Literie</p>
-              <p className="text-gray-600 text-sm">contact@maisondelaliterie.fr</p>
-              <p className="text-gray-600 text-sm">123 Rue du Commerce</p>
-              <p className="text-gray-600 text-sm">44000 Nantes</p>
+              <p className="font-medium text-[#040741]">{workspace?.name || 'Entreprise'}</p>
+              {workspace?.address && <p className="text-gray-600 text-sm">{workspace.address}</p>}
+              {workspace?.vat_number && <p className="text-gray-600 text-sm">TVA: {workspace.vat_number}</p>}
             </div>
             <div className="text-right">
               <p className="font-bold text-[#313ADF] text-sm mb-2">DESTINATAIRE</p>
@@ -261,9 +278,9 @@ export default function ApercuDevis() {
               <tbody>
                 {lignes.map((ligne, index) => (
                   <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 text-[#040741]">{ligne.nom_produit_libre || 'Produit'}</td>
-                    <td className="py-3 text-center text-gray-600">{ligne.quantite}</td>
-                    <td className="py-3 text-right text-gray-600">{ligne.prix_unitaire?.toFixed(2)} €</td>
+                    <td className="py-3 text-[#040741]">{ligne.product_name || 'Produit'}</td>
+                    <td className="py-3 text-center text-gray-600">{ligne.quantity}</td>
+                    <td className="py-3 text-right text-gray-600">{ligne.unit_price?.toFixed(2)} €</td>
                     <td className="py-3 text-right font-medium text-[#040741]">{ligne.total_ligne?.toFixed(2)} €</td>
                   </tr>
                 ))}
@@ -276,21 +293,21 @@ export default function ApercuDevis() {
             <div className="w-72 bg-gray-50 rounded-xl p-4">
               <div className="flex justify-between py-2 text-gray-600">
                 <span>Sous-total HT</span>
-                <span>{devis.total_ht?.toFixed(2)} €</span>
+                <span>{facture.total_ht?.toFixed(2)} €</span>
               </div>
-              {devis.remise_globale > 0 && (
+              {facture.remise_globale > 0 && (
                 <div className="flex justify-between py-2 text-green-600">
                   <span>Remise</span>
-                  <span>-{devis.remise_globale?.toFixed(2)} €</span>
+                  <span>-{facture.remise_globale?.toFixed(2)} €</span>
                 </div>
               )}
               <div className="flex justify-between py-2 text-gray-600">
-                <span>TVA (20%)</span>
-                <span>{((devis.total_ttc || 0) - (devis.total_ht || 0)).toFixed(2)} €</span>
+                <span>TVA ({facture.tva_taux || 20}%)</span>
+                <span>{((facture.total_ttc || 0) - (facture.total_ht || 0)).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
                 <span className="font-bold text-[#040741] text-lg">Total TTC</span>
-                <span className="font-bold text-[#313ADF] text-xl">{devis.total_ttc?.toFixed(2)} €</span>
+                <span className="font-bold text-[#313ADF] text-xl">{facture.total_ttc?.toFixed(2)} €</span>
               </div>
             </div>
           </div>
@@ -314,7 +331,7 @@ export default function ApercuDevis() {
       {/* Bouton Retour */}
       <div className="flex justify-center mt-8">
         <button
-          onClick={() => navigate('/devis')}
+          onClick={() => navigate('/factures')}
           className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

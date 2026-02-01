@@ -89,7 +89,7 @@ export default function Login() {
       <div className="w-full max-w-md bg-white border-2 border-[#040741] rounded-3xl p-10 shadow-xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-[#040741]">Connexion</h1>
-          <p className="text-gray-500 mt-2">Maison de la Literie</p>
+          <p className="text-gray-500 mt-2">Accédez à votre espace</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isMobile, setIsMobile] = useState(false)
+  const { workspaces, currentWorkspace, switchWorkspace } = useWorkspace()
+  const [wsDropdownOpen, setWsDropdownOpen] = useState(false)
+  const wsDropdownRef = useRef(null)
 
   // Detect mobile screen
   useEffect(() => {
@@ -24,14 +28,26 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     }
   }, [location.pathname, isMobile, setIsOpen])
 
+  // Close workspace dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
+        setWsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/login')
   }
 
-  const NavItem = ({ to, icon, label }) => (
+  const NavItem = ({ to, icon, label, end }) => (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
         `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
           isActive
@@ -132,11 +148,86 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           )}
         </button>
 
-        {/* Subtitle */}
-        {(isOpen || isMobile) && (
-          <p className="text-white/50 text-xs text-center mb-6 font-medium">
-            Maison de la Literie
-          </p>
+        {/* Workspace Selector */}
+        {workspaces.length > 0 && (
+          <div className="mb-4 relative" ref={wsDropdownRef}>
+            {(isOpen || isMobile) ? (
+              <button
+                onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-white transition-colors"
+              >
+                <div className="w-8 h-8 bg-[#313ADF] rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                  {currentWorkspace?.name?.charAt(0)?.toUpperCase() || 'W'}
+                </div>
+                <span className="text-sm font-medium truncate flex-1 text-left">
+                  {currentWorkspace?.name || 'Workspace'}
+                </span>
+                <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
+                className="w-full flex items-center justify-center p-2 bg-white/10 hover:bg-white/15 rounded-xl transition-colors"
+                title={currentWorkspace?.name || 'Workspace'}
+              >
+                <div className="w-8 h-8 bg-[#313ADF] rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                  {currentWorkspace?.name?.charAt(0)?.toUpperCase() || 'W'}
+                </div>
+              </button>
+            )}
+
+            {wsDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Workspaces
+                </p>
+                {workspaces.map(ws => (
+                  <button
+                    key={ws.id}
+                    onClick={() => {
+                      switchWorkspace(ws.id)
+                      setWsDropdownOpen(false)
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors ${
+                      ws.id === currentWorkspace?.id ? 'bg-[#313ADF]/5' : ''
+                    }`}
+                  >
+                    <div className="w-7 h-7 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-[#313ADF]">
+                        {ws.name?.charAt(0)?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#040741] truncate">{ws.name}</p>
+                      <p className="text-xs text-gray-400">{ws.role}</p>
+                    </div>
+                    {ws.id === currentWorkspace?.id && (
+                      <svg className="w-4 h-4 text-[#313ADF] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+                <hr className="my-1" />
+                <button
+                  onClick={() => {
+                    setWsDropdownOpen(false)
+                    navigate('/onboarding/workspace')
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-[#313ADF] hover:bg-[#313ADF]/5 transition-colors"
+                >
+                  <div className="w-7 h-7 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium">Nouveau workspace</span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Navigation */}
@@ -151,22 +242,23 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             label="Accueil"
           />
           <NavItem
-            to="/creer-devis"
+            to="/factures/nouvelle"
             icon={
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             }
-            label="Nouveau devis"
+            label="Nouvelle facture"
           />
           <NavItem
-            to="/devis"
+            to="/factures"
+            end
             icon={
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             }
-            label="Mes devis"
+            label="Mes factures"
           />
           <NavItem
             to="/livraisons"

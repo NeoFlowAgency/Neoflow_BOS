@@ -1,24 +1,27 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import CreerDevis from './pages/CreerDevis'
-import ApercuDevis from './pages/ApercuDevis'
-import ListeDevis from './pages/ListeDevis'
+import CreerFacture from './pages/CreerFacture'
+import ApercuFacture from './pages/ApercuFacture'
+import ListeFactures from './pages/ListeFactures'
 import Livraisons from './pages/Livraisons'
 import DashboardFinancier from './pages/DashboardFinancier'
+import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 
-function ProtectedRoute({ children }) {
-  const [loading, setLoading] = useState(true)
+function ProtectedRoute({ children, requireWorkspace = true }) {
+  const [authLoading, setAuthLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const { currentWorkspace, loading: wsLoading } = useWorkspace()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      setLoading(false)
+      setAuthLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -28,7 +31,7 @@ function ProtectedRoute({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) {
+  if (authLoading || (requireWorkspace && wsLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
@@ -41,6 +44,10 @@ function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (requireWorkspace && !currentWorkspace) {
+    return <Navigate to="/onboarding/workspace" replace />
   }
 
   return children
@@ -84,71 +91,81 @@ function Layout({ children }) {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/creer-devis"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <CreerDevis />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/apercu-devis/:devisId"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ApercuDevis />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/devis"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ListeDevis />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/livraisons"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Livraisons />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard-financier"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <DashboardFinancier />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+      <WorkspaceProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/factures/nouvelle"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CreerFacture />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/factures/:factureId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApercuFacture />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/factures"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ListeFactures />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/livraisons"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Livraisons />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard-financier"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DashboardFinancier />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/onboarding/workspace"
+            element={
+              <ProtectedRoute requireWorkspace={false}>
+                <WorkspaceOnboarding />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </WorkspaceProvider>
     </BrowserRouter>
   )
 }

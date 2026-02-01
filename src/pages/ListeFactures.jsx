@@ -1,38 +1,46 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useWorkspace } from '../contexts/WorkspaceContext'
 
-export default function ListeDevis() {
+export default function ListeFactures() {
   const navigate = useNavigate()
-  const [devis, setDevis] = useState([])
+  const { workspace, loading: wsLoading } = useWorkspace()
+  const [factures, setFactures] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatut, setFilterStatut] = useState('all')
 
   useEffect(() => {
-    loadDevis()
-  }, [])
+    if (wsLoading) return
+    if (!workspace?.id) {
+      setLoading(false)
+      return
+    }
+    loadFactures()
+  }, [workspace?.id, wsLoading])
 
-  const loadDevis = async () => {
+  const loadFactures = async () => {
     try {
       const { data } = await supabase
-        .from('devis')
-        .select('*, clients(nom, prenom, email)')
+        .from('invoices')
+        .select('*, customers(nom, prenom, email)')
+        .eq('workspace_id', workspace?.id)
         .order('created_at', { ascending: false })
 
-      setDevis(data || [])
+      setFactures(data || [])
     } catch (err) {
-      console.error(err)
+      console.error('[ListeFactures] Erreur chargement:', err.message, err)
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredDevis = devis.filter(d => {
+  const filteredFactures = factures.filter(d => {
     const matchesSearch = searchTerm === '' ||
-      d.numero_devis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.clients?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.clients?.prenom?.toLowerCase().includes(searchTerm.toLowerCase())
+      d.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.customers?.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.customers?.prenom?.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatut = filterStatut === 'all' || d.statut === filterStatut
 
@@ -42,9 +50,9 @@ export default function ListeDevis() {
   const getStatutBadge = (statut) => {
     const badges = {
       brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
-      envoye: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyé' },
-      accepte: { bg: 'bg-green-100', text: 'text-green-600', label: 'Accepté' },
-      refuse: { bg: 'bg-red-100', text: 'text-red-600', label: 'Refusé' }
+      'envoyée': { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyée' },
+      'payée': { bg: 'bg-green-100', text: 'text-green-600', label: 'Payée' },
+      'annulée': { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulée' }
     }
     const badge = badges[statut] || badges.brouillon
     return (
@@ -67,23 +75,22 @@ export default function ListeDevis() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes devis</h1>
-          <p className="text-gray-500">{devis.length} devis au total</p>
+          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes factures</h1>
+          <p className="text-gray-500">{factures.length} factures au total</p>
         </div>
         <button
-          onClick={() => navigate('/creer-devis')}
+          onClick={() => navigate('/factures/nouvelle')}
           className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Nouveau devis
+          Nouvelle facture
         </button>
       </div>
 
       {/* Filtres et Recherche */}
       <div className="flex flex-wrap gap-4 mb-6">
-        {/* Recherche */}
         <div className="flex-1 min-w-[250px] relative">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -97,7 +104,6 @@ export default function ListeDevis() {
           />
         </div>
 
-        {/* Filtre statut */}
         <select
           value={filterStatut}
           onChange={(e) => setFilterStatut(e.target.value)}
@@ -105,14 +111,14 @@ export default function ListeDevis() {
         >
           <option value="all">Tous les statuts</option>
           <option value="brouillon">Brouillon</option>
-          <option value="envoye">Envoyé</option>
-          <option value="accepte">Accepté</option>
-          <option value="refuse">Refusé</option>
+          <option value="envoyée">Envoyée</option>
+          <option value="payée">Payée</option>
+          <option value="annulée">Annulée</option>
         </select>
       </div>
 
-      {/* Liste des devis */}
-      {filteredDevis.length === 0 ? (
+      {/* Liste des factures */}
+      {filteredFactures.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-12 text-center">
           <div className="w-16 h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,20 +126,19 @@ export default function ListeDevis() {
             </svg>
           </div>
           <p className="text-gray-500 mb-6 text-lg">
-            {searchTerm || filterStatut !== 'all' ? 'Aucun devis trouvé avec ces critères' : 'Aucun devis pour le moment'}
+            {searchTerm || filterStatut !== 'all' ? 'Aucune facture trouvée avec ces critères' : 'Aucune facture pour le moment'}
           </p>
           <button
-            onClick={() => navigate('/creer-devis')}
+            onClick={() => navigate('/factures/nouvelle')}
             className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
           >
-            Créer votre premier devis
+            Créer votre première facture
           </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
-          {/* En-tête tableau */}
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
-            <div className="col-span-2">N° Devis</div>
+            <div className="col-span-2">N° Facture</div>
             <div className="col-span-3">Client</div>
             <div className="col-span-2">Date</div>
             <div className="col-span-2 text-right">Montant TTC</div>
@@ -141,30 +146,26 @@ export default function ListeDevis() {
             <div className="col-span-1"></div>
           </div>
 
-          {/* Lignes */}
           <div className="divide-y divide-gray-100">
-            {filteredDevis.map((d) => (
+            {filteredFactures.map((d) => (
               <div
                 key={d.id}
-                onClick={() => navigate(`/apercu-devis/${d.id}`)}
+                onClick={() => navigate(`/factures/${d.id}`)}
                 className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors items-center"
               >
-                {/* Numéro */}
                 <div className="md:col-span-2">
-                  <p className="font-bold text-[#040741]">{d.numero_devis || `DEV-${d.id?.slice(0, 6)}`}</p>
+                  <p className="font-bold text-[#040741]">{d.invoice_number || `FAC-${d.id?.slice(0, 6)}`}</p>
                 </div>
 
-                {/* Client */}
                 <div className="md:col-span-3">
                   <p className="font-medium text-[#040741]">
-                    {d.clients ? `${d.clients.prenom} ${d.clients.nom}` : 'Client'}
+                    {d.customers ? `${d.customers.prenom} ${d.customers.nom}` : 'Client'}
                   </p>
-                  {d.clients?.email && (
-                    <p className="text-sm text-gray-500">{d.clients.email}</p>
+                  {d.customers?.email && (
+                    <p className="text-sm text-gray-500">{d.customers.email}</p>
                   )}
                 </div>
 
-                {/* Date */}
                 <div className="md:col-span-2">
                   <p className="text-gray-600">
                     {new Date(d.created_at).toLocaleDateString('fr-FR', {
@@ -175,19 +176,16 @@ export default function ListeDevis() {
                   </p>
                 </div>
 
-                {/* Montant */}
                 <div className="md:col-span-2 text-right">
                   <p className="font-bold text-[#313ADF] text-lg">
                     {d.total_ttc?.toFixed(2) || '0.00'} €
                   </p>
                 </div>
 
-                {/* Statut */}
                 <div className="md:col-span-2 text-center">
                   {getStatutBadge(d.statut)}
                 </div>
 
-                {/* Action */}
                 <div className="md:col-span-1 text-right">
                   <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
