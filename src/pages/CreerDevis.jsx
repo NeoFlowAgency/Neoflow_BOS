@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerFacture, creerLivraison } from '../lib/api'
+import { n8nService } from '../services/n8nService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
 
-export default function CreerFacture() {
+export default function CreerDevis() {
   const navigate = useNavigate()
   const { workspace } = useWorkspace()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,11 +27,10 @@ export default function CreerFacture() {
     { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }
   ])
 
-  // Discount & options
+  // Options
   const [remiseType, setRemiseType] = useState('percent')
   const [remiseValeur, setRemiseValeur] = useState(0)
-  const [avecLivraison, setAvecLivraison] = useState(true)
-  const [dateLivraison, setDateLivraison] = useState('')
+  const [validiteDays, setValiditeDays] = useState(30)
   const [notes, setNotes] = useState('')
   const [produits, setProduits] = useState([])
   const [produitsLoading, setProduitsLoading] = useState(false)
@@ -78,7 +79,7 @@ export default function CreerFacture() {
         setShowSuggestions(false)
       }
     } catch (err) {
-      console.error('[CreerFacture] Erreur recherche clients:', err.message, err)
+      console.error('[CreerDevis] Erreur recherche clients:', err.message)
     }
   }
 
@@ -129,18 +130,15 @@ export default function CreerFacture() {
 
   const calculerTotaux = () => {
     const subtotal = lignes.reduce((sum, l) => sum + (l.quantity * l.unit_price), 0)
-
     let montantRemise = 0
     if (remiseType === 'percent') {
       montantRemise = subtotal * (remiseValeur / 100)
     } else {
       montantRemise = Math.min(remiseValeur, subtotal)
     }
-
     const total_ht = subtotal - montantRemise
     const montant_tva = total_ht * 0.20
     const total_ttc = total_ht + montant_tva
-
     return {
       subtotal: round(subtotal),
       montantRemise: round(montantRemise),
@@ -161,18 +159,13 @@ export default function CreerFacture() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (client.email && !emailRegex.test(client.email)) {
-      setError('Veuillez entrer une adresse email valide (ex: exemple@mail.com)')
+      setError('Veuillez entrer une adresse email valide')
       return
     }
 
     const phoneDigits = client.telephone.replace(/\D/g, '')
     if (phoneDigits.length < 8) {
       setError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
-      return
-    }
-
-    if (avecLivraison && !dateLivraison) {
-      setError('Veuillez sélectionner une date de livraison')
       return
     }
 
@@ -187,7 +180,8 @@ export default function CreerFacture() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
-      const discountAmount = Number(totaux.montantRemise) || 0
+      const issueDate = new Date().toISOString().split('T')[0]
+      const expiryDate = new Date(Date.now() + validiteDays * 86400000).toISOString().split('T')[0]
 
       const payload = {
         workspace_id: workspace?.id,
@@ -198,44 +192,40 @@ export default function CreerFacture() {
           first_name: client.prenom,
           phone: client.telephone,
           email: client.email || null,
-          address: client.adresse,
-          default_delivery_address: client.adresse
+          address: client.adresse
         },
-        invoice: {
-          discount_global: discountAmount,
-          discount_type: remiseType || 'percent',
-          notes: notes || '',
-          validity_days: 30,
-          status: 'brouillon',
-          has_delivery: avecLivraison || false,
-          delivery_date: dateLivraison || null
-        },
+        issue_date: issueDate,
+        expiry_date: expiryDate,
+        status: 'draft',
+        subtotal: totaux.total_ht,
+        tax_amount: totaux.montant_tva,
+        total_amount: totaux.total_ttc,
+        notes: notes || '',
         items: lignesValides.map(l => ({
-          produit_id: l.produit_id,
-          quantity: parseInt(l.quantity)
+          product_id: l.produit_id,
+          description: l.product_name,
+          quantity: parseInt(l.quantity),
+          unit_price: l.unit_price,
+          tax_rate: 20,
+          total_price: l.total
         }))
       }
 
-      const result = await creerFacture(payload)
+      const result = await n8nService.createQuote(payload)
+      const devisId = result.quote_id || result.id
 
-      const factureId = result.invoice_id || result.id
+      if (!devisId) throw new Error('Aucun ID de devis retourné par le serveur')
 
-      if (!factureId) throw new Error('Aucun ID de facture retourné par le serveur')
-
-      if (avecLivraison && factureId) {
-        try { await creerLivraison({ invoice_id: factureId }) } catch (e) { console.warn('Erreur livraison:', e) }
-      }
-
-      navigate(`/factures/${factureId}`)
+      toast.success('Devis créé avec succès !')
+      navigate(`/devis/${devisId}`)
     } catch (err) {
-      console.error('Erreur création facture:', err.message)
+      console.error('Erreur création devis:', err.message)
       if (err.message.includes('Failed to fetch')) {
         setError('Impossible de contacter le serveur. Vérifiez votre connexion.')
-      } else if (err.message.includes('required')) {
-        setError('Veuillez remplir tous les champs obligatoires.')
       } else {
-        setError(err.message || 'Une erreur est survenue lors de la création de la facture.')
+        setError(err.message || 'Une erreur est survenue lors de la création du devis.')
       }
+      toast.error('Erreur lors de la création du devis')
     } finally {
       setLoading(false)
     }
@@ -245,8 +235,8 @@ export default function CreerFacture() {
     <div className="p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
-        <p className="text-gray-500">Créer une facture pour un client</p>
+        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
+        <p className="text-gray-500">Créer un devis pour un client</p>
       </div>
 
       {error && (
@@ -341,10 +331,9 @@ export default function CreerFacture() {
           <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
           </svg>
-          Produits commandés
+          Produits
         </h2>
 
-        {/* En-têtes colonnes */}
         <div className="hidden md:grid grid-cols-12 gap-4 mb-3 px-2">
           <div className="col-span-5 text-sm font-medium text-gray-500">Produit</div>
           <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Quantité</div>
@@ -353,7 +342,6 @@ export default function CreerFacture() {
           <div className="col-span-1"></div>
         </div>
 
-        {/* Lignes de produits */}
         <div className="space-y-3">
           {lignes.map((ligne) => (
             <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
@@ -414,7 +402,6 @@ export default function CreerFacture() {
                       ? 'text-gray-300 cursor-not-allowed'
                       : 'text-red-400 hover:text-red-600 hover:bg-red-50'
                   }`}
-                  title={lignes.length <= 1 ? 'Minimum 1 ligne requise' : 'Supprimer la ligne'}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -479,48 +466,25 @@ export default function CreerFacture() {
             )}
           </div>
 
-          {/* Livraison */}
+          {/* Validité */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-[#040741] mb-3">Livraison incluse ?</label>
+            <label className="block text-sm font-semibold text-[#040741] mb-3">Validité du devis</label>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setAvecLivraison(true)}
-                className={`px-6 py-2 rounded-xl font-semibold transition-all ${
-                  avecLivraison
-                    ? 'bg-green-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Oui
-              </button>
-              <button
-                type="button"
-                onClick={() => setAvecLivraison(false)}
-                className={`px-6 py-2 rounded-xl font-semibold transition-all ${
-                  !avecLivraison
-                    ? 'bg-red-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Non
-              </button>
+              {[15, 30, 60, 90].map(days => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => setValiditeDays(days)}
+                  className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                    validiteDays === days
+                      ? 'bg-[#313ADF] text-white shadow-md'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {days} jours
+                </button>
+              ))}
             </div>
-
-            {avecLivraison && (
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-[#040741] mb-2">
-                  Date de livraison <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={dateLivraison}
-                  onChange={(e) => setDateLivraison(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                />
-              </div>
-            )}
           </div>
 
           {/* Notes */}
@@ -529,7 +493,7 @@ export default function CreerFacture() {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Informations complémentaires..."
+              placeholder="Conditions particulières, informations complémentaires..."
               rows={3}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 resize-none"
             />
@@ -574,6 +538,11 @@ export default function CreerFacture() {
                 <span className="text-3xl font-bold text-[#313ADF]">{totaux.total_ttc.toFixed(2)} €</span>
               </div>
             </div>
+
+            <div className="flex justify-between text-white/50 text-sm">
+              <span>Validité</span>
+              <span>{validiteDays} jours</span>
+            </div>
           </div>
 
           <button
@@ -594,7 +563,7 @@ export default function CreerFacture() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Générer la facture
+                Générer le devis
               </>
             )}
           </button>
@@ -603,7 +572,7 @@ export default function CreerFacture() {
 
       {/* Bouton Retour */}
       <button
-        onClick={() => navigate('/factures')}
+        onClick={() => navigate('/devis')}
         className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -612,12 +581,12 @@ export default function CreerFacture() {
         Retour à la liste
       </button>
 
-      {/* Loader plein écran pendant la création */}
+      {/* Loader plein écran */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#313ADF] mx-auto"></div>
-            <p className="mt-4 text-[#040741] font-medium">Création de la facture en cours...</p>
+            <p className="mt-4 text-[#040741] font-medium">Création du devis en cours...</p>
             <p className="mt-1 text-sm text-gray-500">Veuillez patienter</p>
           </div>
         </div>

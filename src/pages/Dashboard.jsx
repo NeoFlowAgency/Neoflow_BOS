@@ -11,8 +11,11 @@ export default function Dashboard() {
     totalFactures: 0,
     livraisonsEnCours: 0,
     totalCA: 0,
-    facturesEnAttente: 0
+    facturesEnAttente: 0,
+    totalDevis: 0,
+    totalClients: 0
   })
+  const [recentInvoices, setRecentInvoices] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,9 +34,12 @@ export default function Dashboard() {
       setUser(currentUser)
 
       // Get stats
-      const [invoicesResult, deliveriesResult] = await Promise.all([
-        supabase.from('invoices').select('id, total_ttc, statut').eq('workspace_id', workspace?.id),
-        supabase.from('deliveries').select('id, statut').eq('workspace_id', workspace?.id)
+      const [invoicesResult, deliveriesResult, quotesResult, customersResult, recentResult] = await Promise.all([
+        supabase.from('invoices').select('id, total_ttc, status').eq('workspace_id', workspace?.id),
+        supabase.from('deliveries').select('id, status').eq('workspace_id', workspace?.id),
+        supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('workspace_id', workspace?.id),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('workspace_id', workspace?.id),
+        supabase.from('invoices').select('id, invoice_number, total_ttc, status, created_at, customers(first_name, last_name)').eq('workspace_id', workspace?.id).order('created_at', { ascending: false }).limit(5)
       ])
 
       const invoicesList = invoicesResult.data || []
@@ -41,10 +47,13 @@ export default function Dashboard() {
 
       setStats({
         totalFactures: invoicesList.length,
-        livraisonsEnCours: deliveriesList.filter(l => l.statut === 'en_cours').length,
+        livraisonsEnCours: deliveriesList.filter(l => l.status === 'en_cours').length,
         totalCA: invoicesList.reduce((sum, d) => sum + (d.total_ttc || 0), 0),
-        facturesEnAttente: invoicesList.filter(d => d.statut === 'brouillon' || d.statut === 'envoyée').length
+        facturesEnAttente: invoicesList.filter(d => d.status === 'brouillon' || d.status === 'envoyée').length,
+        totalDevis: quotesResult.count || 0,
+        totalClients: customersResult.count || 0
       })
+      setRecentInvoices(recentResult.data || [])
     } catch (err) {
       console.error('[Dashboard] Erreur chargement données:', err.message, err)
     } finally {
@@ -155,7 +164,7 @@ export default function Dashboard() {
       {/* Actions rapides */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-[#040741] mb-6">Actions rapides</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <ActionCard
             icon={
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,13 +179,24 @@ export default function Dashboard() {
           <ActionCard
             icon={
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             }
-            title="Mes factures"
-            description="Consulter toutes les factures"
-            onClick={() => navigate('/factures')}
+            title="Nouveau devis"
+            description="Créer un devis"
+            onClick={() => navigate('/devis/nouveau')}
             gradient="bg-gradient-to-br from-[#040741] to-[#1a1a5e]"
+          />
+          <ActionCard
+            icon={
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            }
+            title="Clients"
+            description="Gérer les clients CRM"
+            onClick={() => navigate('/clients')}
+            gradient="bg-gradient-to-br from-[#4f46e5] to-[#313ADF]"
           />
           <ActionCard
             icon={
@@ -187,10 +207,61 @@ export default function Dashboard() {
             title="Livraisons"
             description="Gérer les livraisons"
             onClick={() => navigate('/livraisons')}
-            gradient="bg-gradient-to-br from-[#4f46e5] to-[#313ADF]"
+            gradient="bg-gradient-to-br from-[#1a1a5e] to-[#313ADF]"
           />
         </div>
       </div>
+
+      {/* Dernières factures */}
+      {recentInvoices.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-[#040741]">Dernières factures</h2>
+            <button
+              onClick={() => navigate('/factures')}
+              className="text-[#313ADF] font-medium text-sm hover:underline"
+            >
+              Voir tout
+            </button>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+            <div className="divide-y divide-gray-100">
+              {recentInvoices.map((f) => (
+                <div
+                  key={f.id}
+                  onClick={() => navigate(`/factures/${f.id}`)}
+                  className="px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-[#313ADF]/10 rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-bold text-[#040741]">{f.invoice_number || `FAC-${f.id?.slice(0, 6)}`}</p>
+                      <p className="text-sm text-gray-500">
+                        {f.customers ? `${f.customers.first_name} ${f.customers.last_name}` : 'Client'} - {new Date(f.created_at).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[#313ADF]">{f.total_ttc?.toFixed(2) || '0.00'} €</p>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      f.status === 'payée' ? 'bg-green-100 text-green-600' :
+                      f.status === 'envoyée' ? 'bg-blue-100 text-blue-600' :
+                      f.status === 'annulée' ? 'bg-red-100 text-red-600' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {f.status || 'brouillon'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info footer */}
       <div className="bg-gradient-to-r from-[#040741] to-[#313ADF] rounded-2xl p-6 text-white">

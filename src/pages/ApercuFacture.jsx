@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { envoyerEmail, genererPdf, creerLivraison } from '../lib/api'
+import { envoyerEmail, genererPdf, creerLivraison, relancePaiement } from '../lib/api'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { useToast } from '../contexts/ToastContext'
 
 export default function ApercuFacture() {
   const { factureId } = useParams()
   const navigate = useNavigate()
   const { workspace, loading: wsLoading } = useWorkspace()
+  const toast = useToast()
   const [facture, setFacture] = useState(null)
   const [lignes, setLignes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -69,8 +71,9 @@ export default function ApercuFacture() {
     try {
       await envoyerEmail(factureId)
       setActionMessage({ type: 'success', text: 'Email envoyé avec succès !' })
+      toast.success('Email envoyé avec succès !')
 
-      await supabase.from('invoices').update({ statut: 'envoyée' }).eq('id', factureId).eq('workspace_id', workspace.id)
+      await supabase.from('invoices').update({ status: 'envoyée' }).eq('id', factureId).eq('workspace_id', workspace.id)
       loadFacture()
     } catch (err) {
       setActionMessage({ type: 'error', text: err.message || 'Erreur lors de l\'envoi' })
@@ -104,10 +107,47 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await creerLivraison({ invoice_id: factureId, adresse_livraison: facture?.customers?.adresse })
+      await creerLivraison({ invoice_id: factureId, delivery_address: facture?.customers?.address })
       setActionMessage({ type: 'success', text: 'Livraison créée !' })
+      toast.success('Livraison créée !')
     } catch (err) {
       setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la création' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleMarkPaid = async () => {
+    setActionLoading('paid')
+    setActionMessage({ type: '', text: '' })
+
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status: 'payée', paid_at: new Date().toISOString() })
+        .eq('id', factureId)
+        .eq('workspace_id', workspace.id)
+
+      setActionMessage({ type: 'success', text: 'Facture marquée comme payée !' })
+      toast.success('Facture marquée comme payée !')
+      loadFacture()
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err.message || 'Erreur' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSendReminder = async () => {
+    setActionLoading('reminder')
+    setActionMessage({ type: '', text: '' })
+
+    try {
+      await relancePaiement(factureId, workspace.id)
+      setActionMessage({ type: 'success', text: 'Relance de paiement envoyée !' })
+      toast.success('Relance envoyée !')
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la relance' })
     } finally {
       setActionLoading(null)
     }
@@ -145,14 +185,14 @@ export default function ApercuFacture() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[#040741] mb-1">Aperçu de la facture</h1>
           <p className="text-gray-500">N° {facture.invoice_number}</p>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={handleSendEmail}
             disabled={actionLoading === 'email'}
@@ -206,6 +246,46 @@ export default function ApercuFacture() {
             )}
             Créer livraison
           </button>
+
+          {facture?.status !== 'payée' && (
+            <button
+              onClick={handleMarkPaid}
+              disabled={actionLoading === 'paid'}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === 'paid' ? (
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              Marquer payée
+            </button>
+          )}
+
+          {facture?.status === 'envoyée' && (
+            <button
+              onClick={handleSendReminder}
+              disabled={actionLoading === 'reminder'}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === 'reminder' ? (
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              )}
+              Relance paiement
+            </button>
+          )}
         </div>
       </div>
 
@@ -257,10 +337,10 @@ export default function ApercuFacture() {
             </div>
             <div className="text-right">
               <p className="font-bold text-[#313ADF] text-sm mb-2">DESTINATAIRE</p>
-              <p className="font-medium text-[#040741]">{client?.prenom} {client?.nom}</p>
+              <p className="font-medium text-[#040741]">{client?.first_name} {client?.last_name}</p>
               <p className="text-gray-600 text-sm">{client?.email || ''}</p>
-              <p className="text-gray-600 text-sm">{client?.adresse}</p>
-              <p className="text-gray-600 text-sm">{client?.telephone}</p>
+              <p className="text-gray-600 text-sm">{client?.address}</p>
+              <p className="text-gray-600 text-sm">{client?.phone}</p>
             </div>
           </div>
 
@@ -278,10 +358,10 @@ export default function ApercuFacture() {
               <tbody>
                 {lignes.map((ligne, index) => (
                   <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 text-[#040741]">{ligne.product_name || 'Produit'}</td>
+                    <td className="py-3 text-[#040741]">{ligne.description || 'Produit'}</td>
                     <td className="py-3 text-center text-gray-600">{ligne.quantity}</td>
-                    <td className="py-3 text-right text-gray-600">{ligne.unit_price?.toFixed(2)} €</td>
-                    <td className="py-3 text-right font-medium text-[#040741]">{ligne.total_ligne?.toFixed(2)} €</td>
+                    <td className="py-3 text-right text-gray-600">{ligne.unit_price_ht?.toFixed(2)} €</td>
+                    <td className="py-3 text-right font-medium text-[#040741]">{ligne.total_ht?.toFixed(2)} €</td>
                   </tr>
                 ))}
               </tbody>
@@ -293,17 +373,17 @@ export default function ApercuFacture() {
             <div className="w-72 bg-gray-50 rounded-xl p-4">
               <div className="flex justify-between py-2 text-gray-600">
                 <span>Sous-total HT</span>
-                <span>{facture.total_ht?.toFixed(2)} €</span>
+                <span>{facture.subtotal_ht?.toFixed(2)} €</span>
               </div>
-              {facture.remise_globale > 0 && (
+              {facture.discount_global > 0 && (
                 <div className="flex justify-between py-2 text-green-600">
                   <span>Remise</span>
-                  <span>-{facture.remise_globale?.toFixed(2)} €</span>
+                  <span>-{facture.discount_global?.toFixed(2)} €</span>
                 </div>
               )}
               <div className="flex justify-between py-2 text-gray-600">
-                <span>TVA ({facture.tva_taux || 20}%)</span>
-                <span>{((facture.total_ttc || 0) - (facture.total_ht || 0)).toFixed(2)} €</span>
+                <span>TVA ({facture.tva_rate || 20}%)</span>
+                <span>{((facture.total_ttc || 0) - (facture.subtotal_ht || 0)).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
                 <span className="font-bold text-[#040741] text-lg">Total TTC</span>

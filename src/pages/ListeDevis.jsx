@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 
-export default function ListeFactures() {
+export default function ListeDevis() {
   const navigate = useNavigate()
   const { workspace, loading: wsLoading } = useWorkspace()
-  const [factures, setFactures] = useState([])
+  const [devis, setDevis] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatut, setFilterStatut] = useState('all')
@@ -17,28 +17,28 @@ export default function ListeFactures() {
       setLoading(false)
       return
     }
-    loadFactures()
+    loadDevis()
   }, [workspace?.id, wsLoading])
 
-  const loadFactures = async () => {
+  const loadDevis = async () => {
     try {
       const { data } = await supabase
-        .from('invoices')
+        .from('quotes')
         .select('*, customers(last_name, first_name, email)')
         .eq('workspace_id', workspace?.id)
         .order('created_at', { ascending: false })
 
-      setFactures(data || [])
+      setDevis(data || [])
     } catch (err) {
-      console.error('[ListeFactures] Erreur chargement:', err.message, err)
+      console.error('[ListeDevis] Erreur chargement:', err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredFactures = factures.filter(d => {
+  const filteredDevis = devis.filter(d => {
     const matchesSearch = searchTerm === '' ||
-      d.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.quote_ref?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.customers?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.customers?.first_name?.toLowerCase().includes(searchTerm.toLowerCase())
 
@@ -49,12 +49,13 @@ export default function ListeFactures() {
 
   const getStatutBadge = (statut) => {
     const badges = {
-      brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
-      'envoyée': { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyée' },
-      'payée': { bg: 'bg-green-100', text: 'text-green-600', label: 'Payée' },
-      'annulée': { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulée' }
+      draft: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
+      sent: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyé' },
+      accepted: { bg: 'bg-green-100', text: 'text-green-600', label: 'Accepté' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-600', label: 'Refusé' },
+      expired: { bg: 'bg-orange-100', text: 'text-orange-600', label: 'Expiré' }
     }
-    const badge = badges[statut] || badges.brouillon
+    const badge = badges[statut] || badges.draft
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
         {badge.label}
@@ -75,17 +76,17 @@ export default function ListeFactures() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes factures</h1>
-          <p className="text-gray-500">{factures.length} factures au total</p>
+          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes devis</h1>
+          <p className="text-gray-500">{devis.length} devis au total</p>
         </div>
         <button
-          onClick={() => navigate('/factures/nouvelle')}
+          onClick={() => navigate('/devis/nouveau')}
           className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Nouvelle facture
+          Nouveau devis
         </button>
       </div>
 
@@ -97,7 +98,7 @@ export default function ListeFactures() {
           </svg>
           <input
             type="text"
-            placeholder="Rechercher par nom, numéro..."
+            placeholder="Rechercher par nom, référence..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
@@ -110,15 +111,16 @@ export default function ListeFactures() {
           className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 cursor-pointer"
         >
           <option value="all">Tous les statuts</option>
-          <option value="brouillon">Brouillon</option>
-          <option value="envoyée">Envoyée</option>
-          <option value="payée">Payée</option>
-          <option value="annulée">Annulée</option>
+          <option value="draft">Brouillon</option>
+          <option value="sent">Envoyé</option>
+          <option value="accepted">Accepté</option>
+          <option value="rejected">Refusé</option>
+          <option value="expired">Expiré</option>
         </select>
       </div>
 
-      {/* Liste des factures */}
-      {filteredFactures.length === 0 ? (
+      {/* Liste des devis */}
+      {filteredDevis.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-12 text-center">
           <div className="w-16 h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,19 +128,19 @@ export default function ListeFactures() {
             </svg>
           </div>
           <p className="text-gray-500 mb-6 text-lg">
-            {searchTerm || filterStatut !== 'all' ? 'Aucune facture trouvée avec ces critères' : 'Aucune facture pour le moment'}
+            {searchTerm || filterStatut !== 'all' ? 'Aucun devis trouvé avec ces critères' : 'Aucun devis pour le moment'}
           </p>
           <button
-            onClick={() => navigate('/factures/nouvelle')}
+            onClick={() => navigate('/devis/nouveau')}
             className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
           >
-            Créer votre première facture
+            Créer votre premier devis
           </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
-            <div className="col-span-2">N° Facture</div>
+            <div className="col-span-2">Référence</div>
             <div className="col-span-3">Client</div>
             <div className="col-span-2">Date</div>
             <div className="col-span-2 text-right">Montant TTC</div>
@@ -147,14 +149,14 @@ export default function ListeFactures() {
           </div>
 
           <div className="divide-y divide-gray-100">
-            {filteredFactures.map((d) => (
+            {filteredDevis.map((d) => (
               <div
                 key={d.id}
-                onClick={() => navigate(`/factures/${d.id}`)}
+                onClick={() => navigate(`/devis/${d.id}`)}
                 className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors items-center"
               >
                 <div className="md:col-span-2">
-                  <p className="font-bold text-[#040741]">{d.invoice_number || `FAC-${d.id?.slice(0, 6)}`}</p>
+                  <p className="font-bold text-[#040741]">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
                 </div>
 
                 <div className="md:col-span-3">
@@ -178,7 +180,7 @@ export default function ListeFactures() {
 
                 <div className="md:col-span-2 text-right">
                   <p className="font-bold text-[#313ADF] text-lg">
-                    {d.total_ttc?.toFixed(2) || '0.00'} €
+                    {d.total_amount?.toFixed(2) || '0.00'} €
                   </p>
                 </div>
 

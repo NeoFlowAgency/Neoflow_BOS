@@ -65,7 +65,7 @@ export default function DashboardFinancier() {
       // 1. RÉCUPÉRER TOUTES LES FACTURES
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
-        .select('*')
+        .select('*, customers(first_name, last_name)')
         .eq('workspace_id', workspace?.id)
         .order('created_at', { ascending: false })
 
@@ -97,14 +97,14 @@ export default function DashboardFinancier() {
       // Factures payées
       const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
 
-      const facturesPayees = invoices.filter(d => normalize(d.statut) === 'payee')
+      const facturesPayees = invoices.filter(d => normalize(d.status) === 'payee')
 
       // Livraisons en cours
-      const livraisonsEnCours = deliveries.filter(l => l.statut === 'en_cours').length
+      const livraisonsEnCours = deliveries.filter(l => l.status === 'en_cours').length
 
       // Factures envoyées (pour le taux de conversion)
       const facturesTraitees = invoices.filter(d => {
-        const s = normalize(d.statut)
+        const s = normalize(d.status)
         return s === 'envoyee' || s === 'payee' || s === 'annulee'
       })
 
@@ -176,7 +176,7 @@ export default function DashboardFinancier() {
       }
 
       invoices.forEach(d => {
-        const statut = normalize(d.statut)
+        const statut = normalize(d.status)
         if (statut === 'brouillon') statutCounts.brouillon++
         else if (statut === 'envoyee') statutCounts.envoyee++
         else if (statut === 'payee') statutCounts.payee++
@@ -500,9 +500,9 @@ export default function DashboardFinancier() {
                       {facture.invoice_number || `FAC-${facture.id?.slice(0, 6).toUpperCase()}`}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
-                      {facture.client_prenom && facture.client_nom
-                        ? `${facture.client_prenom} ${facture.client_nom}`
-                        : facture.client_nom || facture.client_prenom || 'Client'
+                      {facture.customers?.first_name && facture.customers?.last_name
+                        ? `${facture.customers.first_name} ${facture.customers.last_name}`
+                        : facture.customers?.last_name || facture.customers?.first_name || 'Client'
                       }
                     </td>
                     <td className="px-6 py-4 text-gray-500">

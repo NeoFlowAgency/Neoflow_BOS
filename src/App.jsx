@@ -2,11 +2,17 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CreerFacture from './pages/CreerFacture'
 import ApercuFacture from './pages/ApercuFacture'
 import ListeFactures from './pages/ListeFactures'
+import CreerDevis from './pages/CreerDevis'
+import ListeDevis from './pages/ListeDevis'
+import ApercuDevis from './pages/ApercuDevis'
+import ListeClients from './pages/ListeClients'
+import FicheClient from './pages/FicheClient'
 import Livraisons from './pages/Livraisons'
 import DashboardFinancier from './pages/DashboardFinancier'
 import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
@@ -88,83 +94,44 @@ function Layout({ children }) {
   )
 }
 
+function ProtectedLayout({ children }) {
+  return (
+    <ProtectedRoute>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
       <WorkspaceProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/factures/nouvelle"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CreerFacture />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/factures/:factureId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ApercuFacture />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/factures"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ListeFactures />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/livraisons"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Livraisons />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard-financier"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardFinancier />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/onboarding/workspace"
-            element={
-              <ProtectedRoute requireWorkspace={false}>
-                <WorkspaceOnboarding />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <ToastProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
+            <Route path="/factures/nouvelle" element={<ProtectedLayout><CreerFacture /></ProtectedLayout>} />
+            <Route path="/factures/:factureId" element={<ProtectedLayout><ApercuFacture /></ProtectedLayout>} />
+            <Route path="/factures" element={<ProtectedLayout><ListeFactures /></ProtectedLayout>} />
+            <Route path="/devis/nouveau" element={<ProtectedLayout><CreerDevis /></ProtectedLayout>} />
+            <Route path="/devis/:devisId" element={<ProtectedLayout><ApercuDevis /></ProtectedLayout>} />
+            <Route path="/devis" element={<ProtectedLayout><ListeDevis /></ProtectedLayout>} />
+            <Route path="/clients/:clientId" element={<ProtectedLayout><FicheClient /></ProtectedLayout>} />
+            <Route path="/clients" element={<ProtectedLayout><ListeClients /></ProtectedLayout>} />
+            <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
+            <Route path="/dashboard-financier" element={<ProtectedLayout><DashboardFinancier /></ProtectedLayout>} />
+            <Route
+              path="/onboarding/workspace"
+              element={
+                <ProtectedRoute requireWorkspace={false}>
+                  <WorkspaceOnboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ToastProvider>
       </WorkspaceProvider>
     </BrowserRouter>
   )

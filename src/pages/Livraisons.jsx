@@ -36,9 +36,9 @@ export default function Livraisons() {
     try {
       const { data } = await supabase
         .from('deliveries')
-        .select('*, invoices(invoice_number, total_ttc, customers(nom, prenom, adresse))')
+        .select('*, invoices(invoice_number, total_ttc, customers(last_name, first_name, address))')
         .eq('workspace_id', workspace?.id)
-        .order('date_prevue', { ascending: true })
+        .order('scheduled_date', { ascending: true })
 
       setLivraisons(data || [])
     } catch (err) {
@@ -52,9 +52,9 @@ export default function Livraisons() {
     try {
       const { data } = await supabase
         .from('invoices')
-        .select('*, customers(nom, prenom, adresse)')
+        .select('*, customers(last_name, first_name, address)')
         .eq('workspace_id', workspace?.id)
-        .in('statut', ['brouillon', 'envoyée', 'payée'])
+        .in('status', ['brouillon', 'envoyée', 'payée'])
         .order('created_at', { ascending: false })
 
       setFacturesDisponibles(data || [])
@@ -66,16 +66,16 @@ export default function Livraisons() {
   const aujourdhui = new Date().toISOString().split('T')[0]
 
   const grouped = {
-    en_cours: livraisons.filter(l => l.statut === 'en_cours' && l.date_prevue >= aujourdhui),
-    en_retard: livraisons.filter(l => l.statut === 'en_cours' && l.date_prevue < aujourdhui),
-    finalise: livraisons.filter(l => l.statut === 'finalise')
+    en_cours: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date >= aujourdhui),
+    en_retard: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date < aujourdhui),
+    finalise: livraisons.filter(l => l.status === 'finalise')
   }
 
   const handleStatutChange = async (livraisonId, newStatut) => {
     try {
-      const updateData = { statut: newStatut }
+      const updateData = { status: newStatut }
       if (newStatut === 'finalise') {
-        updateData.date_livree = new Date().toISOString()
+        updateData.delivered_at = new Date().toISOString()
       }
 
       await supabase
@@ -103,7 +103,7 @@ export default function Livraisons() {
     setSelectedFacture(facture)
     setLivraisonForm({
       ...livraisonForm,
-      adresse_livraison: facture.customers?.adresse || ''
+      adresse_livraison: facture.customers?.address || ''
     })
   }
 
@@ -123,8 +123,8 @@ export default function Livraisons() {
     try {
       await creerLivraison({
         invoice_id: selectedFacture.id,
-        date_prevue: livraisonForm.date_prevue,
-        adresse_livraison: livraisonForm.adresse_livraison,
+        scheduled_date: livraisonForm.date_prevue,
+        delivery_address: livraisonForm.adresse_livraison,
         notes: livraisonForm.notes
       })
 
@@ -139,9 +139,9 @@ export default function Livraisons() {
 
   const LivraisonCard = ({ livraison, onClick, showComplete = false }) => {
     const client = livraison.invoices?.customers
-    const clientName = client ? `${client.prenom} ${client.nom}` : 'Client inconnu'
-    const adresse = livraison.adresse_livraison || client?.adresse || ''
-    const datePrevue = livraison.date_prevue ? new Date(livraison.date_prevue).toLocaleDateString('fr-FR') : ''
+    const clientName = client ? `${client.first_name} ${client.last_name}` : 'Client inconnu'
+    const adresse = livraison.delivery_address || client?.address || ''
+    const datePrevue = livraison.scheduled_date ? new Date(livraison.scheduled_date).toLocaleDateString('fr-FR') : ''
 
     return (
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
@@ -383,7 +383,7 @@ export default function Livraisons() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium text-[#040741]">
-                                {facture.customers?.prenom} {facture.customers?.nom}
+                                {facture.customers?.first_name} {facture.customers?.last_name}
                               </p>
                               <p className="text-sm text-gray-500">
                                 {facture.invoice_number} - {new Date(facture.created_at).toLocaleDateString('fr-FR')}
