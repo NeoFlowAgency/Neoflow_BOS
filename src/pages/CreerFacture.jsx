@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerFacture, creerLivraison } from '../lib/api'
+import { creerLivraison } from '../lib/api'
+import { jobService } from '../services/jobService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
+
+const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-invoice'
 
 export default function CreerFacture() {
   const navigate = useNavigate()
@@ -182,6 +185,11 @@ export default function CreerFacture() {
       return
     }
 
+    if (!workspace?.id) {
+      setError('Aucun workspace actif. Veuillez sélectionner un workspace.')
+      return
+    }
+
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -189,9 +197,7 @@ export default function CreerFacture() {
 
       const discountAmount = Number(totaux.montantRemise) || 0
 
-      const payload = {
-        workspace_id: workspace?.id,
-        user_id: user.id,
+      const invoicePayload = {
         customer: {
           id: client.id || null,
           last_name: client.nom,
@@ -208,31 +214,76 @@ export default function CreerFacture() {
           validity_days: 30,
           status: 'brouillon',
           has_delivery: avecLivraison || false,
-          delivery_date: dateLivraison || null
+          delivery_date: dateLivraison || null,
+          subtotal_ht: totaux.total_ht,
+          total_tva: totaux.montant_tva,
+          total_ttc: totaux.total_ttc
         },
-        items: lignesValides.map(l => ({
-          produit_id: l.produit_id,
-          quantity: parseInt(l.quantity)
-        }))
+        items: lignesValides.map((l, index) => {
+          const produit = produits.find(p => p.id === l.produit_id)
+          return {
+            product_id: l.produit_id,
+            description: produit?.name || l.product_name || '',
+            quantity: parseInt(l.quantity),
+            unit_price_ht: l.unit_price,
+            tax_rate: produit?.tax_rate ?? 20,
+            total_ht: l.total,
+            position: index + 1
+          }
+        })
       }
 
-      const result = await creerFacture(payload)
+      // Step 1: Create job in Supabase (workspace_id guaranteed)
+      const { data: job, error: jobError } = await supabase
+        .from('jobs')
+        .insert({
+          workspace_id: workspace.id,
+          job_type: 'create_invoice',
+          status: 'pending',
+          payload: invoicePayload,
+          created_by: user.id
+        })
+        .select()
+        .single()
 
-      const factureId = result.invoice_id || result.id
+      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
 
-      if (!factureId) throw new Error('Aucun ID de facture retourné par le serveur')
+      // Step 2: Notify n8n (fire-and-forget — don't block on failure)
+      fetch(N8N_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: job.id,
+          workspace_id: workspace.id,
+          user_id: user.id,
+          ...invoicePayload
+        })
+      }).catch(err => console.warn('[CreerFacture] n8n notification failed (non-blocking):', err.message))
 
-      if (avecLivraison && factureId) {
-        try { await creerLivraison({ invoice_id: factureId }) } catch (e) { console.warn('Erreur livraison:', e) }
+      // Step 3: Poll job until n8n worker completes it
+      const jobResult = await jobService.pollJobStatus(job.id, 30)
+
+      if (jobResult.success) {
+        const result = typeof jobResult.result === 'string'
+          ? JSON.parse(jobResult.result)
+          : jobResult.result || {}
+
+        const factureId = result.invoice_id || result.id || job.id
+
+        if (avecLivraison && factureId && factureId !== job.id) {
+          try { await creerLivraison({ invoice_id: factureId, workspace_id: workspace.id }) } catch (e) { console.warn('Erreur livraison:', e) }
+        }
+
+        navigate(`/factures/${factureId}`)
+      } else {
+        // Job timed out or failed — navigate to invoice list
+        console.warn('[CreerFacture] Job not completed yet:', jobResult.error)
+        navigate('/factures')
       }
-
-      navigate(`/factures/${factureId}`)
     } catch (err) {
       console.error('Erreur création facture:', err.message)
       if (err.message.includes('Failed to fetch')) {
         setError('Impossible de contacter le serveur. Vérifiez votre connexion.')
-      } else if (err.message.includes('required')) {
-        setError('Veuillez remplir tous les champs obligatoires.')
       } else {
         setError(err.message || 'Une erreur est survenue lors de la création de la facture.')
       }

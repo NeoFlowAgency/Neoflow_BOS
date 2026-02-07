@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { n8nService } from '../services/n8nService'
+import { jobService } from '../services/jobService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
+
+const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-quote'
 
 export default function CreerDevis() {
   const navigate = useNavigate()
@@ -175,6 +177,11 @@ export default function CreerDevis() {
       return
     }
 
+    if (!workspace?.id) {
+      setError('Aucun workspace actif. Veuillez sélectionner un workspace.')
+      return
+    }
+
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -183,9 +190,7 @@ export default function CreerDevis() {
       const issueDate = new Date().toISOString().split('T')[0]
       const expiryDate = new Date(Date.now() + validiteDays * 86400000).toISOString().split('T')[0]
 
-      const payload = {
-        workspace_id: workspace?.id,
-        user_id: user.id,
+      const quotePayload = {
         customer: {
           id: client.id || null,
           last_name: client.nom,
@@ -194,30 +199,72 @@ export default function CreerDevis() {
           email: client.email || null,
           address: client.adresse
         },
-        issue_date: issueDate,
-        expiry_date: expiryDate,
+        quote_date: issueDate,
+        valid_until: expiryDate,
+        validity_days: validiteDays,
         status: 'draft',
-        subtotal: totaux.total_ht,
-        tax_amount: totaux.montant_tva,
-        total_amount: totaux.total_ttc,
+        discount_global: Number(totaux.montantRemise) || 0,
+        subtotal_ht: totaux.total_ht,
+        total_tva: totaux.montant_tva,
+        total_ttc: totaux.total_ttc,
         notes: notes || '',
-        items: lignesValides.map(l => ({
-          product_id: l.produit_id,
-          description: l.product_name,
-          quantity: parseInt(l.quantity),
-          unit_price: l.unit_price,
-          tax_rate: 20,
-          total_price: l.total
-        }))
+        items: lignesValides.map((l, index) => {
+          const produit = produits.find(p => p.id === l.produit_id)
+          return {
+            product_id: l.produit_id,
+            description: produit?.name || l.product_name || '',
+            quantity: parseInt(l.quantity),
+            unit_price_ht: l.unit_price,
+            tax_rate: produit?.tax_rate ?? 20,
+            total_ht: l.total,
+            position: index + 1
+          }
+        })
       }
 
-      const result = await n8nService.createQuote(payload)
-      const devisId = result.quote_id || result.id
+      // Create job directly in Supabase (guarantees workspace_id)
+      const { data: job, error: jobError } = await supabase
+        .from('jobs')
+        .insert({
+          workspace_id: workspace.id,
+          job_type: 'create_quote',
+          status: 'pending',
+          payload: quotePayload,
+          created_by: user.id
+        })
+        .select()
+        .single()
 
-      if (!devisId) throw new Error('Aucun ID de devis retourné par le serveur')
+      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
 
-      toast.success('Devis créé avec succès !')
-      navigate(`/devis/${devisId}`)
+      // Notify n8n (fire-and-forget — don't block on failure)
+      fetch(N8N_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: job.id,
+          workspace_id: workspace.id,
+          user_id: user.id,
+          ...quotePayload
+        })
+      }).catch(err => console.warn('[CreerDevis] n8n notification failed (non-blocking):', err.message))
+
+      // Poll job until n8n worker completes it
+      const jobResult = await jobService.pollJobStatus(job.id, 30)
+
+      if (jobResult.success) {
+        const result = typeof jobResult.result === 'string'
+          ? JSON.parse(jobResult.result)
+          : jobResult.result || {}
+
+        const devisId = result.quote_id || result.id || job.id
+        toast.success('Devis créé avec succès !')
+        navigate(`/devis/${devisId}`)
+      } else {
+        console.warn('[CreerDevis] Job not completed yet:', jobResult.error)
+        toast.info('Devis en cours de création...')
+        navigate('/devis')
+      }
     } catch (err) {
       console.error('Erreur création devis:', err.message)
       if (err.message.includes('Failed to fetch')) {
