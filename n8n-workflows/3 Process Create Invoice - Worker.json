@@ -1,0 +1,322 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-create-invoice",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "641171c8-f2fa-4b51-bc80-ca9e6b2217b2",
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [5440, 576],
+      "webhookId": "process-create-invoice"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "workspaces",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.workspace_id }}"
+            }
+          ]
+        }
+      },
+      "id": "f8440537-6ef5-45f7-bdbd-adc6bd94bbef",
+      "name": "Get Workspace",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [5664, 576],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vnjhzkplwuqvuhvfeemh.supabase.co/rest/v1/rpc/get_next_invoice_number",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_workspace_id\": \"{{ $node['Webhook1'].json.body.workspace_id }}\",\n  \"p_year\": {{ new Date().getFullYear() }}\n}",
+        "options": {}
+      },
+      "id": "13ee49b5-bed6-40de-af58-c7e8de89f0e2",
+      "name": "Get Invoice Number",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [5872, 576]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare Data for invoice creation\n// Access data from previous nodes\nvar webhookBody = $node['Webhook1'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Invoice number from RPC response\nvar numResult = items[0].json;\nvar invoiceNumber;\nif (typeof numResult === 'string') {\n  invoiceNumber = numResult;\n} else if (numResult && numResult.data) {\n  invoiceNumber = numResult.data;\n} else {\n  // Fallback: generate from workspace slug\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  invoiceNumber = slug + '-FACT-' + year + '-001';\n}\n\n// Parse payload (handles both string and object)\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar invoice = payload.invoice || {};\nvar now = new Date();\nvar validUntil = new Date(now);\nvalidUntil.setDate(validUntil.getDate() + (invoice.validity_days || 30));\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    invoice_number: invoiceNumber,\n    invoice_type: 'facture',\n    status: invoice.status || 'brouillon',\n    discount_global: parseFloat(invoice.discount_global) || 0,\n    subtotal_ht: parseFloat(invoice.subtotal_ht) || 0,\n    total_tva: parseFloat(invoice.total_tva) || 0,\n    total_ttc: parseFloat(invoice.total_ttc) || 0,\n    validity_days: invoice.validity_days || 30,\n    valid_until: validUntil.toISOString().split('T')[0],\n    notes: invoice.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id,\n    _has_delivery: invoice.has_delivery || false,\n    _delivery_date: invoice.delivery_date || null\n  }\n}];"
+      },
+      "id": "f425a4df-fee0-49c3-bfa0-d6c77849bd74",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [6080, 576]
+    },
+    {
+      "parameters": {
+        "tableId": "invoices",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.workspace_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $json.created_by }}"
+            },
+            {
+              "fieldId": "invoice_number",
+              "fieldValue": "={{ $json.invoice_number }}"
+            },
+            {
+              "fieldId": "invoice_type",
+              "fieldValue": "={{ $json.invoice_type }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "discount_global",
+              "fieldValue": "={{ $json.discount_global }}"
+            },
+            {
+              "fieldId": "subtotal_ht",
+              "fieldValue": "={{ $json.subtotal_ht }}"
+            },
+            {
+              "fieldId": "total_tva",
+              "fieldValue": "={{ $json.total_tva }}"
+            },
+            {
+              "fieldId": "total_ttc",
+              "fieldValue": "={{ $json.total_ttc }}"
+            },
+            {
+              "fieldId": "validity_days",
+              "fieldValue": "={{ $json.validity_days }}"
+            },
+            {
+              "fieldId": "valid_until",
+              "fieldValue": "={{ $json.valid_until }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $json.notes }}"
+            }
+          ]
+        }
+      },
+      "id": "f3355c8f-a80a-40a8-ac42-51a484fc84d5",
+      "name": "Create Invoice",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [6288, 576],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare invoice items for insertion\nvar prepareData = $node['Prepare Data'].json;\nvar invoice = $node['Create Invoice'].json;\nvar items = prepareData._items || [];\n\nif (!items.length) {\n  return [{ json: { invoice_id: invoice.id, _skip: true } }];\n}\n\nreturn items.map(function(item, index) {\n  return {\n    json: {\n      invoice_id: invoice.id,\n      product_id: item.product_id || item.produit_id || null,\n      description: item.description || '',\n      quantity: parseFloat(item.quantity) || 1,\n      unit_price_ht: parseFloat(item.unit_price_ht || item.unit_price) || 0,\n      tax_rate: parseFloat(item.tax_rate) || 20,\n      total_ht: parseFloat(item.total_ht || item.total_price) || 0,\n      position: item.position || (index + 1)\n    }\n  };\n});"
+      },
+      "id": "bf6a69b4-17db-4e7e-9777-ab1717aed09f",
+      "name": "Prepare Items",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [6496, 576]
+    },
+    {
+      "parameters": {
+        "tableId": "invoice_items",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "invoice_id",
+              "fieldValue": "={{ $json.invoice_id }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $json.product_id }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldId": "quantity",
+              "fieldValue": "={{ $json.quantity }}"
+            },
+            {
+              "fieldId": "unit_price_ht",
+              "fieldValue": "={{ $json.unit_price_ht }}"
+            },
+            {
+              "fieldId": "tax_rate",
+              "fieldValue": "={{ $json.tax_rate }}"
+            },
+            {
+              "fieldId": "total_ht",
+              "fieldValue": "={{ $json.total_ht }}"
+            },
+            {
+              "fieldId": "position",
+              "fieldValue": "={{ $json.position }}"
+            }
+          ]
+        }
+      },
+      "id": "2d5a6d8e-003a-4ceb-8e38-2c3350f2e638",
+      "name": "Create Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [6704, 576],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "jobs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Prepare Data'].json._job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "={{ JSON.stringify({ invoice_id: $node['Create Invoice'].json.id, invoice_number: $node['Create Invoice'].json.invoice_number }) }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "8aca5923-211c-4105-a327-6d171cd20516",
+      "name": "Update Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [6912, 576],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"invoice_id\": $node['Create Invoice'].json.id, \"invoice_number\": $node['Create Invoice'].json.invoice_number } }}",
+        "options": {}
+      },
+      "id": "e12d049a-00d1-4598-86a1-95dfa1105b0a",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [7120, 576]
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [{ "node": "Get Workspace", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Workspace": {
+      "main": [
+        [{ "node": "Get Invoice Number", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Invoice Number": {
+      "main": [
+        [{ "node": "Prepare Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [{ "node": "Create Invoice", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Invoice": {
+      "main": [
+        [{ "node": "Prepare Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Items": {
+      "main": [
+        [{ "node": "Create Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Items": {
+      "main": [
+        [{ "node": "Update Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

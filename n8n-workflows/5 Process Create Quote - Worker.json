@@ -1,0 +1,318 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-create-quote",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "711ad070-ce0d-404e-8106-fcf7743076b7",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [256, 64],
+      "webhookId": "process-create-quote"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "workspaces",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.workspace_id }}"
+            }
+          ]
+        }
+      },
+      "id": "efb44d94-e0bb-47b5-b9fd-7a485d705f72",
+      "name": "Get Workspace",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [464, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vnjhzkplwuqvuhvfeemh.supabase.co/rest/v1/rpc/get_next_quote_number",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_workspace_id\": \"{{ $node['Webhook'].json.body.workspace_id }}\",\n  \"p_year\": {{ new Date().getFullYear() }}\n}",
+        "options": {}
+      },
+      "id": "77ffd45c-80b2-44f0-9da0-b285a98341fa",
+      "name": "Get Quote Number",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [672, 64]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare Data for quote creation\nvar webhookBody = $node['Webhook'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Quote number from RPC response\nvar numResult = items[0].json;\nvar quoteNumber;\nif (typeof numResult === 'string') {\n  quoteNumber = numResult;\n} else if (numResult && numResult.data) {\n  quoteNumber = numResult.data;\n} else {\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  quoteNumber = slug + '-DEV-' + year + '-001';\n}\n\n// Parse payload (handles both string and object)\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar now = new Date();\nvar validUntil = payload.valid_until || new Date(now.getTime() + (payload.validity_days || 30) * 86400000).toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    quote_number: quoteNumber,\n    status: payload.status || 'draft',\n    discount_global: parseFloat(payload.discount_global) || 0,\n    subtotal_ht: parseFloat(payload.subtotal_ht) || 0,\n    total_tva: parseFloat(payload.total_tva) || 0,\n    total_ttc: parseFloat(payload.total_ttc) || 0,\n    quote_date: payload.quote_date || now.toISOString().split('T')[0],\n    valid_until: validUntil,\n    notes: payload.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id\n  }\n}];"
+      },
+      "id": "413fbe30-df6d-4713-98fe-1aee6f18dba1",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [880, 64]
+    },
+    {
+      "parameters": {
+        "tableId": "quotes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.workspace_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $json.created_by }}"
+            },
+            {
+              "fieldId": "quote_number",
+              "fieldValue": "={{ $json.quote_number }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "discount_global",
+              "fieldValue": "={{ $json.discount_global }}"
+            },
+            {
+              "fieldId": "subtotal_ht",
+              "fieldValue": "={{ $json.subtotal_ht }}"
+            },
+            {
+              "fieldId": "total_tva",
+              "fieldValue": "={{ $json.total_tva }}"
+            },
+            {
+              "fieldId": "total_ttc",
+              "fieldValue": "={{ $json.total_ttc }}"
+            },
+            {
+              "fieldId": "quote_date",
+              "fieldValue": "={{ $json.quote_date }}"
+            },
+            {
+              "fieldId": "valid_until",
+              "fieldValue": "={{ $json.valid_until }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $json.notes }}"
+            }
+          ]
+        }
+      },
+      "id": "8c22ecda-69fc-465d-9827-19afff8474fa",
+      "name": "Create Quote",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1088, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare quote items for insertion\nvar prepareData = $node['Prepare Data'].json;\nvar quote = $node['Create Quote'].json;\nvar items_list = prepareData._items || [];\n\nif (!items_list.length) {\n  return [{ json: { quote_id: quote.id, _skip: true } }];\n}\n\nreturn items_list.map(function(item, index) {\n  return {\n    json: {\n      quote_id: quote.id,\n      product_id: item.product_id || item.produit_id || null,\n      description: item.description || '',\n      quantity: parseFloat(item.quantity) || 1,\n      unit_price_ht: parseFloat(item.unit_price_ht || item.unit_price) || 0,\n      tax_rate: parseFloat(item.tax_rate) || 20,\n      total_ht: parseFloat(item.total_ht || item.total_price) || 0,\n      position: item.position || (index + 1)\n    }\n  };\n});"
+      },
+      "id": "8ce69b4e-050a-4d2f-9456-62b1113fc8ed",
+      "name": "Prepare Items",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1296, 64]
+    },
+    {
+      "parameters": {
+        "tableId": "quote_items",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "quote_id",
+              "fieldValue": "={{ $json.quote_id }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $json.product_id }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldId": "quantity",
+              "fieldValue": "={{ $json.quantity }}"
+            },
+            {
+              "fieldId": "unit_price_ht",
+              "fieldValue": "={{ $json.unit_price_ht }}"
+            },
+            {
+              "fieldId": "tax_rate",
+              "fieldValue": "={{ $json.tax_rate }}"
+            },
+            {
+              "fieldId": "total_ht",
+              "fieldValue": "={{ $json.total_ht }}"
+            },
+            {
+              "fieldId": "position",
+              "fieldValue": "={{ $json.position }}"
+            }
+          ]
+        }
+      },
+      "id": "1c9dbd59-23e5-4117-9a97-2d4e862c6028",
+      "name": "Create Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1504, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "jobs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Prepare Data'].json._job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "={{ JSON.stringify({ quote_id: $node['Create Quote'].json.id, quote_number: $node['Create Quote'].json.quote_number }) }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "43ef2c2a-ddba-451c-a487-0ce194877299",
+      "name": "Update Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1712, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"quote_id\": $node['Create Quote'].json.id, \"quote_number\": $node['Create Quote'].json.quote_number } }}",
+        "options": {}
+      },
+      "id": "e6247199-9e3b-43a2-8920-61ee9625ee8d",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1920, 64]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Get Workspace", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Workspace": {
+      "main": [
+        [{ "node": "Get Quote Number", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Quote Number": {
+      "main": [
+        [{ "node": "Prepare Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [{ "node": "Create Quote", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Quote": {
+      "main": [
+        [{ "node": "Prepare Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Items": {
+      "main": [
+        [{ "node": "Create Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Items": {
+      "main": [
+        [{ "node": "Update Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

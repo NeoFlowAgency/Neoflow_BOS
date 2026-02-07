@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "create-quote",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "33e448ed-7ee3-44bc-acfe-a044ec843e39",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "create-quote-async"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.job_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-quote-if-node",
+      "name": "Job Already Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [208, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Job was already created by frontend — pass through\nvar body = items[0].json.body || items[0].json;\nreturn [{ json: { id: body.job_id } }];"
+      },
+      "id": "e5f6a7b8-quote-passthrough",
+      "name": "Use Existing Job",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [448, -96]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Build job data from webhook body (fallback for external callers)\nvar body = items[0].json.body || items[0].json;\nreturn [{\n  json: {\n    workspace_id: body.workspace_id,\n    job_type: 'create_quote',\n    status: 'pending',\n    priority: 0,\n    payload: {\n      customer: body.customer || body.payload && body.payload.customer || {},\n      quote_date: body.quote_date || body.payload && body.payload.quote_date || new Date().toISOString().split('T')[0],\n      valid_until: body.valid_until || body.payload && body.payload.valid_until || null,\n      items: body.items || body.payload && body.payload.items || []\n    },\n    created_by: body.user_id || null\n  }\n}];"
+      },
+      "id": "c9d0e1f2-quote-prepare",
+      "name": "Prepare Job Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [448, 96]
+    },
+    {
+      "parameters": {
+        "tableId": "jobs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.workspace_id }}"
+            },
+            {
+              "fieldId": "job_type",
+              "fieldValue": "={{ $json.job_type }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ $json.payload }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $json.created_by }}"
+            }
+          ]
+        }
+      },
+      "id": "581a5cea-c83c-4749-a004-632a85097b5c",
+      "name": "Create Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [672, 96],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"job_id\": $json.id, \"message\": \"Quote creation queued\", \"status\": \"pending\" } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "cecc5951-04a9-4df0-a64a-abd750311a1f",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [896, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Job Already Created?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Job Already Created?": {
+      "main": [
+        [{ "node": "Use Existing Job", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Job Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Use Existing Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Job Data": {
+      "main": [
+        [{ "node": "Create Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

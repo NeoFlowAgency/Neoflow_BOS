@@ -1,0 +1,234 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-payment-reminder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2c5406c1-67a4-4d57-ab06-3862533610d8",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [320, 64],
+      "webhookId": "send-payment-reminder"
+    },
+    {
+      "parameters": {
+        "functionCode": "var body = items[0].json.body || items[0].json;\nreturn [{\n  json: {\n    invoice_id: body.invoice_id,\n    workspace_id: body.workspace_id\n  }\n}];"
+      },
+      "id": "acc389de-84dd-4a50-a3c7-9d109e9fb5bf",
+      "name": "Extract Params",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [528, 64]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "invoices",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.invoice_id }}"
+            }
+          ]
+        }
+      },
+      "id": "3c4ad212-593c-4444-bba1-856360cdfd01",
+      "name": "Get Invoice",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [720, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "5ef6007b-0764-4ee4-ad21-e08ecd723b8a",
+      "name": "Get Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [928, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "var invoice = $node['Get Invoice'].json;\nvar customer = items[0].json;\n\nvar validUntil = invoice.valid_until || invoice.created_at;\nvar daysOverdue = Math.floor((new Date() - new Date(validUntil)) / (1000 * 60 * 60 * 24));\n\nvar emailHtml = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background-color:#040741;color:white;padding:20px;text-align:center}.content{padding:30px;background-color:#f9f9f9}.invoice-details{background-color:white;padding:20px;margin:20px 0;border-left:4px solid #313ADF}.amount{font-size:24px;font-weight:bold;color:#040741}.footer{text-align:center;padding:20px;font-size:12px;color:#666}</style></head><body><div class=\"container\">';\nemailHtml += '<div class=\"header\"><h1>Rappel de Paiement</h1></div>';\nemailHtml += '<div class=\"content\"><p>Bonjour ' + (customer.first_name || customer.company_name || 'Cher client') + ',</p>';\nemailHtml += '<p>Nous vous contactons concernant la facture suivante :</p>';\nemailHtml += '<div class=\"invoice-details\">';\nemailHtml += '<p><strong>Facture :</strong> ' + (invoice.invoice_number || '') + '</p>';\nemailHtml += '<p><strong>Date echeance :</strong> ' + (validUntil || '') + '</p>';\nemailHtml += '<p><strong>Retard :</strong> ' + daysOverdue + ' jour(s)</p>';\nemailHtml += '<p class=\"amount\">Montant du : ' + parseFloat(invoice.total_ttc || 0).toFixed(2) + ' EUR</p>';\nemailHtml += '</div>';\nemailHtml += '<p>Nous vous prions de bien vouloir regulariser cette situation.</p>';\nemailHtml += '<p>Cordialement,<br>L equipe NeoFlow BOS</p></div>';\nemailHtml += '<div class=\"footer\"><p>Email envoye automatiquement.</p></div></div></body></html>';\n\nreturn [{\n  json: {\n    to: customer.email,\n    subject: 'Rappel de paiement - Facture ' + (invoice.invoice_number || ''),\n    html: emailHtml,\n    from: 'onboarding@resend.dev',\n    invoice_id: invoice.id,\n    workspace_id: $node['Extract Params'].json.workspace_id,\n    customer_email: customer.email\n  }\n}];"
+      },
+      "id": "b82c520a-b06b-4cfc-97a6-474c9f0a462c",
+      "name": "Prepare Reminder Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 64]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: $json.from,\n  to: [$json.to],\n  subject: $json.subject,\n  html: $json.html\n}) }}",
+        "options": {}
+      },
+      "id": "b4adf446-2bd5-4394-9692-34ace167e3b4",
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1328, 64],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5MmusbhHZ2FF8tFO",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "payment_reminders",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $node['Prepare Reminder Email'].json.workspace_id }}"
+            },
+            {
+              "fieldId": "invoice_id",
+              "fieldValue": "={{ $node['Prepare Reminder Email'].json.invoice_id }}"
+            },
+            {
+              "fieldId": "reminder_type",
+              "fieldValue": "payment_overdue"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "sent_via",
+              "fieldValue": "email"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "sent"
+            },
+            {
+              "fieldId": "recipient_email",
+              "fieldValue": "={{ $node['Prepare Reminder Email'].json.customer_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $node['Prepare Reminder Email'].json.subject }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "ba1b5f53-db8a-44b4-ad13-8be8ec7de10a",
+      "name": "Log Reminder",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1520, 64],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"email_sent_to\": $node['Prepare Reminder Email'].json.to, \"invoice_number\": $node['Get Invoice'].json.invoice_number } }}",
+        "options": {}
+      },
+      "id": "d4edb1f2-6cd3-48c9-b394-b11371ab7ba0",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1728, 64]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Extract Params", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Params": {
+      "main": [
+        [{ "node": "Get Invoice", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Invoice": {
+      "main": [
+        [{ "node": "Get Customer", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Customer": {
+      "main": [
+        [{ "node": "Prepare Reminder Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Reminder Email": {
+      "main": [
+        [{ "node": "Send Reminder", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Reminder": {
+      "main": [
+        [{ "node": "Log Reminder", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Reminder": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

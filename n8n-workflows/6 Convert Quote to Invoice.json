@@ -1,0 +1,93 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "convert-quote-to-invoice",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1b492b7a-939d-4cb2-a5be-9ce528643200",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-112, 80],
+      "webhookId": "convert-quote-to-invoice"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vnjhzkplwuqvuhvfeemh.supabase.co/rest/v1/rpc/convert_quote_to_invoice",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_secret_VdB7Ksky5jUVmlVjHIpJEA__lCc8hxD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_quote_id\": \"{{ $json.body.quote_id }}\"\n}",
+        "options": {}
+      },
+      "id": "95de289c-ad22-4cc5-83af-07350b4079ae",
+      "name": "Call Convert RPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [96, 80]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse RPC response\nvar result = items[0].json;\nvar data;\nif (typeof result === 'string') {\n  try { data = JSON.parse(result); } catch(e) { data = { error: result }; }\n} else if (result && result.data) {\n  data = (typeof result.data === 'string') ? JSON.parse(result.data) : result.data;\n} else {\n  data = result || {};\n}\n\nreturn [{\n  json: {\n    success: true,\n    invoice_id: data.invoice_id || null,\n    invoice_number: data.invoice_number || null,\n    message: 'Quote converted to invoice successfully'\n  }\n}];"
+      },
+      "id": "a1b2c3d4-parse-result",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [304, 80]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "eda17abe-8c64-4cfb-9ac1-fd28dceae5e3",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [512, 80]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Call Convert RPC", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call Convert RPC": {
+      "main": [
+        [{ "node": "Parse Result", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Result": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

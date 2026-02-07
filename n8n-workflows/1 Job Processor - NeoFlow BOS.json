@@ -1,0 +1,302 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "beecc63e-c3be-4e6f-a858-354e00ffafa7",
+      "name": "Every 5 Seconds",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [1328, 640]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "jobs",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "ead82c44-98ba-471a-b83e-3a6552c3a525",
+      "name": "Get Pending Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1520, 640],
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "9125e29e-b447-4baa-890b-f972411c1375",
+      "name": "Job Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1728, 640]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "jobs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Pending Job').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing"
+            },
+            {
+              "fieldId": "started_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "4fa24cd1-f24d-40fd-8677-5fe459ff9722",
+      "name": "Lock Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 544],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.job_type }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "create_invoice"
+            },
+            {
+              "value2": "create_quote",
+              "output": 1
+            },
+            {
+              "value2": "generate_pdf",
+              "output": 2
+            },
+            {
+              "value2": "send_email",
+              "output": 3
+            }
+          ]
+        }
+      },
+      "id": "1cd9b30d-cff7-490b-8e98-062d85539997",
+      "name": "Route By Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [2128, 544]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.srv1137119.hstgr.cloud/webhook/process-create-invoice",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "payload",
+              "value": "={{ $json.payload }}"
+            },
+            {
+              "name": "workspace_id",
+              "value": "={{ $json.workspace_id }}"
+            },
+            {
+              "name": "created_by",
+              "value": "={{ $json.created_by }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "922fdb7c-b1bb-49bd-bc3a-bf43a1d90b3e",
+      "name": "Call Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2320, 352]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.srv1137119.hstgr.cloud/webhook/process-create-quote",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "payload",
+              "value": "={{ $json.payload }}"
+            },
+            {
+              "name": "workspace_id",
+              "value": "={{ $json.workspace_id }}"
+            },
+            {
+              "name": "created_by",
+              "value": "={{ $json.created_by }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "55823ded-527a-4c8a-a04f-84b14a3e8460",
+      "name": "Call Quote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2320, 512]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.srv1137119.hstgr.cloud/webhook/process-generate-pdf",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "payload",
+              "value": "={{ $json.payload }}"
+            },
+            {
+              "name": "workspace_id",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "441a5d50-8afc-4d23-a1f2-ce316de8a494",
+      "name": "Call PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2320, 672]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.srv1137119.hstgr.cloud/webhook/process-send-email",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "payload",
+              "value": "={{ $json.payload }}"
+            },
+            {
+              "name": "workspace_id",
+              "value": "={{ $json.workspace_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9abd450f-bb5d-472d-b0a7-8c0210751f80",
+      "name": "Call Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2320, 832]
+    },
+    {
+      "parameters": {},
+      "id": "6a08911d-8b81-4672-baa2-2b9e711f7871",
+      "name": "No Job",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1920, 784]
+    }
+  ],
+  "connections": {
+    "Every 5 Seconds": {
+      "main": [
+        [{ "node": "Get Pending Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Pending Job": {
+      "main": [
+        [{ "node": "Job Found?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Job Found?": {
+      "main": [
+        [{ "node": "Lock Job", "type": "main", "index": 0 }],
+        [{ "node": "No Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lock Job": {
+      "main": [
+        [{ "node": "Route By Type", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route By Type": {
+      "main": [
+        [{ "node": "Call Invoice", "type": "main", "index": 0 }],
+        [{ "node": "Call Quote", "type": "main", "index": 0 }],
+        [{ "node": "Call PDF", "type": "main", "index": 0 }],
+        [{ "node": "Call Email", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

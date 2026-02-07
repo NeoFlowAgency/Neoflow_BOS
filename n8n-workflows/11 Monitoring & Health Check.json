@@ -1,0 +1,205 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "cc4367fa-8232-418e-896c-9076b6548bd1",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-512, 128]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "jobs",
+        "limit": 100,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "failed"
+            }
+          ]
+        }
+      },
+      "id": "0590c697-1e5d-4054-93cd-8e1cb644b4a2",
+      "name": "Get Failed Jobs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-320, 128],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Count failed jobs and store count\nvar count = 0;\nvar jobsList = [];\nfor (var i = 0; i < items.length; i++) {\n  if (items[i].json && items[i].json.id) {\n    count++;\n    jobsList.push(items[i].json);\n  }\n}\nreturn [{ json: { failed_count: count, failed_jobs: jobsList } }];"
+      },
+      "id": "a1b2c3d4-count-failed",
+      "name": "Count Failed",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-112, 128]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "jobs",
+        "limit": 100,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "processing"
+            }
+          ]
+        }
+      },
+      "id": "217b2ec0-a768-4681-908b-69dbf104d7b4",
+      "name": "Get Stuck Jobs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [96, 128],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "var failedData = $node['Count Failed'].json;\nvar failedCount = failedData.failed_count || 0;\n\n// Count stuck jobs (processing for more than 5 minutes)\nvar now = new Date();\nvar fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);\nvar stuckCount = 0;\nvar stuckJobs = [];\n\nfor (var i = 0; i < items.length; i++) {\n  var job = items[i].json;\n  if (job && job.id && job.started_at) {\n    var startedAt = new Date(job.started_at);\n    if (startedAt < fiveMinutesAgo) {\n      stuckCount++;\n      stuckJobs.push(job);\n    }\n  }\n}\n\nvar hasIssues = failedCount > 0 || stuckCount > 0;\n\nreturn [{\n  json: {\n    timestamp: now.toISOString(),\n    status: hasIssues ? 'warning' : 'healthy',\n    failed_jobs_count: failedCount,\n    stuck_jobs_count: stuckCount,\n    has_issues: hasIssues,\n    failed_jobs: failedData.failed_jobs || [],\n    stuck_jobs: stuckJobs\n  }\n}];"
+      },
+      "id": "b071fe16-67a4-4bec-b734-1f28ebc0d605",
+      "name": "Analyze Health",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [304, 128]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_issues }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "f2413564-3a66-4d69-8452-f615c26920c5",
+      "name": "Has Issues?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [512, 128]
+    },
+    {
+      "parameters": {
+        "functionCode": "var health = items[0].json;\n\nvar emailHtml = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background-color:#dc3545;color:white;padding:20px;text-align:center}.content{padding:30px;background-color:#f9f9f9}.alert{background-color:#fff3cd;border:1px solid #ffc107;padding:15px;margin:15px 0;border-radius:5px}.stats{background-color:white;padding:20px;margin:20px 0}</style></head><body><div class=\"container\">';\nemailHtml += '<div class=\"header\"><h1>Alerte Monitoring NeoFlow BOS</h1></div>';\nemailHtml += '<div class=\"content\"><p><strong>Date :</strong> ' + health.timestamp + '</p>';\nemailHtml += '<div class=\"alert\"><p><strong>Des problemes ont ete detectes !</strong></p></div>';\nemailHtml += '<div class=\"stats\">';\nemailHtml += '<p><strong>Jobs echoues :</strong> ' + health.failed_jobs_count + '</p>';\nemailHtml += '<p><strong>Jobs bloques (>5min) :</strong> ' + health.stuck_jobs_count + '</p>';\nemailHtml += '</div>';\n\nif (health.failed_jobs_count > 0 && health.failed_jobs) {\n  emailHtml += '<h3>Derniers jobs echoues :</h3><ul>';\n  var failedSlice = health.failed_jobs.slice(0, 5);\n  for (var i = 0; i < failedSlice.length; i++) {\n    var fj = failedSlice[i];\n    emailHtml += '<li>ID: ' + fj.id + ' | Type: ' + (fj.job_type || '') + ' | Tentatives: ' + (fj.retry_count || 0) + '/' + (fj.max_retries || 3) + '</li>';\n  }\n  emailHtml += '</ul>';\n}\n\nif (health.stuck_jobs_count > 0 && health.stuck_jobs) {\n  emailHtml += '<h3>Jobs bloques :</h3><ul>';\n  var stuckSlice = health.stuck_jobs.slice(0, 5);\n  for (var j = 0; j < stuckSlice.length; j++) {\n    var sj = stuckSlice[j];\n    emailHtml += '<li>ID: ' + sj.id + ' | Type: ' + (sj.job_type || '') + ' | Depuis: ' + (sj.started_at || '') + '</li>';\n  }\n  emailHtml += '</ul>';\n}\n\nemailHtml += '<p>Verifiez les logs n8n et Supabase.</p></div></div></body></html>';\n\nreturn [{\n  json: {\n    to: 'admin@neoflow.app',\n    subject: 'NeoFlow BOS - ' + health.failed_jobs_count + ' jobs echoues, ' + health.stuck_jobs_count + ' jobs bloques',\n    html: emailHtml,\n    from: 'onboarding@resend.dev'\n  }\n}];"
+      },
+      "id": "9a3ac2cb-d0e9-482f-9359-451e24ff808a",
+      "name": "Prepare Alert Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [720, 16]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: $json.from,\n  to: [$json.to],\n  subject: $json.subject,\n  html: $json.html\n}) }}",
+        "options": {}
+      },
+      "id": "7f0ef009-3507-4281-9957-8fb317b20a17",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [928, 16],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5MmusbhHZ2FF8tFO",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "1482dcbe-7e2b-402a-8fe8-279de401143a",
+      "name": "All Good",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [720, 224]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [{ "node": "Get Failed Jobs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Failed Jobs": {
+      "main": [
+        [{ "node": "Count Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Count Failed": {
+      "main": [
+        [{ "node": "Get Stuck Jobs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Stuck Jobs": {
+      "main": [
+        [{ "node": "Analyze Health", "type": "main", "index": 0 }]
+      ]
+    },
+    "Analyze Health": {
+      "main": [
+        [{ "node": "Has Issues?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Issues?": {
+      "main": [
+        [{ "node": "Prepare Alert Email", "type": "main", "index": 0 }],
+        [{ "node": "All Good", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Alert Email": {
+      "main": [
+        [{ "node": "Send Alert", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

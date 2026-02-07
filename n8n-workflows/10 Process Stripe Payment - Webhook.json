@@ -1,0 +1,253 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c41331c9-a884-41fb-aece-63d44d9f30ea",
+      "name": "Stripe Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-448, 64],
+      "webhookId": "stripe-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "var event = items[0].json.body || items[0].json;\n\nreturn [{\n  json: {\n    event_type: event.type,\n    payment_intent_id: event.data && event.data.object && event.data.object.id || null,\n    amount: event.data && event.data.object && event.data.object.amount || 0,\n    currency: event.data && event.data.object && event.data.object.currency || 'eur',\n    status: event.data && event.data.object && event.data.object.status || 'unknown',\n    metadata: event.data && event.data.object && event.data.object.metadata || {},\n    invoice_id: event.data && event.data.object && event.data.object.metadata && event.data.object.metadata.invoice_id || null\n  }\n}];"
+      },
+      "id": "2ee31339-acda-4256-ae36-50bbcba9900d",
+      "name": "Parse Stripe Event",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-240, 64]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event_type }}",
+              "operation": "equals",
+              "value2": "payment_intent.succeeded"
+            }
+          ]
+        }
+      },
+      "id": "ca5dd8ff-97fa-444c-9a35-c716da3f222c",
+      "name": "Is Payment Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-48, 64]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "invoices",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.invoice_id }}"
+            }
+          ]
+        }
+      },
+      "id": "6dc82985-2a88-4db7-9447-ba1d851178cd",
+      "name": "Get Invoice",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [160, -48],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "invoices",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "payee"
+            },
+            {
+              "fieldId": "paid_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "a58b1b65-99ae-4d13-a83e-d85087fe6ede",
+      "name": "Update Invoice (Paid)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [368, -48],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "393d23b2-383f-4bbc-b460-127dd49ccc77",
+      "name": "Get Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [560, -48],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "var invoice = $node['Get Invoice'].json;\nvar customer = items[0].json;\nvar amount = $node['Parse Stripe Event'].json.amount / 100;\n\nvar emailHtml = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background-color:#040741;color:white;padding:20px;text-align:center}.content{padding:30px;background-color:#f9f9f9}.success-box{background-color:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:20px;margin:20px 0;border-radius:5px}.footer{text-align:center;padding:20px;font-size:12px;color:#666}</style></head><body><div class=\"container\">';\nemailHtml += '<div class=\"header\"><h1>Paiement Confirme</h1></div>';\nemailHtml += '<div class=\"content\"><p>Bonjour ' + (customer.first_name || customer.company_name || 'Cher client') + ',</p>';\nemailHtml += '<div class=\"success-box\"><p>Nous avons bien recu votre paiement !</p></div>';\nemailHtml += '<ul><li><strong>Facture :</strong> ' + (invoice.invoice_number || '') + '</li>';\nemailHtml += '<li><strong>Date :</strong> ' + new Date().toLocaleDateString('fr-FR') + '</li>';\nemailHtml += '<li><strong>Montant :</strong> ' + amount.toFixed(2) + ' EUR</li></ul>';\nemailHtml += '<p>Merci pour votre confiance !</p>';\nemailHtml += '<p>Cordialement,<br>L equipe NeoFlow BOS</p></div>';\nemailHtml += '<div class=\"footer\"><p>Email envoye automatiquement.</p></div></div></body></html>';\n\nreturn [{\n  json: {\n    to: customer.email,\n    subject: 'Confirmation de paiement - Facture ' + (invoice.invoice_number || ''),\n    html: emailHtml,\n    from: 'onboarding@resend.dev'\n  }\n}];"
+      },
+      "id": "a1888400-363c-4c8b-a9d7-29af8d67e204",
+      "name": "Prepare Confirmation Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [768, -48]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: $json.from,\n  to: [$json.to],\n  subject: $json.subject,\n  html: $json.html\n}) }}",
+        "options": {}
+      },
+      "id": "31d4b78c-535f-4569-a79e-d4553295309a",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, -48],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5MmusbhHZ2FF8tFO",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "c857edb7-ef4b-44c9-bc06-e03b5645b4a4",
+      "name": "Other Event",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [160, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"received\": true } }}",
+        "options": {}
+      },
+      "id": "1ccf08dc-7524-44b6-961b-dbce9eefa2e2",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1168, 64]
+    }
+  ],
+  "connections": {
+    "Stripe Webhook": {
+      "main": [
+        [{ "node": "Parse Stripe Event", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Stripe Event": {
+      "main": [
+        [{ "node": "Is Payment Success?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Payment Success?": {
+      "main": [
+        [{ "node": "Get Invoice", "type": "main", "index": 0 }],
+        [{ "node": "Other Event", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Invoice": {
+      "main": [
+        [{ "node": "Update Invoice (Paid)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Invoice (Paid)": {
+      "main": [
+        [{ "node": "Get Customer", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Customer": {
+      "main": [
+        [{ "node": "Prepare Confirmation Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Confirmation Email": {
+      "main": [
+        [{ "node": "Send Confirmation", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Confirmation": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    },
+    "Other Event": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

@@ -1,0 +1,301 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-generate-pdf",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "03b65bb5-9f2c-4c5f-ab5d-a249be6af887",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [576, 816],
+      "webhookId": "process-generate-pdf"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract params - handle both string and object payload\nvar body = items[0].json.body || items[0].json;\nvar rawPayload = body.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nreturn [{\n  json: {\n    document_type: payload.document_type || 'invoice',\n    document_id: payload.document_id,\n    job_id: body.job_id\n  }\n}];"
+      },
+      "id": "739c464b-2c95-4c36-bd51-dede55125cae",
+      "name": "Extract Params",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [768, 816]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.document_type }}",
+              "operation": "equals",
+              "value2": "invoice"
+            }
+          ]
+        }
+      },
+      "id": "20742fd2-a46d-4d98-97bd-494efbc2f748",
+      "name": "Is Invoice?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [976, 816]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "invoices",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Extract Params'].json.document_id }}"
+            }
+          ]
+        }
+      },
+      "id": "c2b29e41-bf7d-438d-b89a-06e470cb833c",
+      "name": "Get Invoice",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1168, 704],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "quotes",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Extract Params'].json.document_id }}"
+            }
+          ]
+        }
+      },
+      "id": "401cf7c7-9d96-486d-9773-3fcc6e5c0224",
+      "name": "Get Quote",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1168, 912],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "invoice_items",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "invoice_id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Get Invoice'].json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "22f18a5c-7ec4-446c-9ce8-9f66680e61b2",
+      "name": "Get Invoice Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1376, 704],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "quote_items",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "quote_id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Get Quote'].json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "e11c40ab-dfd3-467e-9cb2-246f1f285974",
+      "name": "Get Quote Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1376, 912],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "var invoice = $node['Get Invoice'].json;\nvar itemsList = [];\nfor (var i = 0; i < items.length; i++) { itemsList.push(items[i].json); }\n\nvar html = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;margin:40px}.header{text-align:center;margin-bottom:30px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background-color:#040741;color:white}.total{text-align:right;font-weight:bold;margin-top:20px}</style></head><body>';\nhtml += '<div class=\"header\"><h1>FACTURE</h1><p>' + (invoice.invoice_number || '') + '</p></div>';\nhtml += '<div><p><strong>Date:</strong> ' + (invoice.created_at ? invoice.created_at.split('T')[0] : '') + '</p>';\nhtml += '<p><strong>Echeance:</strong> ' + (invoice.valid_until || '') + '</p>';\nhtml += '<p><strong>Statut:</strong> ' + (invoice.status || '') + '</p></div>';\nhtml += '<table><thead><tr><th>Description</th><th>Qte</th><th>Prix HT</th><th>TVA</th><th>Total HT</th></tr></thead><tbody>';\nfor (var j = 0; j < itemsList.length; j++) {\n  var it = itemsList[j];\n  html += '<tr><td>' + (it.description || '') + '</td><td>' + (it.quantity || 0) + '</td><td>' + parseFloat(it.unit_price_ht || 0).toFixed(2) + ' EUR</td><td>' + (it.tax_rate || 0) + '%</td><td>' + parseFloat(it.total_ht || 0).toFixed(2) + ' EUR</td></tr>';\n}\nhtml += '</tbody></table>';\nhtml += '<div class=\"total\"><p>Sous-total HT: ' + parseFloat(invoice.subtotal_ht || 0).toFixed(2) + ' EUR</p>';\nhtml += '<p>TVA: ' + parseFloat(invoice.total_tva || 0).toFixed(2) + ' EUR</p>';\nhtml += '<p style=\"font-size:1.2em\">TOTAL TTC: ' + parseFloat(invoice.total_ttc || 0).toFixed(2) + ' EUR</p></div>';\nif (invoice.notes) { html += '<div style=\"margin-top:30px\"><p><strong>Notes:</strong></p><p>' + invoice.notes + '</p></div>'; }\nhtml += '</body></html>';\n\nreturn [{\n  json: {\n    html: html,\n    filename: (invoice.invoice_number || 'facture') + '.pdf',\n    document_id: invoice.id,\n    document_type: 'invoice',\n    job_id: $node['Extract Params'].json.job_id\n  }\n}];"
+      },
+      "id": "fbb57e6a-eaaa-4e5e-b71f-0f0a6eac8f92",
+      "name": "Generate Invoice HTML",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1568, 704]
+    },
+    {
+      "parameters": {
+        "functionCode": "var quote = $node['Get Quote'].json;\nvar itemsList = [];\nfor (var i = 0; i < items.length; i++) { itemsList.push(items[i].json); }\n\nvar html = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;margin:40px}.header{text-align:center;margin-bottom:30px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background-color:#313ADF;color:white}.total{text-align:right;font-weight:bold;margin-top:20px}</style></head><body>';\nhtml += '<div class=\"header\"><h1>DEVIS</h1><p>' + (quote.quote_number || '') + '</p></div>';\nhtml += '<div><p><strong>Date:</strong> ' + (quote.quote_date || quote.created_at && quote.created_at.split('T')[0] || '') + '</p>';\nhtml += '<p><strong>Validite:</strong> ' + (quote.valid_until || '') + '</p>';\nhtml += '<p><strong>Statut:</strong> ' + (quote.status || '') + '</p></div>';\nhtml += '<table><thead><tr><th>Description</th><th>Qte</th><th>Prix HT</th><th>TVA</th><th>Total HT</th></tr></thead><tbody>';\nfor (var j = 0; j < itemsList.length; j++) {\n  var it = itemsList[j];\n  html += '<tr><td>' + (it.description || '') + '</td><td>' + (it.quantity || 0) + '</td><td>' + parseFloat(it.unit_price_ht || 0).toFixed(2) + ' EUR</td><td>' + (it.tax_rate || 0) + '%</td><td>' + parseFloat(it.total_ht || 0).toFixed(2) + ' EUR</td></tr>';\n}\nhtml += '</tbody></table>';\nhtml += '<div class=\"total\"><p>Sous-total HT: ' + parseFloat(quote.subtotal_ht || 0).toFixed(2) + ' EUR</p>';\nhtml += '<p>TVA: ' + parseFloat(quote.total_tva || 0).toFixed(2) + ' EUR</p>';\nhtml += '<p style=\"font-size:1.2em\">TOTAL TTC: ' + parseFloat(quote.total_ttc || 0).toFixed(2) + ' EUR</p></div>';\nif (quote.notes) { html += '<div style=\"margin-top:30px\"><p><strong>Notes:</strong></p><p>' + quote.notes + '</p></div>'; }\nhtml += '</body></html>';\n\nreturn [{\n  json: {\n    html: html,\n    filename: (quote.quote_number || 'devis') + '.pdf',\n    document_id: quote.id,\n    document_type: 'quote',\n    job_id: $node['Extract Params'].json.job_id\n  }\n}];"
+      },
+      "id": "ee19cd84-6048-4293-ab5a-2047dd85a34f",
+      "name": "Generate Quote HTML",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1568, 912]
+    },
+    {
+      "parameters": {
+        "functionCode": "// SIMULATION PDF - Returns a placeholder URL\nvar filename = items[0].json.filename;\nreturn [{\n  json: {\n    success: true,\n    url: 'https://storage.neoflow.app/pdfs/' + filename,\n    filename: filename,\n    job_id: items[0].json.job_id\n  }\n}];"
+      },
+      "id": "ea7d38e3-610b-4f84-ae8e-59cd4f63b10e",
+      "name": "Simulate PDF",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1776, 816]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "jobs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "={{ JSON.stringify({ pdf_url: $json.url, filename: $json.filename }) }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "8a98dc10-99af-4eb7-850b-8d7719a57c05",
+      "name": "Update Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1968, 816],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"pdf_url\": $node['Simulate PDF'].json.url, \"filename\": $node['Simulate PDF'].json.filename } }}",
+        "options": {}
+      },
+      "id": "10c50444-b1c0-44aa-afb2-99738e0c1ce4",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2176, 816]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Extract Params", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Params": {
+      "main": [
+        [{ "node": "Is Invoice?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Invoice?": {
+      "main": [
+        [{ "node": "Get Invoice", "type": "main", "index": 0 }],
+        [{ "node": "Get Quote", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Invoice": {
+      "main": [
+        [{ "node": "Get Invoice Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Quote": {
+      "main": [
+        [{ "node": "Get Quote Items", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Invoice Items": {
+      "main": [
+        [{ "node": "Generate Invoice HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Quote Items": {
+      "main": [
+        [{ "node": "Generate Quote HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Invoice HTML": {
+      "main": [
+        [{ "node": "Simulate PDF", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Quote HTML": {
+      "main": [
+        [{ "node": "Simulate PDF", "type": "main", "index": 0 }]
+      ]
+    },
+    "Simulate PDF": {
+      "main": [
+        [{ "node": "Update Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

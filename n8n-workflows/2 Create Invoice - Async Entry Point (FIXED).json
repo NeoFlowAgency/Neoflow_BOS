@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "create-invoice",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c4006851-c604-4327-ba3a-ee8752287481",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [832, -448],
+      "webhookId": "create-invoice-async"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.job_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "f46623c1-5fcb-46ea-b261-ea6a2943462a",
+      "name": "Job Already Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1040, -448]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Job was already created by frontend — pass through\nvar body = items[0].json.body || items[0].json;\nreturn [{ json: { id: body.job_id } }];"
+      },
+      "id": "5e7394a3-e447-4d53-883e-4127c2320d19",
+      "name": "Use Existing Job",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1280, -544]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Build job data from webhook body (fallback for external callers)\nvar body = items[0].json.body || items[0].json;\nreturn [{\n  json: {\n    workspace_id: body.workspace_id,\n    job_type: 'create_invoice',\n    status: 'pending',\n    priority: 0,\n    payload: {\n      customer: body.customer || body.payload && body.payload.customer || {},\n      invoice: body.invoice || body.payload && body.payload.invoice || {},\n      items: body.items || body.payload && body.payload.items || []\n    },\n    created_by: body.user_id || null\n  }\n}];"
+      },
+      "id": "ab617689-d327-4faf-8186-70b3ef4162ce",
+      "name": "Prepare Job Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1280, -352]
+    },
+    {
+      "parameters": {
+        "tableId": "jobs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "={{ $json.workspace_id }}"
+            },
+            {
+              "fieldId": "job_type",
+              "fieldValue": "={{ $json.job_type }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ $json.payload }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $json.created_by }}"
+            }
+          ]
+        }
+      },
+      "id": "d0ada81c-1e3c-4ab5-b757-f111df602b4f",
+      "name": "Create Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1504, -352],
+      "credentials": {
+        "supabaseApi": {
+          "id": "4Rns4DrQ8VLNwUYr",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"job_id\": $json.id, \"message\": \"Invoice creation queued\", \"status\": \"pending\" } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "ac9d1414-4d5a-4da5-afee-9ecb5cc6c186",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1728, -448]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Job Already Created?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Job Already Created?": {
+      "main": [
+        [{ "node": "Use Existing Job", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Job Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Use Existing Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Job Data": {
+      "main": [
+        [{ "node": "Create Job", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Job": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}
