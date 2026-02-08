@@ -59,6 +59,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
             }
           ]
         },
@@ -75,7 +79,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Prepare Data for quote creation\nvar webhookBody = $node['Webhook'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Quote number from RPC response\nvar numResult = items[0].json;\nvar quoteNumber;\nif (typeof numResult === 'string') {\n  quoteNumber = numResult;\n} else if (numResult && numResult.data) {\n  quoteNumber = numResult.data;\n} else {\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  quoteNumber = slug + '-DEV-' + year + '-001';\n}\n\n// Parse payload (handles both string and object)\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar now = new Date();\nvar validUntil = payload.valid_until || new Date(now.getTime() + (payload.validity_days || 30) * 86400000).toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    quote_number: quoteNumber,\n    status: payload.status || 'draft',\n    discount_global: parseFloat(payload.discount_global) || 0,\n    subtotal_ht: parseFloat(payload.subtotal_ht) || 0,\n    total_tva: parseFloat(payload.total_tva) || 0,\n    total_ttc: parseFloat(payload.total_ttc) || 0,\n    quote_date: payload.quote_date || now.toISOString().split('T')[0],\n    valid_until: validUntil,\n    notes: payload.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id\n  }\n}];"
+        "functionCode": "// Prepare Data for quote creation\nvar webhookBody = $node['Webhook'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Quote number from RPC response (returns jsonb: {quote_number: '...'})\nvar numResult = items[0].json;\nvar quoteNumber;\nif (numResult && numResult.quote_number) {\n  quoteNumber = numResult.quote_number;\n} else {\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  quoteNumber = slug + '-DEV-' + year + '-001';\n}\n\n// Parse payload (handles both string and object)\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar now = new Date();\nvar validUntil = payload.valid_until || new Date(now.getTime() + (payload.validity_days || 30) * 86400000).toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    quote_number: quoteNumber,\n    status: payload.status || 'draft',\n    discount_global: parseFloat(payload.discount_global) || 0,\n    subtotal_ht: parseFloat(payload.subtotal_ht) || 0,\n    total_tva: parseFloat(payload.total_tva) || 0,\n    total_ttc: parseFloat(payload.total_ttc) || 0,\n    quote_date: payload.quote_date || now.toISOString().split('T')[0],\n    valid_until: validUntil,\n    notes: payload.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id\n  }\n}];"
       },
       "id": "413fbe30-df6d-4713-98fe-1aee6f18dba1",
       "name": "Prepare Data",

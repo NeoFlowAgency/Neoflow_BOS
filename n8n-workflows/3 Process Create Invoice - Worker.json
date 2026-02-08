@@ -7,11 +7,14 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "641171c8-f2fa-4b51-bc80-ca9e6b2217b2",
+      "id": "76f750c5-06a9-4373-a89b-8366726591f7",
       "name": "Webhook1",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [5440, 576],
+      "position": [
+        -800,
+        -336
+      ],
       "webhookId": "process-create-invoice"
     },
     {
@@ -29,11 +32,14 @@
           ]
         }
       },
-      "id": "f8440537-6ef5-45f7-bdbd-adc6bd94bbef",
+      "id": "2ebd04ac-1e8c-4446-a500-0bcdc74c1f3a",
       "name": "Get Workspace",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [5664, 576],
+      "position": [
+        -592,
+        -336
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "4Rns4DrQ8VLNwUYr",
@@ -59,29 +65,39 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_workspace_id: $node['Webhook1'].json.body.workspace_id, p_year: new Date().getFullYear() }) }}",
+        "jsonBody": "={\n  \"p_workspace_id\": \"{{$node['Webhook1'].json.body.workspace_id}}\",\n  \"p_year\": {{ $json[\"created_at\"].split(\"T\")[0].split(\"-\")[0] }}\n}\n",
         "options": {}
       },
-      "id": "13ee49b5-bed6-40de-af58-c7e8de89f0e2",
+      "id": "00d1cbe4-a688-4355-a93f-c214ab037c10",
       "name": "Get Invoice Number",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5872, 576]
+      "position": [
+        -384,
+        -336
+      ]
     },
     {
       "parameters": {
-        "functionCode": "// Prepare Data for invoice creation\n// Access data from previous nodes\nvar webhookBody = $node['Webhook1'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Invoice number from RPC response\nvar numResult = items[0].json;\nvar invoiceNumber;\nif (typeof numResult === 'string') {\n  invoiceNumber = numResult;\n} else if (numResult && numResult.data) {\n  invoiceNumber = numResult.data;\n} else {\n  // Fallback: generate from workspace slug\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  invoiceNumber = slug + '-FACT-' + year + '-001';\n}\n\n// Parse payload (handles both string and object)\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar invoice = payload.invoice || {};\nvar now = new Date();\nvar validUntil = new Date(now);\nvalidUntil.setDate(validUntil.getDate() + (invoice.validity_days || 30));\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    invoice_number: invoiceNumber,\n    invoice_type: 'facture',\n    status: invoice.status || 'brouillon',\n    discount_global: parseFloat(invoice.discount_global) || 0,\n    subtotal_ht: parseFloat(invoice.subtotal_ht) || 0,\n    total_tva: parseFloat(invoice.total_tva) || 0,\n    total_ttc: parseFloat(invoice.total_ttc) || 0,\n    validity_days: invoice.validity_days || 30,\n    valid_until: validUntil.toISOString().split('T')[0],\n    notes: invoice.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id,\n    _has_delivery: invoice.has_delivery || false,\n    _delivery_date: invoice.delivery_date || null\n  }\n}];"
+        "functionCode": "var webhookBody = $node['Webhook1'].json.body;\nvar workspace = $node['Get Workspace'].json;\n\n// Invoice number from RPC response (returns jsonb: {invoice_number: '...'})\nvar numResult = items[0].json;\nvar invoiceNumber;\nif (numResult && numResult.invoice_number) {\n  invoiceNumber = numResult.invoice_number;\n} else {\n  var slug = (workspace.slug || 'WS').toUpperCase();\n  var year = new Date().getFullYear();\n  invoiceNumber = slug + '-FACT-' + year + '-001';\n}\n\n// Parse payload\nvar rawPayload = webhookBody.payload;\nvar payload = (typeof rawPayload === 'string') ? JSON.parse(rawPayload) : (rawPayload || {});\n\nvar customer = payload.customer || {};\nvar invoice = payload.invoice || {};\nvar now = new Date();\nvar validUntil = new Date(now);\nvalidUntil.setDate(validUntil.getDate() + (invoice.validity_days || 30));\n\n// Mapping des valeurs pour correspondre aux contraintes Supabase\nvar invoiceTypeMap = {\n  'facture': 'invoice',\n  'devis': 'quote'\n};\n\nvar statusMap = {\n  'brouillon': 'draft',\n  'envoyé': 'sent',\n  'payé': 'paid',\n  'annulé': 'cancelled'\n};\n\nreturn [{\n  json: {\n    workspace_id: webhookBody.workspace_id,\n    customer_id: customer.id || null,\n    created_by: webhookBody.created_by || null,\n    invoice_number: invoiceNumber,\n    invoice_type: invoiceTypeMap[invoice.invoice_type] || 'invoice',\n    status: statusMap[invoice.status] || 'draft',\n    discount_global: parseFloat(invoice.discount_global) || 0,\n    subtotal_ht: parseFloat(invoice.subtotal_ht) || 0,\n    total_tva: parseFloat(invoice.total_tva) || 0,\n    total_ttc: parseFloat(invoice.total_ttc) || 0,\n    validity_days: invoice.validity_days || 30,\n    valid_until: validUntil.toISOString().split('T')[0],\n    notes: invoice.notes || null,\n    _items: payload.items || [],\n    _job_id: webhookBody.job_id,\n    _has_delivery: invoice.has_delivery || false,\n    _delivery_date: invoice.delivery_date || null\n  }\n}];\n"
       },
-      "id": "f425a4df-fee0-49c3-bfa0-d6c77849bd74",
+      "id": "766dd4cd-79a5-4997-bed0-d10bd61c4cff",
       "name": "Prepare Data",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [6080, 576]
+      "position": [
+        -192,
+        -336
+      ]
     },
     {
       "parameters": {
@@ -143,11 +159,14 @@
           ]
         }
       },
-      "id": "f3355c8f-a80a-40a8-ac42-51a484fc84d5",
+      "id": "b1403523-e17f-49cc-80a8-332f3ebece49",
       "name": "Create Invoice",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [6288, 576],
+      "position": [
+        16,
+        -336
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "4Rns4DrQ8VLNwUYr",
@@ -159,11 +178,14 @@
       "parameters": {
         "functionCode": "// Prepare invoice items for insertion\nvar prepareData = $node['Prepare Data'].json;\nvar invoice = $node['Create Invoice'].json;\nvar items = prepareData._items || [];\n\nif (!items.length) {\n  return [{ json: { invoice_id: invoice.id, _skip: true } }];\n}\n\nreturn items.map(function(item, index) {\n  return {\n    json: {\n      invoice_id: invoice.id,\n      product_id: item.product_id || item.produit_id || null,\n      description: item.description || '',\n      quantity: parseFloat(item.quantity) || 1,\n      unit_price_ht: parseFloat(item.unit_price_ht || item.unit_price) || 0,\n      tax_rate: parseFloat(item.tax_rate) || 20,\n      total_ht: parseFloat(item.total_ht || item.total_price) || 0,\n      position: item.position || (index + 1)\n    }\n  };\n});"
       },
-      "id": "bf6a69b4-17db-4e7e-9777-ab1717aed09f",
+      "id": "50705cfa-90be-47d9-ae91-a29373ce6569",
       "name": "Prepare Items",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [6496, 576]
+      "position": [
+        224,
+        -336
+      ]
     },
     {
       "parameters": {
@@ -205,17 +227,33 @@
           ]
         }
       },
-      "id": "2d5a6d8e-003a-4ceb-8e38-2c3350f2e638",
+      "id": "0fa872a4-e25d-4a23-ab83-4b509b03b0dc",
       "name": "Create Items",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [6704, 576],
+      "position": [
+        432,
+        -336
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "4Rns4DrQ8VLNwUYr",
           "name": "Supabase account 2"
         }
       }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Collapse multiple items back to 1 and gather data for Update Job + Respond\nvar jobId = $node['Prepare Data'].json._job_id;\nvar invoiceId = $node['Create Invoice'].json.id;\nvar invoiceNumber = $node['Create Invoice'].json.invoice_number;\n\nreturn [{\n  json: {\n    job_id: (jobId || '').toString().trim(),\n    invoice_id: (invoiceId || '').toString().trim(),\n    invoice_number: (invoiceNumber || '').toString().trim()\n  }\n}];"
+      },
+      "id": "a1b2c3d4-finalize-job",
+      "name": "Finalize",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        536,
+        -336
+      ]
     },
     {
       "parameters": {
@@ -226,7 +264,7 @@
             {
               "keyName": "id",
               "condition": "eq",
-              "keyValue": "={{ $node['Prepare Data'].json._job_id }}"
+              "keyValue": "={{ $json.job_id }}"
             }
           ]
         },
@@ -238,7 +276,7 @@
             },
             {
               "fieldId": "result",
-              "fieldValue": "={{ JSON.stringify({ invoice_id: $node['Create Invoice'].json.id, invoice_number: $node['Create Invoice'].json.invoice_number }) }}"
+              "fieldValue": "={{ JSON.stringify({ invoice_id: $json.invoice_id, invoice_number: $json.invoice_number }) }}"
             },
             {
               "fieldId": "completed_at",
@@ -247,11 +285,14 @@
           ]
         }
       },
-      "id": "8aca5923-211c-4105-a327-6d171cd20516",
+      "id": "d1d93c06-dc11-4b63-8dd9-26dc9751477d",
       "name": "Update Job",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [6912, 576],
+      "position": [
+        640,
+        -336
+      ],
       "credentials": {
         "supabaseApi": {
           "id": "4Rns4DrQ8VLNwUYr",
@@ -262,59 +303,192 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"success\": true, \"invoice_id\": $node['Create Invoice'].json.id, \"invoice_number\": $node['Create Invoice'].json.invoice_number } }}",
+        "responseBody": "={{ { \"success\": true, \"invoice_id\": $node['Finalize'].json.invoice_id, \"invoice_number\": $node['Finalize'].json.invoice_number } }}",
         "options": {}
       },
-      "id": "e12d049a-00d1-4598-86a1-95dfa1105b0a",
+      "id": "263516ff-4b19-488f-b48e-ee37309d15ea",
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [7120, 576]
+      "position": [
+        848,
+        -336
+      ]
     }
   ],
   "connections": {
     "Webhook1": {
       "main": [
-        [{ "node": "Get Workspace", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Workspace": {
       "main": [
-        [{ "node": "Get Invoice Number", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get Invoice Number",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get Invoice Number": {
       "main": [
-        [{ "node": "Prepare Data", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Data": {
       "main": [
-        [{ "node": "Create Invoice", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Create Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Create Invoice": {
       "main": [
-        [{ "node": "Prepare Items", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepare Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Items": {
       "main": [
-        [{ "node": "Create Items", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Create Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Create Items": {
       "main": [
-        [{ "node": "Update Job", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Finalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize": {
+      "main": [
+        [
+          {
+            "node": "Update Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Update Job": {
       "main": [
-        [{ "node": "Respond", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
-  "pinData": {},
+  "pinData": {
+    "Webhook1": [
+      {
+        "headers": {
+          "host": "n8n.srv1137119.hstgr.cloud",
+          "user-agent": "axios/1.12.0",
+          "content-length": "947",
+          "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+          "accept-encoding": "gzip, compress, deflate, br",
+          "content-type": "application/json",
+          "x-forwarded-for": "172.18.0.1",
+          "x-forwarded-host": "n8n.srv1137119.hstgr.cloud",
+          "x-forwarded-port": "443",
+          "x-forwarded-proto": "https",
+          "x-forwarded-server": "ea90fbc6fd5a",
+          "x-real-ip": "172.18.0.1"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "job_id": "b4777384-c2b3-4e36-9f62-cd06c0a4b361",
+          "payload": {
+            "items": [
+              {
+                "position": 1,
+                "quantity": 1,
+                "tax_rate": 20,
+                "total_ht": 89,
+                "product_id": "0eb99eea-7bda-4d56-8f14-c69f835fc9d4",
+                "description": "Installation à domicile",
+                "unit_price_ht": 89
+              },
+              {
+                "position": 2,
+                "quantity": 1,
+                "tax_rate": 20,
+                "total_ht": 89,
+                "product_id": "0eb99eea-7bda-4d56-8f14-c69f835fc9d4",
+                "description": "Installation à domicile",
+                "unit_price_ht": 89
+              }
+            ],
+            "invoice": {
+              "notes": "",
+              "status": "brouillon",
+              "total_ttc": 213.6,
+              "total_tva": 35.6,
+              "subtotal_ht": 178,
+              "has_delivery": false,
+              "delivery_date": null,
+              "discount_type": "percent",
+              "validity_days": 30,
+              "discount_global": 0
+            },
+            "customer": {
+              "id": "d34e49cc-20a2-42be-bb3b-6c303ecd7bf8",
+              "email": "gnoakim@outlook.fr",
+              "phone": "0649493057",
+              "address": "13 rue des luciole",
+              "last_name": "Grelier",
+              "first_name": "Noakim",
+              "default_delivery_address": "13 rue des luciole"
+            }
+          },
+          "workspace_id": "c77e7644-bfed-46eb-85d7-4706880b4687",
+          "created_by": "692266b9-71b7-44ae-bd04-7e8ae93087a0"
+        },
+        "webhookUrl": "https://n8n.srv1137119.hstgr.cloud/webhook-test/process-create-invoice",
+        "executionMode": "test"
+      }
+    ]
+  },
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
