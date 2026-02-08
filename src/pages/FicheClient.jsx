@@ -60,7 +60,6 @@ export default function FicheClient() {
           .from('client_interactions')
           .select('*')
           .eq('customer_id', clientId)
-          .eq('workspace_id', workspace.id)
           .order('created_at', { ascending: false })
       ])
 
@@ -120,11 +119,10 @@ export default function FicheClient() {
       const { error } = await supabase
         .from('client_interactions')
         .insert({
-          workspace_id: workspace.id,
           customer_id: clientId,
-          interaction_type: interactionForm.interaction_type,
-          notes: interactionForm.notes,
-          created_by: user?.id
+          type: interactionForm.interaction_type,
+          content: interactionForm.notes,
+          user_id: user?.id
         })
 
       if (error) throw error
@@ -436,17 +434,17 @@ export default function FicheClient() {
                 <div key={i.id} className="px-6 py-4">
                   <div className="flex items-start gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      i.interaction_type === 'appel' ? 'bg-green-100 text-green-600' :
-                      i.interaction_type === 'email' ? 'bg-blue-100 text-blue-600' :
-                      i.interaction_type === 'reunion' ? 'bg-purple-100 text-purple-600' :
+                      i.type === 'appel' ? 'bg-green-100 text-green-600' :
+                      i.type === 'email' ? 'bg-blue-100 text-blue-600' :
+                      i.type === 'reunion' ? 'bg-purple-100 text-purple-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
-                      {getInteractionIcon(i.interaction_type)}
+                      {getInteractionIcon(i.type)}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-semibold text-[#040741] text-sm">
-                          {interactionTypeLabel[i.interaction_type] || 'Note'}
+                          {interactionTypeLabel[i.type] || 'Note'}
                         </span>
                         <span className="text-xs text-gray-400">
                           {new Date(i.created_at).toLocaleDateString('fr-FR', {
@@ -454,7 +452,7 @@ export default function FicheClient() {
                           })}
                         </span>
                       </div>
-                      <p className="text-gray-600 text-sm">{i.notes}</p>
+                      <p className="text-gray-600 text-sm">{i.content}</p>
                     </div>
                   </div>
                 </div>

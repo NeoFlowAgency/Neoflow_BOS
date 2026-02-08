@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { getUserWorkspaces } from '../services/workspaceService'
 
@@ -8,10 +8,13 @@ export function WorkspaceProvider({ children }) {
   const [workspaces, setWorkspaces] = useState([])
   const [currentWorkspace, setCurrentWorkspace] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const loadedRef = useRef(false)
 
   const loadWorkspaces = async (uid) => {
     try {
       setLoading(true)
+      setError(null)
       const data = await getUserWorkspaces(uid)
       setWorkspaces(data)
 
@@ -22,17 +25,33 @@ export function WorkspaceProvider({ children }) {
       setCurrentWorkspace(ws || null)
       if (ws) localStorage.setItem('current_workspace_id', ws.id)
     } catch (err) {
-      console.error('Erreur chargement workspaces:', err)
+      console.error('[WorkspaceContext] Erreur chargement workspaces:', err.message)
+      setError(err.message)
+      setWorkspaces([])
+      setCurrentWorkspace(null)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && !loadedRef.current) {
+        loadedRef.current = true
+        loadWorkspaces(session.user.id)
+      } else if (!session) {
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        loadedRef.current = true
         loadWorkspaces(session.user.id)
       } else {
+        loadedRef.current = false
         setWorkspaces([])
         setCurrentWorkspace(null)
         setLoading(false)
@@ -61,6 +80,7 @@ export function WorkspaceProvider({ children }) {
       currentWorkspace,
       workspace: currentWorkspace,
       loading,
+      error,
       switchWorkspace,
       refreshWorkspaces
     }}>

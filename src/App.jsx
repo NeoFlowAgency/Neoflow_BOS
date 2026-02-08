@@ -13,6 +13,7 @@ import ListeDevis from './pages/ListeDevis'
 import ApercuDevis from './pages/ApercuDevis'
 import ListeClients from './pages/ListeClients'
 import FicheClient from './pages/FicheClient'
+import Produits from './pages/Produits'
 import Livraisons from './pages/Livraisons'
 import DashboardFinancier from './pages/DashboardFinancier'
 import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
@@ -118,6 +119,7 @@ function App() {
             <Route path="/devis" element={<ProtectedLayout><ListeDevis /></ProtectedLayout>} />
             <Route path="/clients/:clientId" element={<ProtectedLayout><FicheClient /></ProtectedLayout>} />
             <Route path="/clients" element={<ProtectedLayout><ListeClients /></ProtectedLayout>} />
+            <Route path="/produits" element={<ProtectedLayout><Produits /></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
             <Route path="/dashboard-financier" element={<ProtectedLayout><DashboardFinancier /></ProtectedLayout>} />
             <Route
