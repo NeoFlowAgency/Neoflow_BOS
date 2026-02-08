@@ -64,13 +64,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"p_workspace_id\": \"{{ $node['Webhook'].json.body.workspace_id }}\",\n  \"p_year\": {{ new Date().getFullYear() }}\n}",
+        "jsonBody": "={{ JSON.stringify({ p_workspace_id: $node['Webhook'].json.body.workspace_id, p_year: new Date().getFullYear() }) }}",
         "options": {}
       },
       "id": "77ffd45c-80b2-44f0-9da0-b285a98341fa",
       "name": "Get Quote Number",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.2,
       "position": [672, 64]
     },
     {

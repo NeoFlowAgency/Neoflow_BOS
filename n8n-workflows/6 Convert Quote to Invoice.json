@@ -37,13 +37,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"p_quote_id\": \"{{ $json.body.quote_id }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ p_quote_id: $json.body.quote_id }) }}",
         "options": {}
       },
       "id": "95de289c-ad22-4cc5-83af-07350b4079ae",
       "name": "Call Convert RPC",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.2,
       "position": [96, 80]
     },
     {

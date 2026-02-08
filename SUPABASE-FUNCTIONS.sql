@@ -2,10 +2,13 @@
 -- NeoFlow BOS - Supabase Functions
 -- Run this script in the Supabase SQL Editor
 -- ============================================================
+-- IMPORTANT: DROP existing functions first to allow return type changes.
+-- This is safe — workflows call these via RPC, names are unchanged.
 
 -- 1. Generate next invoice number for a workspace
 -- Format: {SLUG}-FACT-{YEAR}-{NNN}
 -- Example: MDLL-FACT-2026-001
+DROP FUNCTION IF EXISTS get_next_invoice_number(uuid, integer);
 CREATE OR REPLACE FUNCTION get_next_invoice_number(p_workspace_id uuid, p_year int)
 RETURNS text
 LANGUAGE plpgsql
@@ -37,6 +40,7 @@ $$;
 -- 2. Generate next quote number for a workspace
 -- Format: {SLUG}-DEV-{YEAR}-{NNN}
 -- Example: MDLL-DEV-2026-001
+DROP FUNCTION IF EXISTS get_next_quote_number(uuid, integer);
 CREATE OR REPLACE FUNCTION get_next_quote_number(p_workspace_id uuid, p_year int)
 RETURNS text
 LANGUAGE plpgsql
@@ -63,6 +67,7 @@ END;
 $$;
 
 -- 3. Convert a quote to an invoice (atomic operation)
+DROP FUNCTION IF EXISTS convert_quote_to_invoice(uuid);
 CREATE OR REPLACE FUNCTION convert_quote_to_invoice(p_quote_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql

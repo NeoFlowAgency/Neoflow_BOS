@@ -64,13 +64,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"p_workspace_id\": \"{{ $node['Webhook1'].json.body.workspace_id }}\",\n  \"p_year\": {{ new Date().getFullYear() }}\n}",
+        "jsonBody": "={{ JSON.stringify({ p_workspace_id: $node['Webhook1'].json.body.workspace_id, p_year: new Date().getFullYear() }) }}",
         "options": {}
       },
       "id": "13ee49b5-bed6-40de-af58-c7e8de89f0e2",
       "name": "Get Invoice Number",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.2,
       "position": [5872, 576]
     },
     {
