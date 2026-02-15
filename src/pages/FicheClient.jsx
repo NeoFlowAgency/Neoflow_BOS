@@ -4,6 +4,29 @@ import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
+const SIX_MONTHS = 6 * 30 * 24 * 60 * 60 * 1000
+const VIP_THRESHOLD = 5000
+
+function getClientStatus(invoices, isPriority) {
+  if (isPriority) return 'prioritaire'
+  if (!invoices || invoices.length === 0) return 'prospect'
+  const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
+  const paid = invoices.filter(i => normalize(i.status) === 'payee')
+  const totalCA = paid.reduce((sum, i) => sum + (parseFloat(i.total_ttc) || 0), 0)
+  if (totalCA >= VIP_THRESHOLD) return 'prioritaire'
+  const recentPaid = paid.some(i => i.paid_at && (Date.now() - new Date(i.paid_at).getTime()) < SIX_MONTHS)
+  if (recentPaid) return 'actif'
+  if (paid.length > 0) return 'inactif'
+  return 'prospect'
+}
+
+const STATUS_CONFIG = {
+  prospect: { label: 'Prospect', bg: 'bg-blue-100', text: 'text-blue-700', desc: 'Aucune facture payée' },
+  actif: { label: 'Actif', bg: 'bg-green-100', text: 'text-green-700', desc: 'Facture payée récemment' },
+  inactif: { label: 'Inactif', bg: 'bg-gray-100', text: 'text-gray-600', desc: 'Pas d\'activité récente' },
+  prioritaire: { label: 'Prioritaire', bg: 'bg-yellow-100', text: 'text-yellow-700', desc: 'Client prioritaire' }
+}
+
 export default function FicheClient() {
   const { clientId } = useParams()
   const navigate = useNavigate()
@@ -17,13 +40,10 @@ export default function FicheClient() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saveLoading, setSaveLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('factures')
+  const [activeTab, setActiveTab] = useState('resume')
 
-  // Interaction modal
   const [showInteractionModal, setShowInteractionModal] = useState(false)
-  const [interactionForm, setInteractionForm] = useState({
-    interaction_type: 'note', notes: ''
-  })
+  const [interactionForm, setInteractionForm] = useState({ interaction_type: 'note', notes: '' })
   const [interactionLoading, setInteractionLoading] = useState(false)
 
   useEffect(() => {
@@ -60,6 +80,7 @@ export default function FicheClient() {
           .from('client_interactions')
           .select('*')
           .eq('customer_id', clientId)
+          .eq('workspace_id', workspace.id)
           .order('created_at', { ascending: false })
       ])
 
@@ -120,6 +141,7 @@ export default function FicheClient() {
         .from('client_interactions')
         .insert({
           customer_id: clientId,
+          workspace_id: workspace.id,
           type: interactionForm.interaction_type,
           content: interactionForm.notes,
           user_id: user?.id
@@ -141,38 +163,19 @@ export default function FicheClient() {
   const getInteractionIcon = (type) => {
     switch (type) {
       case 'appel':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-          </svg>
-        )
+        return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
       case 'email':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        )
+        return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
       case 'reunion':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        )
+        return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
       default:
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        )
+        return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
     }
   }
 
-  const interactionTypeLabel = {
-    appel: 'Appel',
-    email: 'Email',
-    reunion: 'Réunion',
-    note: 'Note'
-  }
+  const interactionTypeLabel = { appel: 'Appel', email: 'Email', reunion: 'Réunion', note: 'Note' }
+
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
 
   if (loading) {
     return (
@@ -198,26 +201,93 @@ export default function FicheClient() {
     )
   }
 
-  const totalFactures = factures.reduce((sum, f) => sum + (f.total_ttc || 0), 0)
-  const facturesPayees = factures.filter(f => {
-    const s = f.status?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
-    return s === 'payee'
-  })
+  const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
+  const facturesPayees = factures.filter(f => normalize(f.status) === 'payee')
+  const totalCA = facturesPayees.reduce((sum, f) => sum + (parseFloat(f.total_ttc) || 0), 0)
+  const status = getClientStatus(factures, client.is_priority)
+  const statusCfg = STATUS_CONFIG[status]
+
+  // Build unified timeline
+  const timeline = [
+    ...factures.map(f => ({
+      type: 'facture',
+      date: f.created_at,
+      label: `Facture ${f.invoice_number || f.id?.slice(0, 6)}`,
+      detail: `${f.total_ttc?.toFixed(2)} € — ${f.status || 'brouillon'}`,
+      color: 'bg-blue-100 text-blue-600',
+      id: f.id,
+      link: `/factures/${f.id}`
+    })),
+    ...devis.map(d => ({
+      type: 'devis',
+      date: d.created_at,
+      label: `Devis ${d.quote_ref || d.id?.slice(0, 6)}`,
+      detail: `${(d.total_amount || d.total_ttc)?.toFixed(2)} € — ${d.status || 'draft'}`,
+      color: 'bg-purple-100 text-purple-600',
+      id: d.id,
+      link: `/devis/${d.id}`
+    })),
+    ...interactions.map(i => ({
+      type: 'interaction',
+      date: i.created_at,
+      label: interactionTypeLabel[i.type] || 'Note',
+      detail: i.content?.slice(0, 80) + (i.content?.length > 80 ? '...' : ''),
+      color: i.type === 'appel' ? 'bg-green-100 text-green-600' : i.type === 'email' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600',
+      id: i.id,
+      link: null
+    }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20)
+
+  const lastInteraction = interactions[0]
+  const lastFacture = factures[0]
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center">
-            <span className="text-2xl font-bold text-[#313ADF]">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center">
+            <span className="text-xl md:text-2xl font-bold text-[#313ADF]">
               {client.first_name?.charAt(0)}{client.last_name?.charAt(0)}
             </span>
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-[#040741]">
-              {client.first_name} {client.last_name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
+                {client.first_name} {client.last_name}
+              </h1>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.bg} ${statusCfg.text}`}>
+                {statusCfg.label}
+              </span>
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const newVal = !client.is_priority
+                  const { error } = await supabase
+                    .from('customers')
+                    .update({ is_priority: newVal })
+                    .eq('id', clientId)
+                    .eq('workspace_id', workspace.id)
+                  if (error) {
+                    toast.error('Erreur lors de la mise à jour')
+                  } else {
+                    setClient({ ...client, is_priority: newVal })
+                    toast.success(newVal ? 'Client marqué prioritaire' : 'Priorité retirée')
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                  client.is_priority
+                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title={client.is_priority ? 'Retirer le statut prioritaire' : 'Marquer comme prioritaire'}
+              >
+                <svg className="w-3.5 h-3.5" fill={client.is_priority ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                {client.is_priority ? 'Prioritaire' : 'Prioritaire ?'}
+              </button>
+            </div>
             {client.company_name && (
               <p className="text-[#313ADF] font-medium">{client.company_name}</p>
             )}
@@ -235,7 +305,6 @@ export default function FicheClient() {
             </svg>
             Nouvelle interaction
           </button>
-
           {!editing ? (
             <button
               onClick={() => setEditing(true)}
@@ -248,17 +317,10 @@ export default function FicheClient() {
             </button>
           ) : (
             <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saveLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleSave} disabled={saveLoading} className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50">
                 {saveLoading ? 'Sauvegarde...' : 'Sauvegarder'}
               </button>
-              <button
-                onClick={() => { setEditing(false); setEditForm(client) }}
-                className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-              >
+              <button onClick={() => { setEditing(false); setEditForm(client) }} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors">
                 Annuler
               </button>
             </div>
@@ -266,27 +328,7 @@ export default function FicheClient() {
         </div>
       </div>
 
-      {/* Stats rapides */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
-          <p className="text-gray-500 text-sm">Total facturé</p>
-          <p className="text-2xl font-bold text-[#313ADF]">{totalFactures.toLocaleString('fr-FR')} €</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
-          <p className="text-gray-500 text-sm">Factures</p>
-          <p className="text-2xl font-bold text-[#040741]">{factures.length}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
-          <p className="text-gray-500 text-sm">Devis</p>
-          <p className="text-2xl font-bold text-[#040741]">{devis.length}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
-          <p className="text-gray-500 text-sm">Interactions</p>
-          <p className="text-2xl font-bold text-[#040741]">{interactions.length}</p>
-        </div>
-      </div>
-
-      {/* Infos client (mode édition) */}
+      {/* Edit form */}
       {editing && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-8">
           <h2 className="text-xl font-bold text-[#040741] mb-4">Informations client</h2>
@@ -320,8 +362,9 @@ export default function FicheClient() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
+      <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
         {[
+          { key: 'resume', label: 'Résumé' },
           { key: 'factures', label: `Factures (${factures.length})` },
           { key: 'devis', label: `Devis (${devis.length})` },
           { key: 'interactions', label: `Interactions (${interactions.length})` }
@@ -340,7 +383,121 @@ export default function FicheClient() {
         ))}
       </div>
 
-      {/* Tab Content - Factures */}
+      {/* Tab: Résumé */}
+      {activeTab === 'resume' && (
+        <div className="space-y-6">
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-[#040741] to-[#313ADF] rounded-2xl p-5 text-white shadow-lg">
+              <p className="text-white/70 text-sm">CA Total</p>
+              <p className="text-2xl font-bold">{totalCA.toLocaleString('fr-FR')} €</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
+              <p className="text-gray-500 text-sm">Factures payées</p>
+              <p className="text-2xl font-bold text-green-600">{facturesPayees.length}/{factures.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
+              <p className="text-gray-500 text-sm">Devis</p>
+              <p className="text-2xl font-bold text-[#040741]">{devis.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
+              <p className="text-gray-500 text-sm">Statut</p>
+              <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold mt-1 ${statusCfg.bg} ${statusCfg.text}`}>
+                {statusCfg.label}
+              </span>
+              <p className="text-xs text-gray-400 mt-1">{statusCfg.desc}</p>
+            </div>
+          </div>
+
+          {/* Quick info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
+              <h3 className="font-bold text-[#040741] mb-3">Dernière facture</h3>
+              {lastFacture ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-[#040741]">{lastFacture.invoice_number || `FAC-${lastFacture.id?.slice(0, 6)}`}</p>
+                    <p className="text-sm text-gray-500">{formatDate(lastFacture.created_at)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[#313ADF]">{lastFacture.total_ttc?.toFixed(2)} €</p>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      normalize(lastFacture.status) === 'payee' ? 'bg-green-100 text-green-600' :
+                      normalize(lastFacture.status) === 'envoyee' ? 'bg-blue-100 text-blue-600' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {lastFacture.status || 'brouillon'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">Aucune facture</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
+              <h3 className="font-bold text-[#040741] mb-3">Dernière interaction</h3>
+              {lastInteraction ? (
+                <div className="flex items-start gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    lastInteraction.type === 'appel' ? 'bg-green-100 text-green-600' :
+                    lastInteraction.type === 'email' ? 'bg-blue-100 text-blue-600' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {getInteractionIcon(lastInteraction.type)}
+                  </div>
+                  <div>
+                    <p className="font-medium text-[#040741]">{interactionTypeLabel[lastInteraction.type] || 'Note'}</p>
+                    <p className="text-sm text-gray-500">{formatDate(lastInteraction.created_at)}</p>
+                    <p className="text-sm text-gray-600 mt-1">{lastInteraction.content?.slice(0, 100)}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">Aucune interaction</p>
+              )}
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h3 className="text-lg font-bold text-[#040741] mb-4">Activité récente</h3>
+            {timeline.length === 0 ? (
+              <p className="text-gray-400 text-center py-4">Aucune activité</p>
+            ) : (
+              <div className="space-y-0">
+                {timeline.map((item, i) => (
+                  <div key={`${item.type}-${item.id}`} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                        {item.type === 'facture' ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        ) : item.type === 'devis' ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        ) : (
+                          getInteractionIcon(item.type === 'interaction' ? 'note' : item.type)
+                        )}
+                      </div>
+                      {i < timeline.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-1" />}
+                    </div>
+                    <div
+                      className={`pb-4 flex-1 ${item.link ? 'cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors' : ''}`}
+                      onClick={() => item.link && navigate(item.link)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-[#040741] text-sm">{item.label}</p>
+                        <span className="text-xs text-gray-400">{formatDate(item.date)}</span>
+                      </div>
+                      <p className="text-sm text-gray-500">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Factures */}
       {activeTab === 'factures' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
           {factures.length === 0 ? (
@@ -348,23 +505,17 @@ export default function FicheClient() {
           ) : (
             <div className="divide-y divide-gray-100">
               {factures.map(f => (
-                <div
-                  key={f.id}
-                  onClick={() => navigate(`/factures/${f.id}`)}
-                  className="px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors flex items-center justify-between"
-                >
+                <div key={f.id} onClick={() => navigate(`/factures/${f.id}`)} className="px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors flex items-center justify-between">
                   <div>
                     <p className="font-bold text-[#040741]">{f.invoice_number || `FAC-${f.id?.slice(0, 6)}`}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(f.created_at).toLocaleDateString('fr-FR')}
-                    </p>
+                    <p className="text-sm text-gray-500">{formatDate(f.created_at)}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-[#313ADF]">{f.total_ttc?.toFixed(2)} €</p>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      f.status === 'payée' ? 'bg-green-100 text-green-600' :
-                      f.status === 'envoyée' ? 'bg-blue-100 text-blue-600' :
-                      f.status === 'annulée' ? 'bg-red-100 text-red-600' :
+                      normalize(f.status) === 'payee' ? 'bg-green-100 text-green-600' :
+                      normalize(f.status) === 'envoyee' ? 'bg-blue-100 text-blue-600' :
+                      normalize(f.status) === 'annulee' ? 'bg-red-100 text-red-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {f.status || 'brouillon'}
@@ -377,7 +528,7 @@ export default function FicheClient() {
         </div>
       )}
 
-      {/* Tab Content - Devis */}
+      {/* Tab: Devis */}
       {activeTab === 'devis' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
           {devis.length === 0 ? (
@@ -385,24 +536,17 @@ export default function FicheClient() {
           ) : (
             <div className="divide-y divide-gray-100">
               {devis.map(d => (
-                <div
-                  key={d.id}
-                  onClick={() => navigate(`/devis/${d.id}`)}
-                  className="px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors flex items-center justify-between"
-                >
+                <div key={d.id} onClick={() => navigate(`/devis/${d.id}`)} className="px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors flex items-center justify-between">
                   <div>
                     <p className="font-bold text-[#040741]">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(d.created_at).toLocaleDateString('fr-FR')}
-                    </p>
+                    <p className="text-sm text-gray-500">{formatDate(d.created_at)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#313ADF]">{d.total_amount?.toFixed(2)} €</p>
+                    <p className="font-bold text-[#313ADF]">{(d.total_amount || d.total_ttc)?.toFixed(2)} €</p>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                       d.status === 'accepted' ? 'bg-green-100 text-green-600' :
                       d.status === 'sent' ? 'bg-blue-100 text-blue-600' :
                       d.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                      d.status === 'expired' ? 'bg-orange-100 text-orange-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {d.status === 'accepted' ? 'Accepté' : d.status === 'sent' ? 'Envoyé' : d.status === 'rejected' ? 'Refusé' : d.status === 'expired' ? 'Expiré' : 'Brouillon'}
@@ -415,16 +559,13 @@ export default function FicheClient() {
         </div>
       )}
 
-      {/* Tab Content - Interactions */}
+      {/* Tab: Interactions */}
       {activeTab === 'interactions' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
           {interactions.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
               <p className="mb-4">Aucune interaction enregistrée</p>
-              <button
-                onClick={() => setShowInteractionModal(true)}
-                className="bg-[#313ADF]/10 text-[#313ADF] px-6 py-2 rounded-xl font-medium hover:bg-[#313ADF]/20 transition-colors"
-              >
+              <button onClick={() => setShowInteractionModal(true)} className="bg-[#313ADF]/10 text-[#313ADF] px-6 py-2 rounded-xl font-medium hover:bg-[#313ADF]/20 transition-colors">
                 Ajouter une interaction
               </button>
             </div>
@@ -443,13 +584,9 @@ export default function FicheClient() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-[#040741] text-sm">
-                          {interactionTypeLabel[i.type] || 'Note'}
-                        </span>
+                        <span className="font-semibold text-[#040741] text-sm">{interactionTypeLabel[i.type] || 'Note'}</span>
                         <span className="text-xs text-gray-400">
-                          {new Date(i.created_at).toLocaleDateString('fr-FR', {
-                            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                          })}
+                          {new Date(i.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       <p className="text-gray-600 text-sm">{i.content}</p>

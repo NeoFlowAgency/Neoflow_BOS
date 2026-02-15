@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { envoyerEmail, genererPdf, creerLivraison, relancePaiement } from '../lib/api'
+import { generatePdf, sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -69,7 +69,11 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await envoyerEmail(factureId)
+      await sendEmail(
+        facture.customers.email,
+        `Facture ${facture.invoice_number}`,
+        `<h1>Votre facture</h1><p>Veuillez trouver ci-joint votre facture n° ${facture.invoice_number} d'un montant de ${facture.total_ttc?.toFixed(2)} €.</p>`
+      )
       setActionMessage({ type: 'success', text: 'Email envoyé avec succès !' })
       toast.success('Email envoyé avec succès !')
 
@@ -87,7 +91,7 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      const response = await genererPdf(factureId)
+      const response = await generatePdf('invoice', factureId)
 
       if (response.pdf_url) {
         window.open(response.pdf_url, '_blank')
@@ -107,7 +111,14 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await creerLivraison({ invoice_id: factureId, delivery_address: facture?.customers?.address })
+      const { error } = await supabase.from('deliveries').insert({
+        invoice_id: factureId,
+        workspace_id: workspace.id,
+        scheduled_date: new Date().toISOString().split('T')[0],
+        delivery_address: facture?.customers?.address,
+        status: 'en_cours'
+      })
+      if (error) throw error
       setActionMessage({ type: 'success', text: 'Livraison créée !' })
       toast.success('Livraison créée !')
     } catch (err) {
@@ -118,15 +129,19 @@ export default function ApercuFacture() {
   }
 
   const handleMarkPaid = async () => {
+    if (!window.confirm('Confirmer le paiement de cette facture ?')) return
+
     setActionLoading('paid')
     setActionMessage({ type: '', text: '' })
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('invoices')
         .update({ status: 'payée', paid_at: new Date().toISOString() })
         .eq('id', factureId)
         .eq('workspace_id', workspace.id)
+
+      if (error) throw error
 
       setActionMessage({ type: 'success', text: 'Facture marquée comme payée !' })
       toast.success('Facture marquée comme payée !')
@@ -139,11 +154,20 @@ export default function ApercuFacture() {
   }
 
   const handleSendReminder = async () => {
+    if (!facture?.customers?.email) {
+      setActionMessage({ type: 'error', text: 'Pas d\'email client disponible pour la relance' })
+      return
+    }
+
     setActionLoading('reminder')
     setActionMessage({ type: '', text: '' })
 
     try {
-      await relancePaiement(factureId, workspace.id)
+      await sendEmail(
+        facture.customers.email,
+        `Relance - Facture ${facture.invoice_number}`,
+        `<h1>Relance de paiement</h1><p>Nous vous rappelons que votre facture n° ${facture.invoice_number} d'un montant de ${facture.total_ttc?.toFixed(2)} € est en attente de règlement.</p><p>Merci de procéder au paiement dans les meilleurs délais.</p>`
+      )
       setActionMessage({ type: 'success', text: 'Relance de paiement envoyée !' })
       toast.success('Relance envoyée !')
     } catch (err) {

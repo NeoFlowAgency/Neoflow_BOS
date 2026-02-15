@@ -1,17 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isMobile, setIsMobile] = useState(false)
-  const { workspaces, currentWorkspace, switchWorkspace } = useWorkspace()
-  const [wsDropdownOpen, setWsDropdownOpen] = useState(false)
-  const wsDropdownRef = useRef(null)
+  const { currentWorkspace } = useWorkspace()
 
-  // Detect mobile screen
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -21,28 +17,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Close sidebar on mobile when route changes
   useEffect(() => {
     if (isMobile) {
       setIsOpen(false)
     }
   }, [location.pathname, isMobile, setIsOpen])
-
-  // Close workspace dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
-        setWsDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    navigate('/login')
-  }
 
   const NavItem = ({ to, icon, label, end }) => (
     <NavLink
@@ -62,7 +41,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     </NavLink>
   )
 
-  // Mobile hamburger button
   const MobileToggle = () => (
     <button
       onClick={() => setIsOpen(!isOpen)}
@@ -81,7 +59,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     </button>
   )
 
-  // Desktop toggle button
   const DesktopToggle = () => (
     <button
       onClick={() => setIsOpen(!isOpen)}
@@ -101,10 +78,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
   return (
     <>
-      {/* Mobile toggle button */}
       <MobileToggle />
 
-      {/* Overlay for mobile */}
       {isMobile && isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -112,7 +87,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-[#040741] to-[#0a0b52] flex flex-col p-5 transition-all duration-300 z-40
           ${isMobile
@@ -120,113 +94,28 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             : isOpen ? 'w-[240px]' : 'w-[80px]'
           }`}
       >
-        {/* Desktop toggle */}
         <DesktopToggle />
 
-        {/* Logo Neoflow Agency - 2 versions selon état sidebar */}
+        {/* Logo */}
         <button
           onClick={() => navigate('/dashboard')}
           className={`mb-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden ${
             isOpen || isMobile ? 'p-3' : 'p-2'
           }`}
         >
-          {/* Logo complet quand sidebar ouverte */}
           {(isOpen || isMobile) && (
-            <img
-              src="/logo-neoflow-full.png"
-              alt="Neoflow Agency"
-              className="h-14 w-auto object-contain"
-            />
+            <img src="/logo-neoflow-full.png" alt="Neoflow Agency" className="h-14 w-auto object-contain" />
           )}
-          {/* Icône seule quand sidebar fermée */}
           {!isOpen && !isMobile && (
-            <img
-              src="/logo-neoflow-icon.png"
-              alt="Neoflow Agency"
-              className="h-10 w-10 object-contain"
-            />
+            <img src="/logo-neoflow-icon.png" alt="Neoflow Agency" className="h-10 w-10 object-contain" />
           )}
         </button>
 
-        {/* Workspace Selector */}
-        {workspaces.length > 0 && (
-          <div className="mb-4 relative" ref={wsDropdownRef}>
-            {(isOpen || isMobile) ? (
-              <button
-                onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 hover:bg-white/15 rounded-xl text-white transition-colors"
-              >
-                <div className="w-8 h-8 bg-[#313ADF] rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold">
-                  {currentWorkspace?.name?.charAt(0)?.toUpperCase() || 'W'}
-                </div>
-                <span className="text-sm font-medium truncate flex-1 text-left">
-                  {currentWorkspace?.name || 'Workspace'}
-                </span>
-                <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            ) : (
-              <button
-                onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
-                className="w-full flex items-center justify-center p-2 bg-white/10 hover:bg-white/15 rounded-xl transition-colors"
-                title={currentWorkspace?.name || 'Workspace'}
-              >
-                <div className="w-8 h-8 bg-[#313ADF] rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                  {currentWorkspace?.name?.charAt(0)?.toUpperCase() || 'W'}
-                </div>
-              </button>
-            )}
-
-            {wsDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
-                <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Workspaces
-                </p>
-                {workspaces.map(ws => (
-                  <button
-                    key={ws.id}
-                    onClick={() => {
-                      switchWorkspace(ws.id)
-                      setWsDropdownOpen(false)
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors ${
-                      ws.id === currentWorkspace?.id ? 'bg-[#313ADF]/5' : ''
-                    }`}
-                  >
-                    <div className="w-7 h-7 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-[#313ADF]">
-                        {ws.name?.charAt(0)?.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#040741] truncate">{ws.name}</p>
-                      <p className="text-xs text-gray-400">{ws.role}</p>
-                    </div>
-                    {ws.id === currentWorkspace?.id && (
-                      <svg className="w-4 h-4 text-[#313ADF] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-                <hr className="my-1" />
-                <button
-                  onClick={() => {
-                    setWsDropdownOpen(false)
-                    navigate('/onboarding/workspace')
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-[#313ADF] hover:bg-[#313ADF]/5 transition-colors"
-                >
-                  <div className="w-7 h-7 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium">Nouveau workspace</span>
-                </button>
-              </div>
-            )}
+        {/* Workspace name badge */}
+        {currentWorkspace && (isOpen || isMobile) && (
+          <div className="mb-4 px-3 py-2 bg-white/10 rounded-xl">
+            <p className="text-white/50 text-xs font-medium uppercase tracking-wider">Workspace</p>
+            <p className="text-white text-sm font-semibold truncate">{currentWorkspace.name}</p>
           </div>
         )}
 
@@ -242,15 +131,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             label="Accueil"
           />
           <NavItem
-            to="/factures/nouvelle"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            }
-            label="Nouvelle facture"
-          />
-          <NavItem
             to="/factures"
             end
             icon={
@@ -258,7 +138,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             }
-            label="Mes factures"
+            label="Factures"
           />
           <NavItem
             to="/devis"
@@ -268,7 +148,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             }
-            label="Mes devis"
+            label="Devis"
           />
           <NavItem
             to="/clients"
@@ -308,19 +188,17 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           />
         </nav>
 
-        {/* Logout button */}
-        <button
-          onClick={handleLogout}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-white/50 hover:text-white hover:bg-red-500/20 transition-all ${
-            !isOpen && !isMobile ? 'justify-center' : ''
-          }`}
-          title={!isOpen ? 'Déconnexion' : ''}
-        >
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          {(isOpen || isMobile) && <span className="text-sm">Déconnexion</span>}
-        </button>
+        {/* Settings */}
+        <NavItem
+          to="/settings"
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
+          label="Paramètres"
+        />
       </aside>
     </>
   )

@@ -1,12 +1,14 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
 
 export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -16,6 +18,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMessage, setResetMessage] = useState('')
   const [resetError, setResetError] = useState('')
+  const [resetCooldown, setResetCooldown] = useState(0)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -36,14 +39,27 @@ export default function Login() {
         navigate('/dashboard')
       }
     } catch (err) {
-      if (err.message.includes('Invalid login credentials')) {
-        setError('Email ou mot de passe incorrect')
-      } else {
-        setError(err.message || 'Erreur de connexion')
-      }
+      setError(translateError(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  const cooldownRef = useRef(null)
+
+  useEffect(() => {
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current) }
+  }, [])
+
+  const startCooldown = () => {
+    setResetCooldown(60)
+    if (cooldownRef.current) clearInterval(cooldownRef.current)
+    cooldownRef.current = setInterval(() => {
+      setResetCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return prev - 1
+      })
+    }, 1000)
   }
 
   const handleResetPassword = async (e) => {
@@ -59,14 +75,17 @@ export default function Login() {
 
       if (error) throw error
 
-      setResetMessage('Un email de réinitialisation a été envoyé. Vérifiez votre boîte mail.')
-      setTimeout(() => {
-        setShowResetModal(false)
-        setResetEmail('')
-        setResetMessage('')
-      }, 3000)
+      console.info('[ResetPassword] Email envoyé à:', resetEmail)
+      setResetMessage(`Un email de réinitialisation a été envoyé à ${resetEmail}. Vérifiez votre boîte mail (et vos spams).`)
+      startCooldown()
     } catch (err) {
-      setResetError(err.message || 'Erreur lors de l\'envoi de l\'email')
+      const msg = err.message || ''
+      if (msg.includes('rate limit') || msg.includes('only request this once') || msg.includes('security purposes')) {
+        setResetError('Veuillez patienter 60 secondes avant de refaire une demande.')
+        startCooldown()
+      } else {
+        setResetError('Une erreur est survenue. Veuillez réessayer.')
+      }
     } finally {
       setResetLoading(false)
     }
@@ -86,7 +105,7 @@ export default function Login() {
       </div>
 
       {/* Formulaire de connexion */}
-      <div className="w-full max-w-md bg-white border-2 border-[#040741] rounded-3xl p-10 shadow-xl relative z-10">
+      <div className="w-full max-w-md bg-white border-2 border-[#040741] rounded-3xl p-6 md:p-10 shadow-xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-[#040741]">Connexion</h1>
           <p className="text-gray-500 mt-2">Accédez à votre espace</p>
@@ -111,14 +130,33 @@ export default function Login() {
             <label className="block text-sm font-semibold text-[#040741] mb-2">
               Mot de passe
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] transition-all"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-12 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="text-right">
@@ -156,6 +194,13 @@ export default function Login() {
             ) : 'Se connecter'}
           </button>
         </form>
+
+        <p className="text-center text-gray-500 text-sm mt-6">
+          Pas encore de compte ?{' '}
+          <Link to="/signup" className="text-[#313ADF] font-medium hover:underline">
+            Créer un compte
+          </Link>
+        </p>
       </div>
 
       {/* Modal Reset Password */}
@@ -215,10 +260,10 @@ export default function Login() {
 
               <button
                 type="submit"
-                disabled={resetLoading}
-                className="w-full bg-[#313ADF] text-white py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50"
+                disabled={resetLoading || resetCooldown > 0}
+                className="w-full bg-[#313ADF] text-white py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {resetLoading ? 'Envoi en cours...' : 'Envoyer le lien'}
+                {resetLoading ? 'Envoi en cours...' : resetCooldown > 0 ? `Renvoyer dans ${resetCooldown}s` : 'Envoyer le lien'}
               </button>
             </form>
           </div>
@@ -226,9 +271,11 @@ export default function Login() {
       )}
 
       {/* Footer */}
-      <p className="mt-8 text-gray-400 text-sm relative z-10">
-        Propulsé par Neoflow Agency
-      </p>
+      <div className="mt-8 text-gray-400 text-sm relative z-10 flex items-center gap-3">
+        <span>Propulsé par Neoflow Agency</span>
+        <span>·</span>
+        <Link to="/mentions-legales" className="hover:text-[#313ADF] transition-colors">Mentions légales</Link>
+      </div>
     </div>
   )
 }

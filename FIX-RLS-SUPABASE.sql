@@ -83,7 +83,7 @@ CREATE POLICY "workspaces_delete"
   ON public.workspaces FOR DELETE
   USING (id IN (
     SELECT workspace_id FROM public.workspace_users
-    WHERE user_id = auth.uid() AND role = 'admin'
+    WHERE user_id = auth.uid() AND role = 'owner'
   ));
 
 -- =============================================

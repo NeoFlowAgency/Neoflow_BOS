@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import WelcomeTutorial from '../components/WelcomeTutorial'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { workspace, loading: wsLoading } = useWorkspace()
   const [user, setUser] = useState(null)
+  const [showTutorial, setShowTutorial] = useState(false)
   const [stats, setStats] = useState({
     totalFactures: 0,
     livraisonsEnCours: 0,
@@ -48,12 +50,20 @@ export default function Dashboard() {
       setStats({
         totalFactures: invoicesList.length,
         livraisonsEnCours: deliveriesList.filter(l => l.status === 'en_cours').length,
-        totalCA: invoicesList.reduce((sum, d) => sum + (d.total_ttc || 0), 0),
+        totalCA: invoicesList.filter(d => {
+          const s = d.status?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
+          return s === 'payee'
+        }).reduce((sum, d) => sum + (d.total_ttc || 0), 0),
         facturesEnAttente: invoicesList.filter(d => d.status === 'brouillon' || d.status === 'envoyée').length,
         totalDevis: quotesResult.count || 0,
         totalClients: customersResult.count || 0
       })
       setRecentInvoices(recentResult.data || [])
+
+      // Show tutorial on first visit
+      if (!localStorage.getItem('neoflow_tuto_done')) {
+        setShowTutorial(true)
+      }
     } catch (err) {
       console.error('[Dashboard] Erreur chargement données:', err.message, err)
     } finally {
@@ -102,10 +112,12 @@ export default function Dashboard() {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur'
 
   return (
-    <div className="p-8 min-h-screen">
+    <>
+      {showTutorial && <WelcomeTutorial onClose={() => setShowTutorial(false)} />}
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header de bienvenue */}
       <div className="mb-10">
-        <h1 className="text-4xl font-bold text-[#040741] mb-2">
+        <h1 className="text-2xl md:text-4xl font-bold text-[#040741] mb-2">
           Bonjour, {userName} !
         </h1>
         <p className="text-gray-500 text-lg">
@@ -204,8 +216,8 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
             }
-            title="Livraisons"
-            description="Gérer les livraisons"
+            title="Nouvelle livraison"
+            description="Créer une nouvelle livraison"
             onClick={() => navigate('/livraisons')}
             gradient="bg-gradient-to-br from-[#1a1a5e] to-[#313ADF]"
           />
@@ -278,5 +290,6 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+    </>
   )
 }

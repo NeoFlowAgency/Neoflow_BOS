@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerLivraison } from '../lib/api'
-import { jobService } from '../services/jobService'
+import { createInvoice } from '../services/invoiceService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
-
-const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-invoice'
 
 export default function CreerFacture() {
   const navigate = useNavigate()
   const { workspace } = useWorkspace()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -195,91 +194,92 @@ export default function CreerFacture() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
+      // Auto-create client if new (no existing ID)
+      let clientId = client.id
+      if (!clientId) {
+        // Check if customer already exists by phone + workspace
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('phone', client.telephone)
+          .limit(1)
+          .single()
+
+        if (existing?.id) {
+          // Update existing customer
+          await supabase
+            .from('customers')
+            .update({
+              first_name: client.prenom,
+              last_name: client.nom,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .eq('id', existing.id)
+          clientId = existing.id
+        } else {
+          // Insert new customer
+          const { data: newCustomer, error: custError } = await supabase
+            .from('customers')
+            .insert({
+              workspace_id: workspace.id,
+              first_name: client.prenom,
+              last_name: client.nom,
+              phone: client.telephone,
+              email: client.email || null,
+              address: client.adresse,
+              default_delivery_address: client.adresse
+            })
+            .select('id')
+            .single()
+          if (custError) throw new Error('Erreur création client: ' + custError.message)
+          clientId = newCustomer.id
+        }
+      }
+
       const discountAmount = Number(totaux.montantRemise) || 0
 
-      const invoicePayload = {
-        customer: {
-          id: client.id || null,
-          last_name: client.nom,
-          first_name: client.prenom,
-          phone: client.telephone,
-          email: client.email || null,
-          address: client.adresse,
-          default_delivery_address: client.adresse
-        },
-        invoice: {
-          discount_global: discountAmount,
-          discount_type: remiseType || 'percent',
-          notes: notes || '',
-          validity_days: 30,
-          status: 'brouillon',
-          has_delivery: avecLivraison || false,
-          delivery_date: dateLivraison || null,
-          subtotal_ht: totaux.total_ht,
-          total_tva: totaux.montant_tva,
-          total_ttc: totaux.total_ttc
-        },
-        items: lignesValides.map((l, index) => {
-          const produit = produits.find(p => p.id === l.produit_id)
-          return {
-            product_id: l.produit_id,
-            description: produit?.name || l.product_name || '',
-            quantity: parseInt(l.quantity),
-            unit_price_ht: l.unit_price,
-            tax_rate: produit?.tax_rate ?? 20,
-            total_ht: l.total,
-            position: index + 1
-          }
-        })
-      }
-
-      // Step 1: Create job in Supabase (workspace_id guaranteed)
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert({
-          workspace_id: workspace.id,
-          job_type: 'create_invoice',
-          status: 'pending',
-          payload: invoicePayload,
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
-
-      // Step 2: Notify n8n (fire-and-forget — don't block on failure)
-      fetch(N8N_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: job.id,
-          workspace_id: workspace.id,
-          user_id: user.id,
-          ...invoicePayload
-        })
-      }).catch(err => console.warn('[CreerFacture] n8n notification failed (non-blocking):', err.message))
-
-      // Step 3: Poll job until n8n worker completes it
-      const jobResult = await jobService.pollJobStatus(job.id, 30)
-
-      if (jobResult.success) {
-        const result = typeof jobResult.result === 'string'
-          ? JSON.parse(jobResult.result)
-          : jobResult.result || {}
-
-        const factureId = result.invoice_id || result.id || job.id
-
-        if (avecLivraison && factureId && factureId !== job.id) {
-          try { await creerLivraison({ invoice_id: factureId, workspace_id: workspace.id }) } catch (e) { console.warn('Erreur livraison:', e) }
+      const items = lignesValides.map((l, index) => {
+        const produit = produits.find(p => p.id === l.produit_id)
+        return {
+          product_id: l.produit_id,
+          description: produit?.name || l.product_name || '',
+          quantity: parseInt(l.quantity),
+          unit_price_ht: l.unit_price,
+          tax_rate: produit?.tax_rate ?? 20,
+          total_ht: l.total,
+          position: index + 1
         }
+      })
 
-        navigate(`/factures/${factureId}`)
-      } else {
-        // Job timed out or failed — navigate to invoice list
-        console.warn('[CreerFacture] Job not completed yet:', jobResult.error)
-        navigate('/factures')
+      const invoice = await createInvoice(workspace.id, user.id, clientId, items, {
+        discount_global: discountAmount,
+        discount_type: remiseType || 'percent',
+        notes: notes || '',
+        validity_days: 30,
+        has_delivery: avecLivraison || false,
+        delivery_date: dateLivraison || null,
+        subtotal_ht: totaux.total_ht,
+        total_tva: totaux.montant_tva,
+        total_ttc: totaux.total_ttc
+      })
+
+      if (avecLivraison && invoice.id) {
+        try {
+          await supabase.from('deliveries').insert({
+            invoice_id: invoice.id,
+            workspace_id: workspace.id,
+            status: 'en_cours'
+          })
+        } catch (e) {
+          console.warn('[CreerFacture] Erreur création livraison:', e)
+          toast.info('Facture créée mais erreur lors de la création de la livraison')
+        }
       }
+
+      toast.success('Facture créée avec succès !')
+      navigate(`/factures/${invoice.id}`)
     } catch (err) {
       console.error('Erreur création facture:', err.message)
       if (err.message.includes('Failed to fetch')) {
@@ -293,10 +293,10 @@ export default function CreerFacture() {
   }
 
   return (
-    <div className="p-8 min-h-screen max-w-5xl">
+    <div className="p-4 md:p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
         <p className="text-gray-500">Créer une facture pour un client</p>
       </div>
 
@@ -310,7 +310,7 @@ export default function CreerFacture() {
       )}
 
       {/* Section Information Client */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6 overflow-visible">
         <h2 className="text-xl font-bold text-[#040741] mb-6 flex items-center gap-2">
           <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

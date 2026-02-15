@@ -72,11 +72,11 @@ export default function ListeDevis() {
   }
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes devis</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Mes devis</h1>
           <p className="text-gray-500">{devis.length} devis au total</p>
         </div>
         <button

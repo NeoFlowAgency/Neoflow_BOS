@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerLivraison } from '../lib/api'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Livraisons() {
@@ -66,8 +65,8 @@ export default function Livraisons() {
   const aujourdhui = new Date().toISOString().split('T')[0]
 
   const grouped = {
-    en_cours: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date >= aujourdhui),
-    en_retard: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date < aujourdhui),
+    en_cours: livraisons.filter(l => l.status === 'en_cours' && (!l.scheduled_date || l.scheduled_date >= aujourdhui)),
+    en_retard: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date && l.scheduled_date < aujourdhui),
     finalise: livraisons.filter(l => l.status === 'finalise')
   }
 
@@ -121,12 +120,15 @@ export default function Livraisons() {
     setCreateError('')
 
     try {
-      await creerLivraison({
+      const { error } = await supabase.from('deliveries').insert({
         invoice_id: selectedFacture.id,
+        workspace_id: workspace.id,
         scheduled_date: livraisonForm.date_prevue,
         delivery_address: livraisonForm.adresse_livraison,
-        notes: livraisonForm.notes
+        notes: livraisonForm.notes,
+        status: 'en_cours'
       })
+      if (error) throw error
 
       setShowModal(false)
       await loadLivraisons()
@@ -186,11 +188,11 @@ export default function Livraisons() {
   }
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Livraisons</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Livraisons</h1>
           <p className="text-gray-500">Gérez vos livraisons en cours</p>
         </div>
         <button

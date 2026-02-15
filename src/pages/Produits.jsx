@@ -34,6 +34,7 @@ export default function Produits() {
         .from('products')
         .select('*')
         .eq('workspace_id', workspace?.id)
+        .or('is_archived.is.null,is_archived.eq.false')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -114,7 +115,7 @@ export default function Produits() {
     try {
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({ is_archived: true })
         .eq('id', id)
         .eq('workspace_id', workspace.id)
 
@@ -142,11 +143,11 @@ export default function Produits() {
   }
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Produits</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Produits</h1>
           <p className="text-gray-500">{produits.length} produit{produits.length > 1 ? 's' : ''} au total</p>
         </div>
         <button

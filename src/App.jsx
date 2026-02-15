@@ -4,6 +4,8 @@ import { supabase } from './lib/supabase'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
 import { ToastProvider } from './contexts/ToastContext'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import CreerFacture from './pages/CreerFacture'
 import ApercuFacture from './pages/ApercuFacture'
@@ -16,11 +18,15 @@ import FicheClient from './pages/FicheClient'
 import Produits from './pages/Produits'
 import Livraisons from './pages/Livraisons'
 import DashboardFinancier from './pages/DashboardFinancier'
+import Settings from './pages/Settings'
 import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
+import WorkspaceSuspended from './pages/WorkspaceSuspended'
+import JoinWorkspace from './pages/JoinWorkspace'
+import MentionsLegales from './pages/MentionsLegales'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 
-function ProtectedRoute({ children, requireWorkspace = true }) {
+function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = false }) {
   const [authLoading, setAuthLoading] = useState(true)
   const [user, setUser] = useState(null)
   const { currentWorkspace, loading: wsLoading } = useWorkspace()
@@ -55,6 +61,10 @@ function ProtectedRoute({ children, requireWorkspace = true }) {
 
   if (requireWorkspace && !currentWorkspace) {
     return <Navigate to="/onboarding/workspace" replace />
+  }
+
+  if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended) {
+    return <Navigate to="/workspace/suspended" replace />
   }
 
   return children
@@ -110,6 +120,9 @@ function App() {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
             <Route path="/factures/nouvelle" element={<ProtectedLayout><CreerFacture /></ProtectedLayout>} />
             <Route path="/factures/:factureId" element={<ProtectedLayout><ApercuFacture /></ProtectedLayout>} />
@@ -122,11 +135,28 @@ function App() {
             <Route path="/produits" element={<ProtectedLayout><Produits /></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
             <Route path="/dashboard-financier" element={<ProtectedLayout><DashboardFinancier /></ProtectedLayout>} />
+            <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route
               path="/onboarding/workspace"
               element={
                 <ProtectedRoute requireWorkspace={false}>
                   <WorkspaceOnboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/workspace/suspended"
+              element={
+                <ProtectedRoute requireWorkspace={true} allowSuspended={true}>
+                  <WorkspaceSuspended />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/join"
+              element={
+                <ProtectedRoute requireWorkspace={false}>
+                  <JoinWorkspace />
                 </ProtectedRoute>
               }
             />

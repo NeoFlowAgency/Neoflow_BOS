@@ -44,8 +44,9 @@ export function usePermissions() {
   return {
     role,
     loading,
-    isAdmin: role === 'admin',
-    isManager: role === 'manager' || role === 'admin',
-    canEdit: role === 'admin' || role === 'manager'
+    isOwner: role === 'owner',
+    isAdmin: role === 'manager' || role === 'owner',
+    canEdit: role === 'manager' || role === 'owner',
+    isMember: role === 'member'
   }
 }

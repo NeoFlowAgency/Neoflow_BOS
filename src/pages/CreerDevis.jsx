@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { jobService } from '../services/jobService'
+import { createQuote } from '../services/quoteService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
-
-const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-quote'
 
 export default function CreerDevis() {
   const navigate = useNavigate()
@@ -187,84 +185,75 @@ export default function CreerDevis() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
+      // Auto-create client if new (no existing ID)
+      let clientId = client.id
+      if (!clientId) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('phone', client.telephone)
+          .limit(1)
+          .single()
+
+        if (existing?.id) {
+          await supabase
+            .from('customers')
+            .update({
+              first_name: client.prenom,
+              last_name: client.nom,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .eq('id', existing.id)
+          clientId = existing.id
+        } else {
+          const { data: newCustomer, error: custError } = await supabase
+            .from('customers')
+            .insert({
+              workspace_id: workspace.id,
+              first_name: client.prenom,
+              last_name: client.nom,
+              phone: client.telephone,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .select('id')
+            .single()
+          if (custError) throw new Error('Erreur création client: ' + custError.message)
+          clientId = newCustomer.id
+        }
+      }
+
       const issueDate = new Date().toISOString().split('T')[0]
       const expiryDate = new Date(Date.now() + validiteDays * 86400000).toISOString().split('T')[0]
 
-      const quotePayload = {
-        customer: {
-          id: client.id || null,
-          last_name: client.nom,
-          first_name: client.prenom,
-          phone: client.telephone,
-          email: client.email || null,
-          address: client.adresse
-        },
+      const items = lignesValides.map((l, index) => {
+        const produit = produits.find(p => p.id === l.produit_id)
+        return {
+          product_id: l.produit_id,
+          description: produit?.name || l.product_name || '',
+          quantity: parseInt(l.quantity),
+          unit_price_ht: l.unit_price,
+          tax_rate: produit?.tax_rate ?? 20,
+          total_ht: l.total,
+          position: index + 1
+        }
+      })
+
+      const quote = await createQuote(workspace.id, user.id, clientId, items, {
         quote_date: issueDate,
         valid_until: expiryDate,
         validity_days: validiteDays,
-        status: 'draft',
         discount_global: Number(totaux.montantRemise) || 0,
         subtotal_ht: totaux.total_ht,
         total_tva: totaux.montant_tva,
         total_ttc: totaux.total_ttc,
-        notes: notes || '',
-        items: lignesValides.map((l, index) => {
-          const produit = produits.find(p => p.id === l.produit_id)
-          return {
-            product_id: l.produit_id,
-            description: produit?.name || l.product_name || '',
-            quantity: parseInt(l.quantity),
-            unit_price_ht: l.unit_price,
-            tax_rate: produit?.tax_rate ?? 20,
-            total_ht: l.total,
-            position: index + 1
-          }
-        })
-      }
+        notes: notes || ''
+      })
 
-      // Create job directly in Supabase (guarantees workspace_id)
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert({
-          workspace_id: workspace.id,
-          job_type: 'create_quote',
-          status: 'pending',
-          payload: quotePayload,
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
-
-      // Notify n8n (fire-and-forget — don't block on failure)
-      fetch(N8N_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: job.id,
-          workspace_id: workspace.id,
-          user_id: user.id,
-          ...quotePayload
-        })
-      }).catch(err => console.warn('[CreerDevis] n8n notification failed (non-blocking):', err.message))
-
-      // Poll job until n8n worker completes it
-      const jobResult = await jobService.pollJobStatus(job.id, 30)
-
-      if (jobResult.success) {
-        const result = typeof jobResult.result === 'string'
-          ? JSON.parse(jobResult.result)
-          : jobResult.result || {}
-
-        const devisId = result.quote_id || result.id || job.id
-        toast.success('Devis créé avec succès !')
-        navigate(`/devis/${devisId}`)
-      } else {
-        console.warn('[CreerDevis] Job not completed yet:', jobResult.error)
-        toast.info('Devis en cours de création...')
-        navigate('/devis')
-      }
+      toast.success('Devis créé avec succès !')
+      navigate(`/devis/${quote.id}`)
     } catch (err) {
       console.error('Erreur création devis:', err.message)
       if (err.message.includes('Failed to fetch')) {
@@ -279,10 +268,10 @@ export default function CreerDevis() {
   }
 
   return (
-    <div className="p-8 min-h-screen max-w-5xl">
+    <div className="p-4 md:p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
         <p className="text-gray-500">Créer un devis pour un client</p>
       </div>
 
@@ -296,7 +285,7 @@ export default function CreerDevis() {
       )}
 
       {/* Section Information Client */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6 overflow-visible">
         <h2 className="text-xl font-bold text-[#040741] mb-6 flex items-center gap-2">
           <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

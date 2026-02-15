@@ -1,0 +1,102 @@
+{
+  "name": "NeoFlow BOS - Bug Report Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "neoflow-contact",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "1c860332-b128-463d-b066-84ff73554af6",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-544, 48],
+      "webhookId": "neoflow-contact"
+    },
+    {
+      "parameters": {
+        "chatId": "7866882300",
+        "text": "=🐛 *Nouveau rapport de bug*\n\n📋 *Titre :* {{ $json.body.title }}\n⚠️ *Priorité :* {{ $json.body.priority }}\n\n👤 *Utilisateur :* {{ $json.body.user_email }}\n🏢 *Workspace :* {{ $json.body.workspace_name }}\n🆔 *Workspace ID :* {{ $json.body.workspace_id }}\n📅 *Date :* {{ $json.body.created_at }}\n\n📝 *Description :*\n{{ $json.body.description }}{{ $json.body.screenshot_url ? '\\n\\n📎 *Capture d\\'écran :* ' + $json.body.screenshot_url : '' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-352, 48],
+      "id": "6dfa3f75-8a95-455f-92f2-a142e772ec96",
+      "name": "Send Telegram Message",
+      "webhookId": "896a4629-e667-4ab8-b0a8-acd765b85804",
+      "credentials": {
+        "telegramApi": {
+          "id": "gnyutPSSjt1Z3WWP",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "response-ok",
+      "name": "Response OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-160, 48]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Response OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "NeoFlow BOS"
+    }
+  ],
+  "triggerCount": 1,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bf6ad1c966be1a0d45a5a39ab28d5eff6cb8beaf3eb25ecac6560f129486fd0"
+  }
+}

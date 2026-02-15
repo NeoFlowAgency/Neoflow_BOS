@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { n8nService } from '../services/n8nService'
+import { convertQuoteToInvoice } from '../services/quoteService'
+import { generatePdf, sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -57,22 +58,15 @@ export default function ApercuDevis() {
   const handleConvertToInvoice = async () => {
     setActionLoading('convert')
     try {
-      const result = await n8nService.convertQuoteToInvoice(devis.id)
-      toast.success(`Facture ${result.invoice_ref || ''} créée !`)
+      const result = await convertQuoteToInvoice(devis.id)
 
-      // Update quote status
-      await supabase
-        .from('quotes')
-        .update({ status: 'accepted' })
-        .eq('id', devis.id)
-        .eq('workspace_id', workspace.id)
-
-      const invoiceId = result.invoice_id || result.id
-      if (invoiceId) {
-        navigate(`/factures/${invoiceId}`)
-      } else {
-        navigate('/factures')
+      const invoiceId = result?.invoice_id
+      if (!invoiceId) {
+        throw new Error('La conversion a échoué : aucune facture créée')
       }
+
+      toast.success(`Facture ${result.invoice_number || ''} créée !`)
+      navigate(`/factures/${invoiceId}`)
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la conversion')
     } finally {
@@ -88,10 +82,10 @@ export default function ApercuDevis() {
 
     setActionLoading('email')
     try {
-      await n8nService.sendEmail(
+      await sendEmail(
         devis.customers.email,
         `Devis ${devis.quote_ref || ''}`,
-        `<h1>Votre devis</h1><p>Veuillez trouver ci-joint votre devis d'un montant de ${devis.total_amount?.toFixed(2)} €.</p>`
+        `<h1>Votre devis</h1><p>Veuillez trouver ci-joint votre devis d'un montant de ${(devis.total_ttc ?? devis.total_amount ?? 0).toFixed(2)} €.</p>`
       )
       toast.success('Email envoyé avec succès !')
 
@@ -112,7 +106,7 @@ export default function ApercuDevis() {
   const handleDownloadPdf = async () => {
     setActionLoading('pdf')
     try {
-      const response = await n8nService.generatePdf('quote', devis.id)
+      const response = await generatePdf('quote', devis.id)
       if (response.pdf_url) {
         window.open(response.pdf_url, '_blank')
         toast.success('PDF généré !')
@@ -325,8 +319,8 @@ export default function ApercuDevis() {
                   <tr key={index} className="border-b border-gray-100">
                     <td className="py-3 text-[#040741]">{ligne.description || 'Produit'}</td>
                     <td className="py-3 text-center text-gray-600">{ligne.quantity}</td>
-                    <td className="py-3 text-right text-gray-600">{ligne.unit_price?.toFixed(2)} €</td>
-                    <td className="py-3 text-right font-medium text-[#040741]">{ligne.total_price?.toFixed(2)} €</td>
+                    <td className="py-3 text-right text-gray-600">{(ligne.unit_price_ht ?? ligne.unit_price ?? 0).toFixed(2)} €</td>
+                    <td className="py-3 text-right font-medium text-[#040741]">{(ligne.total_ht ?? ligne.total_price ?? 0).toFixed(2)} €</td>
                   </tr>
                 ))}
               </tbody>
@@ -338,15 +332,15 @@ export default function ApercuDevis() {
             <div className="w-72 bg-gray-50 rounded-xl p-4">
               <div className="flex justify-between py-2 text-gray-600">
                 <span>Sous-total HT</span>
-                <span>{devis.subtotal?.toFixed(2)} €</span>
+                <span>{(devis.subtotal_ht ?? devis.subtotal ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-2 text-gray-600">
                 <span>TVA (20%)</span>
-                <span>{devis.tax_amount?.toFixed(2)} €</span>
+                <span>{(devis.total_tva ?? devis.tax_amount ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
                 <span className="font-bold text-[#040741] text-lg">Total TTC</span>
-                <span className="font-bold text-[#313ADF] text-xl">{devis.total_amount?.toFixed(2)} €</span>
+                <span className="font-bold text-[#313ADF] text-xl">{(devis.total_ttc ?? devis.total_amount ?? 0).toFixed(2)} €</span>
               </div>
             </div>
           </div>
