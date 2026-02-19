@@ -58,8 +58,9 @@ serve(async (req) => {
       throw new Error('Cette invitation a expire')
     }
 
-    // Check email restriction
-    if (invitation.email && invitation.email.toLowerCase() !== user.email?.toLowerCase()) {
+    // Check email restriction (only if a non-empty email was specified)
+    const invEmail = invitation.email?.trim()
+    if (invEmail && invEmail.length > 0 && invEmail.toLowerCase() !== user.email?.toLowerCase()) {
       throw new Error('Cette invitation est reservee a une autre adresse email')
     }
 

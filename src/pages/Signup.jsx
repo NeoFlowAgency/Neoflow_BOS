@@ -70,7 +70,14 @@ export default function Signup() {
         }
       }
     } catch (err) {
-      setError(translateError(err))
+      console.error('Erreur inscription:', err)
+      // Show actual error for debugging, fallback to translated
+      const msg = err?.message || ''
+      if (msg.includes('Database error') || msg.includes('500') || msg.includes('Internal')) {
+        setError('Erreur serveur lors de l\'inscription. Contactez le support si le problème persiste.')
+      } else {
+        setError(translateError(err))
+      }
     } finally {
       setLoading(false)
     }

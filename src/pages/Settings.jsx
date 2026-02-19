@@ -287,25 +287,27 @@ export default function Settings() {
   const handleDeleteAccount = async () => {
     setDeleting(true)
     try {
-      // First call: check if user owns workspaces
       if (deleteStep === 'confirm') {
+        // First call: check if user owns workspaces
         const data = await invokeFunction('delete-account', {})
         if (data?.requires_action) {
-          setOwnedWorkspaces(data.owned_workspaces)
+          // User owns workspaces - show choice UI
+          setOwnedWorkspaces(data.owned_workspaces || [])
           setDeleteStep('choose')
           setDeleting(false)
           return
         }
+        // User doesn't own workspaces - account was deleted in this call
+        await supabase.auth.signOut()
+        navigate('/login')
+        return
       }
 
-      // Second call: perform deletion with action
-      const body = {}
-      if (ownedWorkspaces.length > 0) {
-        body.action = deleteAction
-        if (deleteAction === 'transfer' && transferTarget) {
-          body.transfer_to = transferTarget
-          body.workspace_id = ownedWorkspaces[0].id
-        }
+      // Step 'choose': second call with the chosen action
+      const body = { action: deleteAction }
+      if (deleteAction === 'transfer' && transferTarget) {
+        body.transfer_to = transferTarget
+        body.workspace_id = ownedWorkspaces[0]?.id
       }
 
       await invokeFunction('delete-account', body)
@@ -315,7 +317,7 @@ export default function Settings() {
       navigate('/login')
     } catch (err) {
       console.error('Erreur suppression compte:', err)
-      toast.error(translateError(err))
+      toast.error(err.message || translateError(err))
       setDeleting(false)
     }
   }
