@@ -1,14 +1,44 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { invokeFunction } from '../lib/supabase'
 import { createCheckoutSession, createPortalSession } from '../services/workspaceService'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
 
 export default function WorkspaceSuspended() {
-  const { currentWorkspace, isOwner, subscriptionStatus } = useWorkspace()
+  const { currentWorkspace, isOwner, subscriptionStatus, refreshWorkspaces } = useWorkspace()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const verifiedRef = useRef(false)
 
   const isIncomplete = subscriptionStatus === 'incomplete'
+
+  // Auto-verify when workspace is incomplete (user just returned from Stripe checkout)
+  useEffect(() => {
+    if (isIncomplete && currentWorkspace?.id && !verifiedRef.current) {
+      verifiedRef.current = true
+      autoVerifyCheckout()
+    }
+  }, [isIncomplete, currentWorkspace?.id])
+
+  const autoVerifyCheckout = async () => {
+    setVerifying(true)
+    try {
+      const data = await invokeFunction('verify-checkout', {
+        workspace_id: currentWorkspace.id,
+      })
+
+      if (data?.is_active) {
+        await refreshWorkspaces()
+        // Workspace is now active - hard redirect to dashboard
+        window.location.href = '/dashboard'
+        return
+      }
+    } catch (err) {
+      console.error('Erreur vérification checkout:', err)
+    }
+    setVerifying(false)
+  }
 
   const handleCompleteCheckout = async () => {
     setLoading(true)
@@ -34,6 +64,25 @@ export default function WorkspaceSuspended() {
       setError(err.message)
       setLoading(false)
     }
+  }
+
+  // Show loading while auto-verifying
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <BackgroundPattern />
+        <div className="mb-8 relative z-10">
+          <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-20 object-contain" />
+        </div>
+        <div className="w-full max-w-md bg-white border-2 border-[#040741] rounded-3xl p-6 md:p-10 shadow-xl relative z-10">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent mx-auto mb-4"></div>
+            <p className="text-[#040741] font-medium">Vérification de votre paiement...</p>
+            <p className="text-gray-400 text-sm mt-2">Cela ne prend que quelques secondes</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -88,21 +137,30 @@ export default function WorkspaceSuspended() {
         )}
 
         {isIncomplete && isOwner && (
-          <button
-            onClick={handleCompleteCheckout}
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Redirection...
-              </span>
-            ) : 'Compléter le paiement'}
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={handleCompleteCheckout}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Redirection...
+                </span>
+              ) : 'Compléter le paiement'}
+            </button>
+            <button
+              onClick={autoVerifyCheckout}
+              disabled={verifying}
+              className="w-full bg-gray-100 text-[#040741] py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              J'ai déjà payé - Vérifier
+            </button>
+          </div>
         )}
 
         {!isIncomplete && isOwner && (

@@ -1,17 +1,19 @@
 import { supabase, invokeFunction } from '../lib/supabase'
 
 /**
- * Generate a URL-friendly slug from a name
+ * Generate a URL-friendly slug from a name (with random suffix to avoid collisions)
  */
 function generateSlug(name) {
-  return name
+  const base = name
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .substring(0, 30)
+    .substring(0, 25)
     || 'workspace'
+  const suffix = Math.random().toString(36).substring(2, 6)
+  return `${base}-${suffix}`
 }
 
 /**
@@ -58,7 +60,17 @@ export const createWorkspace = async (name, userId, options = {}) => {
 
   if (wsError) {
     console.error('[createWorkspace] Erreur création workspace:', wsError)
-    throw new Error('Impossible de créer le workspace: ' + wsError.message)
+    // User-friendly error messages
+    if (wsError.code === '23505') {
+      throw new Error('Ce nom de workspace est déjà utilisé. Veuillez en choisir un autre.')
+    }
+    if (wsError.code === '23503') {
+      throw new Error('Erreur de référence. Veuillez réessayer.')
+    }
+    if (wsError.message?.includes('row-level security')) {
+      throw new Error('Vous n\'avez pas la permission de créer un workspace. Veuillez vous reconnecter.')
+    }
+    throw new Error('Impossible de créer le workspace. Veuillez réessayer.')
   }
 
   // 2. Add user as owner
