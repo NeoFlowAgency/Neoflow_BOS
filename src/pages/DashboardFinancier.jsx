@@ -80,12 +80,25 @@ export default function DashboardFinancier() {
       // 4. Workspace users (for seller stats)
       const { data: membersData } = await supabase
         .from('workspace_users')
-        .select('user_id, role, profiles(full_name, email)')
+        .select('user_id, role')
         .eq('workspace_id', workspace?.id)
 
       const invoices = invoicesData || []
       const deliveries = deliveriesData || []
       const members = membersData || []
+
+      // Load profiles separately (FK join doesn't work reliably)
+      const memberUserIds = members.map(m => m.user_id).filter(Boolean)
+      let profilesMap = {}
+      if (memberUserIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', memberUserIds)
+        if (profilesData) {
+          profilesData.forEach(p => { profilesMap[p.id] = p.full_name })
+        }
+      }
 
       const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
 
@@ -104,7 +117,6 @@ export default function DashboardFinancier() {
         const { data: itemsData } = await supabase
           .from('invoice_items')
           .select('product_id, description, quantity, total_ht')
-          .eq('workspace_id', workspace?.id)
           .in('invoice_id', paidIds)
         items = itemsData || []
       }
@@ -145,7 +157,7 @@ export default function DashboardFinancier() {
       // Sellers ranking
       const memberMap = {}
       members.forEach(m => {
-        memberMap[m.user_id] = m.profiles?.full_name || m.profiles?.email || 'Utilisateur'
+        memberMap[m.user_id] = profilesMap[m.user_id] || 'Utilisateur'
       })
 
       const sellerMap = {}
