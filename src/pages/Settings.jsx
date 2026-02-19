@@ -298,8 +298,9 @@ export default function Settings() {
           return
         }
         // User doesn't own workspaces - account was deleted in this call
-        await supabase.auth.signOut()
-        navigate('/login')
+        // Use local scope signOut (user already deleted server-side) + hard redirect
+        try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
+        window.location.href = '/login'
         return
       }
 
@@ -312,12 +313,12 @@ export default function Settings() {
 
       await invokeFunction('delete-account', body)
 
-      // Account deleted - sign out and redirect
-      await supabase.auth.signOut()
-      navigate('/login')
+      // Account deleted - clear local session and hard redirect
+      try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
+      window.location.href = '/login'
     } catch (err) {
       console.error('Erreur suppression compte:', err)
-      toast.error(err.message || translateError(err))
+      toast.error(err.message || 'Erreur lors de la suppression du compte')
       setDeleting(false)
     }
   }

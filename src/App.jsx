@@ -152,14 +152,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/join"
-              element={
-                <ProtectedRoute requireWorkspace={false}>
-                  <JoinWorkspace />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/join" element={<JoinWorkspace />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

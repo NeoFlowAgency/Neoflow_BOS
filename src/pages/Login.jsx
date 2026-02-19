@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -36,7 +37,8 @@ export default function Login() {
       }
 
       if (data.user) {
-        navigate('/dashboard')
+        const redirect = searchParams.get('redirect')
+        navigate(redirect && redirect.startsWith('/') ? redirect : '/dashboard')
       }
     } catch (err) {
       setError(translateError(err))
@@ -197,7 +199,7 @@ export default function Login() {
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Pas encore de compte ?{' '}
-          <Link to="/signup" className="text-[#313ADF] font-medium hover:underline">
+          <Link to={searchParams.get('redirect') ? `/signup?redirect=${encodeURIComponent(searchParams.get('redirect'))}` : '/signup'} className="text-[#313ADF] font-medium hover:underline">
             Créer un compte
           </Link>
         </p>

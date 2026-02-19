@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
 
 export default function Signup() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -54,8 +55,11 @@ export default function Signup() {
         return
       }
 
+      const redirect = searchParams.get('redirect')
+      const destination = redirect && redirect.startsWith('/') ? redirect : '/onboarding/workspace'
+
       if (data.session) {
-        navigate('/onboarding/workspace')
+        navigate(destination)
       } else if (data.user) {
         // Email confirmation might be enabled - try auto sign-in
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -63,10 +67,11 @@ export default function Signup() {
           password,
         })
         if (!signInError && signInData.session) {
-          navigate('/onboarding/workspace')
+          navigate(destination)
         } else {
           setSuccess('Compte créé ! Vous pouvez maintenant vous connecter.')
-          setTimeout(() => navigate('/login'), 2000)
+          const loginUrl = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
+          setTimeout(() => navigate(loginUrl), 2000)
         }
       }
     } catch (err) {
@@ -209,7 +214,7 @@ export default function Signup() {
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Déjà un compte ?{' '}
-          <Link to="/login" className="text-[#313ADF] font-medium hover:underline">
+          <Link to={searchParams.get('redirect') ? `/login?redirect=${encodeURIComponent(searchParams.get('redirect'))}` : '/login'} className="text-[#313ADF] font-medium hover:underline">
             Se connecter
           </Link>
         </p>

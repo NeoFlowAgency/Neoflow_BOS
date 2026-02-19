@@ -275,6 +275,21 @@ CREATE TRIGGER check_single_owner
 -- ============================================================
 -- PART 8: RLS POLICY UPDATES
 -- ============================================================
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: members can read their workspaces, or the owner during creation
+DROP POLICY IF EXISTS "workspaces_select" ON workspaces;
+CREATE POLICY "workspaces_select" ON workspaces FOR SELECT
+  USING (
+    id IN (SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid())
+    OR owner_user_id = auth.uid()
+  );
+
+-- INSERT: any authenticated user can create a workspace
+DROP POLICY IF EXISTS "workspaces_insert" ON workspaces;
+CREATE POLICY "workspaces_insert" ON workspaces FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
 DROP POLICY IF EXISTS "workspaces_delete" ON workspaces;
 CREATE POLICY "workspaces_delete" ON workspaces FOR DELETE
   USING (id IN (
