@@ -58,6 +58,7 @@ export default function Settings() {
   const [transferTarget, setTransferTarget] = useState('')
   const [confirmEmail, setConfirmEmail] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
 
   useEffect(() => {
@@ -286,10 +287,12 @@ export default function Settings() {
 
   const handleDeleteAccount = async () => {
     setDeleting(true)
+    setDeleteError('')
     try {
       if (deleteStep === 'confirm') {
-        // First call: check if user owns workspaces
+        console.log('[delete-account] Step 1: checking ownership...')
         const data = await invokeFunction('delete-account', {})
+        console.log('[delete-account] Step 1 response:', data)
         if (data?.requires_action) {
           // User owns workspaces - show choice UI
           setOwnedWorkspaces(data.owned_workspaces || [])
@@ -298,8 +301,9 @@ export default function Settings() {
           return
         }
         // User doesn't own workspaces - account was deleted in this call
-        // Use local scope signOut (user already deleted server-side) + hard redirect
+        console.log('[delete-account] Account deleted (non-owner), redirecting...')
         try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
+        localStorage.clear()
         window.location.href = '/login'
         return
       }
@@ -311,14 +315,19 @@ export default function Settings() {
         body.workspace_id = ownedWorkspaces[0]?.id
       }
 
+      console.log('[delete-account] Step 2: executing action...', body)
       await invokeFunction('delete-account', body)
 
       // Account deleted - clear local session and hard redirect
+      console.log('[delete-account] Account deleted, redirecting...')
       try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
+      localStorage.clear()
       window.location.href = '/login'
     } catch (err) {
-      console.error('Erreur suppression compte:', err)
-      toast.error(err.message || 'Erreur lors de la suppression du compte')
+      console.error('[delete-account] ERROR:', err)
+      const errorMsg = err.message || 'Erreur lors de la suppression du compte'
+      setDeleteError(errorMsg)
+      toast.error(errorMsg)
       setDeleting(false)
     }
   }
@@ -509,7 +518,7 @@ export default function Settings() {
               La suppression de votre compte est irréversible. Toutes vos données seront supprimées.
             </p>
             <button
-              onClick={() => { setShowDeleteModal(true); setDeleteStep('confirm'); setConfirmEmail(''); setDeleteAction('delete_workspace'); setTransferTarget('') }}
+              onClick={() => { setShowDeleteModal(true); setDeleteStep('confirm'); setConfirmEmail(''); setDeleteAction('delete_workspace'); setTransferTarget(''); setDeleteError('') }}
               className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -580,6 +589,13 @@ export default function Settings() {
                     </label>
                   )}
                 </div>
+              </div>
+            )}
+
+            {deleteError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                <p className="font-semibold mb-1">Erreur :</p>
+                <p>{deleteError}</p>
               </div>
             )}
 
