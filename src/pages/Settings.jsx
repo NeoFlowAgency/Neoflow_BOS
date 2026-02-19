@@ -52,8 +52,6 @@ export default function Settings() {
 
   // Delete account
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleteStep, setDeleteStep] = useState('confirm') // confirm | choose | deleting
-  const [ownedWorkspaces, setOwnedWorkspaces] = useState([])
   const [deleteAction, setDeleteAction] = useState('delete_workspace')
   const [transferTarget, setTransferTarget] = useState('')
   const [confirmEmail, setConfirmEmail] = useState('')
@@ -289,33 +287,17 @@ export default function Settings() {
     setDeleting(true)
     setDeleteError('')
     try {
-      if (deleteStep === 'confirm') {
-        console.log('[delete-account] Step 1: checking ownership...')
-        const data = await invokeFunction('delete-account', {})
-        console.log('[delete-account] Step 1 response:', data)
-        if (data?.requires_action) {
-          // User owns workspaces - show choice UI
-          setOwnedWorkspaces(data.owned_workspaces || [])
-          setDeleteStep('choose')
-          setDeleting(false)
-          return
+      // Build request body - if owner, include the chosen action directly
+      const body = {}
+      if (isOwner && currentWorkspace) {
+        body.action = deleteAction
+        if (deleteAction === 'transfer' && transferTarget) {
+          body.transfer_to = transferTarget
+          body.workspace_id = currentWorkspace.id
         }
-        // User doesn't own workspaces - account was deleted in this call
-        console.log('[delete-account] Account deleted (non-owner), redirecting...')
-        try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
-        localStorage.clear()
-        window.location.href = '/login'
-        return
       }
 
-      // Step 'choose': second call with the chosen action
-      const body = { action: deleteAction }
-      if (deleteAction === 'transfer' && transferTarget) {
-        body.transfer_to = transferTarget
-        body.workspace_id = ownedWorkspaces[0]?.id
-      }
-
-      console.log('[delete-account] Step 2: executing action...', body)
+      console.log('[delete-account] Deleting account...', body)
       await invokeFunction('delete-account', body)
 
       // Account deleted - clear local session and hard redirect
@@ -518,7 +500,7 @@ export default function Settings() {
               La suppression de votre compte est irréversible. Toutes vos données seront supprimées.
             </p>
             <button
-              onClick={() => { setShowDeleteModal(true); setDeleteStep('confirm'); setConfirmEmail(''); setDeleteAction('delete_workspace'); setTransferTarget(''); setDeleteError('') }}
+              onClick={() => { setShowDeleteModal(true); setConfirmEmail(''); setDeleteAction('delete_workspace'); setTransferTarget(''); setDeleteError('') }}
               className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -536,10 +518,10 @@ export default function Settings() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold text-red-600 mb-4">Supprimer mon compte</h2>
 
-            {deleteStep === 'choose' && ownedWorkspaces.length > 0 && (
+            {isOwner && currentWorkspace ? (
               <div className="space-y-4 mb-6">
                 <p className="text-sm text-gray-600">
-                  Vous êtes propriétaire du workspace <span className="font-semibold">{ownedWorkspaces[0].name}</span>. Que souhaitez-vous faire ?
+                  Vous êtes propriétaire du workspace <span className="font-semibold">{currentWorkspace.name}</span>. Que souhaitez-vous faire ?
                 </p>
 
                 <div className="space-y-2">
@@ -558,7 +540,7 @@ export default function Settings() {
                     </div>
                   </label>
 
-                  {ownedWorkspaces[0].members.length > 0 && (
+                  {members.filter(m => m.user_id !== user?.id).length > 0 && (
                     <label className="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
                       <input
                         type="radio"
@@ -578,7 +560,7 @@ export default function Settings() {
                             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
                           >
                             <option value="">Choisir un membre...</option>
-                            {ownedWorkspaces[0].members.map(m => (
+                            {members.filter(m => m.user_id !== user?.id).map(m => (
                               <option key={m.user_id} value={m.user_id}>
                                 {m.full_name || 'Membre'} ({m.role})
                               </option>
@@ -590,6 +572,10 @@ export default function Settings() {
                   )}
                 </div>
               </div>
+            ) : (
+              <p className="text-sm text-gray-600 mb-6">
+                Votre compte sera supprimé et vous serez retiré de tous les workspaces. Cette action est irréversible.
+              </p>
             )}
 
             {deleteError && (
@@ -615,7 +601,8 @@ export default function Settings() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                disabled={deleting}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 Annuler
               </button>
