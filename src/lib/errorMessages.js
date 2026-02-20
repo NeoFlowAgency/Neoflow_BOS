@@ -1,6 +1,6 @@
 const ERROR_MAP = {
   'Invalid login credentials': 'Email ou mot de passe incorrect',
-  'Email not confirmed': 'Veuillez confirmer votre email avant de vous connecter',
+  'Email not confirmed': 'Votre adresse email n\'est pas encore confirmée. Vérifiez votre boîte mail (et vos spams).',
   'User already registered': 'Un compte existe déjà avec cet email',
   'Signup requires a valid password': 'Le mot de passe est invalide',
   'Password should be at least': 'Le mot de passe doit contenir au moins 8 caractères',

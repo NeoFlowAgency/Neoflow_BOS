@@ -27,6 +27,8 @@ export default function Signup() {
     return null
   }
 
+  const [emailSent, setEmailSent] = useState(false)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -55,28 +57,15 @@ export default function Signup() {
         return
       }
 
-      const redirect = searchParams.get('redirect')
-      const destination = redirect && redirect.startsWith('/') ? redirect : '/onboarding/workspace'
-
+      // If session returned directly (email confirmation disabled), redirect
       if (data.session) {
-        navigate(destination)
-      } else if (data.user) {
-        // Email confirmation might be enabled - try auto sign-in
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        if (!signInError && signInData.session) {
-          navigate(destination)
-        } else {
-          setSuccess('Compte créé ! Vous pouvez maintenant vous connecter.')
-          const loginUrl = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
-          setTimeout(() => navigate(loginUrl), 2000)
-        }
+        navigate('/onboarding/choice')
+      } else {
+        // Email confirmation enabled - show confirmation screen
+        setEmailSent(true)
       }
     } catch (err) {
       console.error('Erreur inscription:', err)
-      // Show actual error for debugging, fallback to translated
       const msg = err?.message || ''
       if (msg.includes('Database error') || msg.includes('500') || msg.includes('Internal')) {
         setError('Erreur serveur lors de l\'inscription. Contactez le support si le problème persiste.')
@@ -107,6 +96,41 @@ export default function Signup() {
       )}
     </button>
   )
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <BackgroundPattern />
+        <div className="mb-8 relative z-10">
+          <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-20 object-contain" />
+        </div>
+        <div className="w-full max-w-md bg-white border-2 border-[#040741] rounded-3xl p-6 md:p-10 shadow-xl relative z-10 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-[#040741] mb-3">Vérifiez votre email</h1>
+          <p className="text-gray-500 mb-2">
+            Un email de confirmation a été envoyé à :
+          </p>
+          <p className="font-semibold text-[#313ADF] mb-6">{email}</p>
+          <p className="text-gray-400 text-sm mb-8">
+            Cliquez sur le lien dans l'email pour activer votre compte. Pensez à vérifier vos spams.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg text-center"
+          >
+            Retour à la connexion
+          </Link>
+        </div>
+        <div className="mt-8 text-gray-400 text-sm relative z-10">
+          Propulsé par Neoflow Agency
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">

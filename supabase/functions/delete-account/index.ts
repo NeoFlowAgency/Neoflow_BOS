@@ -149,22 +149,42 @@ serve(async (req) => {
       console.log('[delete-account] profiles table not found, skipping soft-delete')
     }
 
-    // Delete auth user via direct REST API call (more reliable than JS client in Deno)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Delete auth user - try JS client first, fallback to REST API
+    let authDeleted = false
 
-    const deleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'apikey': serviceRoleKey,
-      },
-    })
+    // Method 1: Supabase JS client admin API
+    try {
+      const { error: deleteUserError } = await supabase.auth.admin.deleteUser(user.id)
+      if (deleteUserError) {
+        console.error('[delete-account] JS client deleteUser failed:', deleteUserError.message)
+      } else {
+        authDeleted = true
+        console.log('[delete-account] Auth user deleted via JS client')
+      }
+    } catch (err: unknown) {
+      console.error('[delete-account] JS client deleteUser exception:', (err as Error).message)
+    }
 
-    if (!deleteRes.ok) {
-      const errorBody = await deleteRes.text()
-      console.error('[delete-account] Failed to delete auth user:', deleteRes.status, errorBody)
-      throw new Error('Erreur lors de la suppression du compte utilisateur')
+    // Method 2: Direct REST API (fallback)
+    if (!authDeleted) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+      const deleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!deleteRes.ok) {
+        const errorBody = await deleteRes.text()
+        console.error('[delete-account] REST API delete failed:', deleteRes.status, errorBody)
+        throw new Error('Erreur lors de la suppression du compte utilisateur')
+      }
+      console.log('[delete-account] Auth user deleted via REST API')
     }
 
     console.log(`[delete-account] Account deleted: ${user.id}`)

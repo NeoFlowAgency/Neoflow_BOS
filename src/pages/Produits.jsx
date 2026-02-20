@@ -212,45 +212,91 @@ export default function Produits() {
 
           <div className="divide-y divide-gray-100">
             {filteredProduits.map((p) => (
-              <div key={p.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors">
-                <div className="md:col-span-4">
-                  <p className="font-bold text-[#040741]">{p.name}</p>
-                </div>
-                <div className="md:col-span-3">
-                  <p className="text-gray-500 text-sm truncate">{p.description || '-'}</p>
-                </div>
-                <div className="md:col-span-2 text-right">
-                  <p className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</p>
-                </div>
-                <div className="md:col-span-1 text-center">
-                  <span className="text-gray-500 text-sm">{p.tax_rate || 20}%</span>
-                </div>
-                <div className="md:col-span-2 flex justify-center gap-2">
-                  <button
-                    onClick={() => openEdit(p)}
-                    className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
-                    title="Modifier"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  {deleteId === p.id ? (
-                    <div className="flex gap-1">
-                      <button onClick={() => handleDelete(p.id)} className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Oui</button>
-                      <button onClick={() => setDeleteId(null)} className="px-2 py-1 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">Non</button>
+              <div key={p.id} className="px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors">
+                {/* Mobile layout */}
+                <div className="md:hidden">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[#040741]">{p.name}</p>
+                      {p.description && <p className="text-gray-500 text-sm truncate mt-1">{p.description}</p>}
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-xs text-gray-500">Prix HT:</span>
+                        <span className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</span>
+                        <span className="text-xs text-gray-500">TVA:</span>
+                        <span className="text-gray-600 text-sm">{p.tax_rate || 20}%</span>
+                      </div>
                     </div>
-                  ) : (
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => openEdit(p)}
+                        className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
+                        title="Modifier"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      {deleteId === p.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => handleDelete(p.id)} className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Oui</button>
+                          <button onClick={() => setDeleteId(null)} className="px-2 py-1 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">Non</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteId(p.id)}
+                          className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop layout */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-4">
+                    <p className="font-bold text-[#040741]">{p.name}</p>
+                  </div>
+                  <div className="col-span-3">
+                    <p className="text-gray-500 text-sm truncate">{p.description || '-'}</p>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <p className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</p>
+                  </div>
+                  <div className="col-span-1 text-center">
+                    <span className="text-gray-500 text-sm">{p.tax_rate || 20}%</span>
+                  </div>
+                  <div className="col-span-2 flex justify-center gap-2">
                     <button
-                      onClick={() => setDeleteId(p.id)}
-                      className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Supprimer"
+                      onClick={() => openEdit(p)}
+                      className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
+                      title="Modifier"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                  )}
+                    {deleteId === p.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(p.id)} className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Oui</button>
+                        <button onClick={() => setDeleteId(null)} className="px-2 py-1 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">Non</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteId(p.id)}
+                        className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Supprimer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

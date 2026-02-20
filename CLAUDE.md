@@ -91,7 +91,7 @@ sql/
 | Rôle | Droits |
 |------|--------|
 | **owner** | Tout: gestion abonnement, rôles, invitations, suppression workspace |
-| **manager** | Edit workspace info, invitations, gestion membres (sauf owner) |
+| **admin** | Edit workspace info, invitations, gestion membres (sauf owner) |
 | **member** | Lecture/écriture données métier (factures, devis, clients) |
 
 - Un seul owner par workspace (enforced par trigger SQL `enforce_single_owner`)

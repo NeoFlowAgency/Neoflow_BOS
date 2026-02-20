@@ -22,6 +22,7 @@ import Settings from './pages/Settings'
 import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
 import WorkspaceSuspended from './pages/WorkspaceSuspended'
 import JoinWorkspace from './pages/JoinWorkspace'
+import WorkspaceChoice from './pages/WorkspaceChoice'
 import MentionsLegales from './pages/MentionsLegales'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
@@ -60,7 +61,7 @@ function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = fa
   }
 
   if (requireWorkspace && !currentWorkspace) {
-    return <Navigate to="/onboarding/workspace" replace />
+    return <Navigate to="/onboarding/choice" replace />
   }
 
   if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended) {
@@ -136,6 +137,14 @@ function App() {
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
             <Route path="/dashboard-financier" element={<ProtectedLayout><DashboardFinancier /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
+            <Route
+              path="/onboarding/choice"
+              element={
+                <ProtectedRoute requireWorkspace={false}>
+                  <WorkspaceChoice />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/onboarding/workspace"
               element={

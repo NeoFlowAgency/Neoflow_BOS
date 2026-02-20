@@ -24,13 +24,10 @@ export default function Settings() {
   const [fullName, setFullName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Password form
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showOldPassword, setShowOldPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [passwordSaving, setPasswordSaving] = useState(false)
+  // Password reset via email
+  const [passwordResetSending, setPasswordResetSending] = useState(false)
+  const [passwordResetSent, setPasswordResetSent] = useState(false)
+  const [passwordResetCooldown, setPasswordResetCooldown] = useState(0)
 
   // Workspace form
   const [wsForm, setWsForm] = useState({
@@ -58,6 +55,8 @@ export default function Settings() {
   const [deleteAction, setDeleteAction] = useState('delete_workspace')
   const [transferTarget, setTransferTarget] = useState('')
   const [confirmEmail, setConfirmEmail] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [confirmWsName, setConfirmWsName] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -203,42 +202,40 @@ export default function Settings() {
     }
   }
 
-  const handleChangePassword = async () => {
-    if (!oldPassword) {
-      toast.error('Veuillez entrer votre ancien mot de passe')
-      return
-    }
-    if (newPassword.length < 8) {
-      toast.error('Le nouveau mot de passe doit contenir au moins 8 caractères')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas')
-      return
-    }
-
-    setPasswordSaving(true)
+  const handlePasswordResetEmail = async () => {
+    if (!user?.email) return
+    setPasswordResetSending(true)
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email,
-        password: oldPassword
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       })
-      if (signInError) {
-        toast.error('Ancien mot de passe incorrect')
-        setPasswordSaving(false)
-        return
-      }
-
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
-      toast.success('Mot de passe mis à jour')
-      setOldPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
+      setPasswordResetSent(true)
+      toast.success('Email envoyé ! Vérifiez votre boîte mail.')
+      // Start cooldown
+      setPasswordResetCooldown(60)
+      const interval = setInterval(() => {
+        setPasswordResetCooldown(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0 }
+          return prev - 1
+        })
+      }, 1000)
     } catch (err) {
-      toast.error(translateError(err))
+      const msg = err.message || ''
+      if (msg.includes('rate limit') || msg.includes('only request this once') || msg.includes('security purposes')) {
+        toast.error('Veuillez patienter 60 secondes avant de refaire une demande.')
+        setPasswordResetCooldown(60)
+        const interval = setInterval(() => {
+          setPasswordResetCooldown(prev => {
+            if (prev <= 1) { clearInterval(interval); return 0 }
+            return prev - 1
+          })
+        }, 1000)
+      } else {
+        toast.error('Une erreur est survenue. Veuillez réessayer.')
+      }
     } finally {
-      setPasswordSaving(false)
+      setPasswordResetSending(false)
     }
   }
 
@@ -290,6 +287,19 @@ export default function Settings() {
     setDeleting(true)
     setDeleteError('')
     try {
+      // Verify password first
+      if (isOwner && confirmPassword) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user?.email,
+          password: confirmPassword
+        })
+        if (signInError) {
+          setDeleteError('Mot de passe incorrect')
+          setDeleting(false)
+          return
+        }
+      }
+
       // Build request body - if owner, include the chosen action directly
       const body = {}
       if (isOwner && currentWorkspace) {
@@ -336,26 +346,6 @@ export default function Settings() {
     await supabase.auth.signOut()
     navigate('/login')
   }
-
-  const EyeIcon = ({ show, onClick }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-      tabIndex={-1}
-    >
-      {show ? (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-        </svg>
-      ) : (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-      )}
-    </button>
-  )
 
   const inputClass = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
   const inputDisabledClass = "w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed"
@@ -442,52 +432,30 @@ export default function Settings() {
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#040741] mb-6">Changer le mot de passe</h2>
-            <div className="space-y-4 max-w-md">
-              <div>
-                <label className={labelClass}>Ancien mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showOldPassword ? 'text' : 'password'}
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Votre mot de passe actuel"
-                    className={`${inputClass} pr-12`}
-                  />
-                  <EyeIcon show={showOldPassword} onClick={() => setShowOldPassword(!showOldPassword)} />
-                </div>
+            <h2 className="text-xl font-bold text-[#040741] mb-2">Modifier le mot de passe</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Un email vous sera envoyé avec un lien pour modifier votre mot de passe.
+            </p>
+
+            {passwordResetSent && (
+              <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Un email a été envoyé à <span className="font-semibold">{user?.email}</span>. Vérifiez votre boîte mail (et vos spams).
               </div>
-              <div>
-                <label className={labelClass}>Nouveau mot de passe</label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 8 caractères"
-                    className={`${inputClass} pr-12`}
-                  />
-                  <EyeIcon show={showNewPassword} onClick={() => setShowNewPassword(!showNewPassword)} />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Confirmer le nouveau mot de passe</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Retapez le nouveau mot de passe"
-                  className={inputClass}
-                />
-              </div>
-              <button
-                onClick={handleChangePassword}
-                disabled={passwordSaving || !oldPassword || !newPassword}
-                className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50"
-              >
-                {passwordSaving ? 'Mise à jour...' : 'Changer le mot de passe'}
-              </button>
-            </div>
+            )}
+
+            <button
+              onClick={handlePasswordResetEmail}
+              disabled={passwordResetSending || passwordResetCooldown > 0}
+              className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              {passwordResetSending ? 'Envoi...' : passwordResetCooldown > 0 ? `Renvoyer dans ${passwordResetCooldown}s` : 'Modifier mon mot de passe'}
+            </button>
           </div>
 
           <div className="bg-white rounded-2xl border border-red-100 shadow-lg p-6">
@@ -515,7 +483,7 @@ export default function Settings() {
               La suppression de votre compte est irréversible. Toutes vos données seront supprimées.
             </p>
             <button
-              onClick={() => { setShowDeleteModal(true); setConfirmEmail(''); setDeleteAction('delete_workspace'); setTransferTarget(''); setDeleteError('') }}
+              onClick={() => { setShowDeleteModal(true); setConfirmEmail(''); setConfirmPassword(''); setConfirmWsName(''); setDeleteAction('delete_workspace'); setTransferTarget(''); setDeleteError('') }}
               className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,11 +498,29 @@ export default function Settings() {
       {/* Delete account modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-red-600 mb-4">Supprimer mon compte</h2>
 
             {isOwner && currentWorkspace ? (
               <div className="space-y-4 mb-6">
+                {/* Warning banner */}
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div className="text-sm text-red-700">
+                      <p className="font-semibold mb-1">Attention : cette action est irréversible</p>
+                      <ul className="list-disc list-inside space-y-1 text-red-600">
+                        <li>Votre abonnement Stripe sera annulé</li>
+                        <li>Toutes les données du workspace seront perdues</li>
+                        <li>Les autres membres perdront l'accès</li>
+                        <li>Les factures, devis et clients seront supprimés</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
                 <p className="text-sm text-gray-600">
                   Vous êtes propriétaire du workspace <span className="font-semibold">{currentWorkspace.name}</span>. Que souhaitez-vous faire ?
                 </p>
@@ -600,17 +586,52 @@ export default function Settings() {
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-[#040741] mb-2">
-                Tapez votre email pour confirmer : <span className="text-red-500">{user?.email}</span>
-              </label>
-              <input
-                type="email"
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                placeholder={user?.email}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
-              />
+            <div className="space-y-4 mb-4">
+              {/* Password verification (owner only) */}
+              {isOwner && (
+                <div>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">
+                    Mot de passe actuel
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Entrez votre mot de passe"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  />
+                </div>
+              )}
+
+              {/* Workspace name confirmation (owner + delete_workspace only) */}
+              {isOwner && deleteAction === 'delete_workspace' && currentWorkspace && (
+                <div>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">
+                    Recopiez le nom du workspace : <span className="text-red-500">{currentWorkspace.name}</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={confirmWsName}
+                    onChange={(e) => setConfirmWsName(e.target.value)}
+                    placeholder={currentWorkspace.name}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                  />
+                </div>
+              )}
+
+              {/* Email confirmation */}
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">
+                  Tapez votre email pour confirmer : <span className="text-red-500">{user?.email}</span>
+                </label>
+                <input
+                  type="email"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  placeholder={user?.email}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                />
+              </div>
             </div>
 
             <div className="flex gap-3">
@@ -623,7 +644,13 @@ export default function Settings() {
               </button>
               <button
                 onClick={handleDeleteAccount}
-                disabled={deleting || confirmEmail !== user?.email || (deleteAction === 'transfer' && !transferTarget)}
+                disabled={
+                  deleting ||
+                  confirmEmail !== user?.email ||
+                  (isOwner && !confirmPassword) ||
+                  (isOwner && deleteAction === 'delete_workspace' && confirmWsName !== currentWorkspace?.name) ||
+                  (deleteAction === 'transfer' && !transferTarget)
+                }
                 className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deleting ? 'Suppression...' : 'Confirmer la suppression'}

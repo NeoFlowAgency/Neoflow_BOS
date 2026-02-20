@@ -92,13 +92,13 @@ export default function ListeDevis() {
 
       {/* Filtres et Recherche */}
       <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex-1 min-w-[250px] relative">
+        <div className="flex-1 min-w-0 relative">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
             type="text"
-            placeholder="Rechercher par nom, référence..."
+            placeholder="Rechercher..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
@@ -153,45 +153,50 @@ export default function ListeDevis() {
               <div
                 key={d.id}
                 onClick={() => navigate(`/devis/${d.id}`)}
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors items-center"
+                className="px-4 md:px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors"
               >
-                <div className="md:col-span-2">
-                  <p className="font-bold text-[#040741]">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
-                </div>
-
-                <div className="md:col-span-3">
-                  <p className="font-medium text-[#040741]">
+                {/* Mobile layout */}
+                <div className="md:hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-bold text-[#040741] text-sm">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
+                    {getStatutBadge(d.status)}
+                  </div>
+                  <p className="font-medium text-[#040741] text-sm">
                     {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
                   </p>
-                  {d.customers?.email && (
-                    <p className="text-sm text-gray-500">{d.customers.email}</p>
-                  )}
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-500">
+                      {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className="font-bold text-[#313ADF]">{(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €</p>
+                  </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <p className="text-gray-600">
-                    {new Date(d.created_at).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
-
-                <div className="md:col-span-2 text-right">
-                  <p className="font-bold text-[#313ADF] text-lg">
-                    {(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €
-                  </p>
-                </div>
-
-                <div className="md:col-span-2 text-center">
-                  {getStatutBadge(d.status)}
-                </div>
-
-                <div className="md:col-span-1 text-right">
-                  <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                {/* Desktop layout */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-2">
+                    <p className="font-bold text-[#040741]">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
+                  </div>
+                  <div className="col-span-3">
+                    <p className="font-medium text-[#040741]">
+                      {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
+                    </p>
+                    {d.customers?.email && <p className="text-sm text-gray-500">{d.customers.email}</p>}
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-600">
+                      {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <p className="font-bold text-[#313ADF] text-lg">{(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €</p>
+                  </div>
+                  <div className="col-span-2 text-center">{getStatutBadge(d.status)}</div>
+                  <div className="col-span-1 text-right">
+                    <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             ))}

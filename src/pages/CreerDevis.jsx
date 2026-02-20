@@ -382,6 +382,7 @@ export default function CreerDevis() {
           {lignes.map((ligne) => (
             <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
               <div className="md:col-span-5 relative">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
                 <select
                   value={ligne.produit_id || ''}
                   onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
@@ -399,7 +400,7 @@ export default function CreerDevis() {
                     </>
                   )}
                 </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none md:top-1/2">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -407,6 +408,7 @@ export default function CreerDevis() {
               </div>
 
               <div className="md:col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Quantité</span>
                 <input
                   type="number"
                   min={1}
@@ -417,12 +419,14 @@ export default function CreerDevis() {
               </div>
 
               <div className="md:col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Prix unit. HT</span>
                 <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600">
                   {ligne.unit_price.toFixed(2)} €
                 </div>
               </div>
 
               <div className="md:col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total HT</span>
                 <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
                   {ligne.total.toFixed(2)} €
                 </div>

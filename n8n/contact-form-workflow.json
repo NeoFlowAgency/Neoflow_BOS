@@ -27,7 +27,7 @@
     {
       "parameters": {
         "chatId": "7866882300",
-        "text": "=🐛 *Nouveau rapport de bug*\n\n📋 *Titre :* {{ $json.body.title }}\n⚠️ *Priorité :* {{ $json.body.priority }}\n\n👤 *Utilisateur :* {{ $json.body.user_email }}\n🏢 *Workspace :* {{ $json.body.workspace_name }}\n🆔 *Workspace ID :* {{ $json.body.workspace_id }}\n📅 *Date :* {{ $json.body.created_at }}\n\n📝 *Description :*\n{{ $json.body.description }}{{ $json.body.screenshot_url ? '\\n\\n📎 *Capture d\\'écran :* ' + $json.body.screenshot_url : '' }}",
+        "text": "= *Nouveau rapport de bug*\n\n *Titre :* {{ $json.body.title }}\n *Priorité :* {{ $json.body.priority }}\n\n *Utilisateur :* {{ $json.body.user_email }}\n *Workspace :* {{ $json.body.workspace_name }}\n *Workspace ID :* {{ $json.body.workspace_id }}\n *Date :* {{ $json.body.created_at }}\n\n *Description :*\n{{ $json.body.description }}{{ $json.body.screenshot_url ? '\\n\\n *Capture d\\'écran :* ' + $json.body.screenshot_url : '' }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
