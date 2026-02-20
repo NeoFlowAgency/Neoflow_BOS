@@ -8,7 +8,7 @@ export default function JoinWorkspace() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { refreshWorkspaces } = useWorkspace()
-  const [status, setStatus] = useState('checking') // checking | not_authenticated | loading | success | error
+  const [status, setStatus] = useState('checking') // checking | not_authenticated | loading | success | already_member | error
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
 
@@ -53,8 +53,12 @@ export default function JoinWorkspace() {
       }, 2000)
     } catch (err) {
       console.error('Erreur acceptation invitation:', err)
-      setError(err.message)
-      setStatus('error')
+      if (err.message?.includes('deja membre')) {
+        setStatus('already_member')
+      } else {
+        setError(err.message)
+        setStatus('error')
+      }
     }
   }
 
@@ -134,6 +138,38 @@ export default function JoinWorkspace() {
           </div>
         )}
 
+        {/* Already a member */}
+        {status === 'already_member' && (
+          <div className="text-center py-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-[#040741] mb-2">Déjà membre</h1>
+            <p className="text-gray-500 mb-6">
+              Vous êtes déjà membre de ce workspace avec votre compte actuel.
+            </p>
+            <div className="space-y-3">
+              <Link
+                to="/dashboard"
+                className="block w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3 rounded-xl font-semibold text-center hover:opacity-90 transition-opacity"
+              >
+                Aller au tableau de bord
+              </Link>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  setStatus('not_authenticated')
+                }}
+                className="block w-full bg-gray-100 text-[#040741] py-3 rounded-xl font-semibold text-center hover:bg-gray-200 transition-colors"
+              >
+                Utiliser un autre compte
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error */}
         {status === 'error' && (
           <div className="text-center py-4">
@@ -144,12 +180,23 @@ export default function JoinWorkspace() {
             </div>
             <h1 className="text-2xl font-bold text-[#040741] mb-2">Invitation invalide</h1>
             <p className="text-gray-500 mb-6">{error}</p>
-            <Link
-              to="/login"
-              className="inline-block bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
-            >
-              Retour à la connexion
-            </Link>
+            <div className="space-y-3">
+              <Link
+                to="/login"
+                className="block w-full bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold text-center hover:bg-[#040741] transition-colors"
+              >
+                Retour à la connexion
+              </Link>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  setStatus('not_authenticated')
+                }}
+                className="block w-full bg-gray-100 text-[#040741] py-3 rounded-xl font-semibold text-center hover:bg-gray-200 transition-colors"
+              >
+                Utiliser un autre compte
+              </button>
+            </div>
           </div>
         )}
       </div>

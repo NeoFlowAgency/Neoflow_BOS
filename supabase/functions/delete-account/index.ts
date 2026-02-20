@@ -149,11 +149,22 @@ serve(async (req) => {
       console.log('[delete-account] profiles table not found, skipping soft-delete')
     }
 
-    // Delete auth user
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
-    if (deleteError) {
-      console.error('[delete-account] Failed to delete auth user:', deleteError.message)
-      throw new Error('Erreur lors de la suppression du compte')
+    // Delete auth user via direct REST API call (more reliable than JS client in Deno)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    const deleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+      },
+    })
+
+    if (!deleteRes.ok) {
+      const errorBody = await deleteRes.text()
+      console.error('[delete-account] Failed to delete auth user:', deleteRes.status, errorBody)
+      throw new Error('Erreur lors de la suppression du compte utilisateur')
     }
 
     console.log(`[delete-account] Account deleted: ${user.id}`)
