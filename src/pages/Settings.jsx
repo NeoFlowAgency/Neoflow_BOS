@@ -304,7 +304,8 @@ export default function Settings() {
       console.log('[delete-account] Account deleted, redirecting...')
       try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* ignore */ }
       localStorage.clear()
-      window.location.href = '/login'
+      sessionStorage.clear()
+      window.location.href = '/login?account_deleted=1'
     } catch (err) {
       console.error('[delete-account] ERROR:', err)
       const errorMsg = err.message || 'Erreur lors de la suppression du compte'
@@ -368,6 +369,17 @@ export default function Settings() {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent"></div>
+      </div>
+    )
+  }
+
+  // Full-screen loading during account deletion
+  if (deleting) {
+    return (
+      <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-red-500 border-t-transparent mb-4"></div>
+        <p className="text-[#040741] font-semibold text-lg">Suppression de votre compte...</p>
+        <p className="text-gray-400 text-sm mt-2">Veuillez patienter, vous allez être redirigé</p>
       </div>
     )
   }

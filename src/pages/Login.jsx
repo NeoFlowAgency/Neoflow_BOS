@@ -113,6 +113,15 @@ export default function Login() {
           <p className="text-gray-500 mt-2">Accédez à votre espace</p>
         </div>
 
+        {searchParams.get('account_deleted') === '1' && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Votre compte a été supprimé avec succès.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-semibold text-[#040741] mb-2">
