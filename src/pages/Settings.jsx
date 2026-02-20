@@ -301,13 +301,13 @@ export default function Settings() {
         }
       }
 
-      // Build request body - if owner, include the chosen action directly
+      // Build request body - always include action and workspace_id
       const body = {}
       if (isOwner && currentWorkspace) {
         body.action = deleteAction
+        body.workspace_id = currentWorkspace.id
         if (deleteAction === 'transfer' && transferTarget) {
           body.transfer_to = transferTarget
-          body.workspace_id = currentWorkspace.id
         }
       }
 
@@ -320,8 +320,10 @@ export default function Settings() {
       }
       if (!token) throw new Error('Session expirée. Veuillez vous reconnecter.')
 
-      console.log('[delete-account] Deleting account...', body)
-      // Use raw fetch for full control over headers (avoids supabase.functions.invoke JWT issues)
+      console.log('[delete-account] isOwner:', isOwner, 'deleteAction:', deleteAction, 'workspace:', currentWorkspace?.id)
+      console.log('[delete-account] Sending body:', JSON.stringify(body))
+
+      // Use raw fetch for full control over headers
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
         {
@@ -342,8 +344,16 @@ export default function Settings() {
       }
 
       const fnData = await response.json()
-      if (fnData?.success === false || fnData?.error) {
-        throw new Error(fnData.error || 'Erreur lors de la suppression')
+      console.log('[delete-account] Response data:', JSON.stringify(fnData))
+
+      // Edge Function returns { requires_action: true } if no action was sent
+      if (fnData?.requires_action) {
+        throw new Error('Action requise pour le workspace. Veuillez réessayer.')
+      }
+
+      // Require explicit success
+      if (!fnData?.success) {
+        throw new Error(fnData?.error || 'La suppression n\'a pas abouti. Veuillez réessayer.')
       }
 
       // Account deleted - clear local session and hard redirect

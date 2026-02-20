@@ -27,6 +27,7 @@ serve(async (req) => {
 
     const body = await req.json()
     const { action, transfer_to, workspace_id } = body
+    console.log(`[delete-account] User: ${user.id}, Body:`, JSON.stringify(body))
 
     // Find workspaces where user is owner
     const { data: ownedWorkspaces } = await supabase
@@ -36,6 +37,7 @@ serve(async (req) => {
       .eq('role', 'owner')
 
     const owned = (ownedWorkspaces || []).map(wu => wu.workspaces).filter(Boolean)
+    console.log(`[delete-account] Owned workspaces: ${owned.length}, action: ${action || 'none'}`)
 
     // If user owns workspaces and no action specified, return what needs to be resolved
     if (owned.length > 0 && !action) {
@@ -131,20 +133,30 @@ serve(async (req) => {
     }
 
     // Remove user from all workspace_users
-    await supabase
+    const { error: wuDeleteError } = await supabase
       .from('workspace_users')
       .delete()
       .eq('user_id', user.id)
+    if (wuDeleteError) {
+      console.error('[delete-account] workspace_users delete error:', wuDeleteError.message)
+    } else {
+      console.log('[delete-account] Removed user from all workspace_users')
+    }
 
     // Soft-delete profile (ignore error if profiles table doesn't exist)
     try {
-      await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: '[Compte supprimé]',
           deleted_at: new Date().toISOString(),
         })
         .eq('id', user.id)
+      if (profileError) {
+        console.error('[delete-account] Profile soft-delete error:', profileError.message)
+      } else {
+        console.log('[delete-account] Profile soft-deleted')
+      }
     } catch {
       console.log('[delete-account] profiles table not found, skipping soft-delete')
     }
