@@ -118,12 +118,13 @@ serve(async (req) => {
             }
           }
 
-          // Deactivate workspace
+          // Deactivate workspace and clear owner_user_id FK reference
           await supabase
             .from('workspaces')
             .update({
               is_active: false,
               subscription_status: 'canceled',
+              owner_user_id: null,
             })
             .eq('id', ws.id)
 
@@ -143,22 +144,62 @@ serve(async (req) => {
       console.log('[delete-account] Removed user from all workspace_users')
     }
 
-    // Soft-delete profile (ignore error if profiles table doesn't exist)
+    // Clean up all FK references to auth.users BEFORE deleting the auth user
+    // 1. workspace_invitations.invited_by (NOT NULL) → delete rows
+    const { error: invDeleteErr } = await supabase
+      .from('workspace_invitations')
+      .delete()
+      .eq('invited_by', user.id)
+    if (invDeleteErr) {
+      console.error('[delete-account] invitations delete error:', invDeleteErr.message)
+    } else {
+      console.log('[delete-account] Deleted invitations created by user')
+    }
+
+    // 2. workspace_invitations.used_by (nullable) → set to null
+    const { error: invUsedErr } = await supabase
+      .from('workspace_invitations')
+      .update({ used_by: null })
+      .eq('used_by', user.id)
+    if (invUsedErr) {
+      console.error('[delete-account] invitations used_by cleanup error:', invUsedErr.message)
+    }
+
+    // 3. bug_reports.user_id (NOT NULL) → delete rows
+    const { error: bugDeleteErr } = await supabase
+      .from('bug_reports')
+      .delete()
+      .eq('user_id', user.id)
+    if (bugDeleteErr) {
+      console.error('[delete-account] bug_reports delete error:', bugDeleteErr.message)
+    } else {
+      console.log('[delete-account] Deleted bug reports by user')
+    }
+
+    // 4. workspaces.owner_user_id → clear for any remaining owned workspaces
+    const { error: ownerClearErr } = await supabase
+      .from('workspaces')
+      .update({ owner_user_id: null })
+      .eq('owner_user_id', user.id)
+    if (ownerClearErr) {
+      console.error('[delete-account] owner_user_id cleanup error:', ownerClearErr.message)
+    } else {
+      console.log('[delete-account] Cleared owner_user_id references')
+    }
+
+    // profiles table has ON DELETE CASCADE from auth.users, so it will be auto-deleted
+    // But soft-delete first for any audit trail before CASCADE removes it
     try {
-      const { error: profileError } = await supabase
+      await supabase
         .from('profiles')
         .update({
           full_name: '[Compte supprimé]',
           deleted_at: new Date().toISOString(),
         })
         .eq('id', user.id)
-      if (profileError) {
-        console.error('[delete-account] Profile soft-delete error:', profileError.message)
-      } else {
-        console.log('[delete-account] Profile soft-deleted')
-      }
+      console.log('[delete-account] Profile soft-deleted (will be cascade-deleted with auth user)')
     } catch {
-      console.log('[delete-account] profiles table not found, skipping soft-delete')
+      // profiles table might not exist
     }
 
     // Delete auth user - try JS client first, fallback to REST API
