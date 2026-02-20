@@ -180,7 +180,7 @@ export default function ListeDevis() {
 
                 <div className="md:col-span-2 text-right">
                   <p className="font-bold text-[#313ADF] text-lg">
-                    {d.total_amount?.toFixed(2) || '0.00'} €
+                    {(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €
                   </p>
                 </div>
 

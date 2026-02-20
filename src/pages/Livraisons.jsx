@@ -53,6 +53,7 @@ export default function Livraisons() {
         .from('invoices')
         .select('*, customers(last_name, first_name, address)')
         .eq('workspace_id', workspace?.id)
+        .neq('has_delivery', false)
         .in('status', ['brouillon', 'envoyée', 'payée'])
         .order('created_at', { ascending: false })
 
@@ -102,6 +103,7 @@ export default function Livraisons() {
     setSelectedFacture(facture)
     setLivraisonForm({
       ...livraisonForm,
+      date_prevue: facture.delivery_date || '',
       adresse_livraison: facture.customers?.address || ''
     })
   }
@@ -147,26 +149,39 @@ export default function Livraisons() {
 
     return (
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
-        <div className="flex items-start justify-between mb-2">
-          <p className="font-bold text-[#040741] text-lg">{clientName}</p>
-          {livraison.invoices?.total_ttc && (
-            <span className="text-sm font-semibold text-[#313ADF]">
-              {livraison.invoices.total_ttc.toFixed(0)} €
-            </span>
+        <div
+          className="cursor-pointer"
+          onClick={() => livraison.invoice_id && navigate(`/factures/${livraison.invoice_id}`)}
+        >
+          <div className="flex items-start justify-between mb-2">
+            <p className="font-bold text-[#040741] text-lg group-hover:text-[#313ADF] transition-colors">{clientName}</p>
+            {livraison.invoices?.total_ttc && (
+              <span className="text-sm font-semibold text-[#313ADF]">
+                {livraison.invoices.total_ttc.toFixed(0)} €
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 leading-snug mb-2">{adresse}</p>
+          {datePrevue && (
+            <p className="text-xs text-gray-500 flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {datePrevue}
+            </p>
+          )}
+          {livraison.invoice_id && (
+            <p className="text-xs text-[#313ADF] mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Voir la facture
+            </p>
           )}
         </div>
-        <p className="text-sm text-gray-600 leading-snug mb-2">{adresse}</p>
-        {datePrevue && (
-          <p className="text-xs text-gray-500 flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {datePrevue}
-          </p>
-        )}
         {showComplete && (
           <button
-            onClick={() => onClick(livraison.id)}
+            onClick={(e) => { e.stopPropagation(); onClick(livraison.id) }}
             className="mt-3 w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
