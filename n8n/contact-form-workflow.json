@@ -21,23 +21,68 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-544, 48],
+      "position": [-600, 48],
       "webhookId": "neoflow-contact"
     },
     {
       "parameters": {
         "chatId": "7866882300",
-        "text": "= *Nouveau rapport de bug*\n\n *Titre :* {{ $json.body.title }}\n *Priorité :* {{ $json.body.priority }}\n\n *Utilisateur :* {{ $json.body.user_email }}\n *Workspace :* {{ $json.body.workspace_name }}\n *Workspace ID :* {{ $json.body.workspace_id }}\n *Date :* {{ $json.body.created_at }}\n\n *Description :*\n{{ $json.body.description }}{{ $json.body.screenshot_url ? '\\n\\n *Capture d\\'écran :* ' + $json.body.screenshot_url : '' }}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "text": "= Nouveau rapport de bug\n\nTitre : {{ $json.body.title }}\nPriorite : {{ $json.body.priority }}\n\nUtilisateur nom : {{ $json.body.user_name }}\nUtilisateur ID : {{ $json.body.user_id }}\nUtilisateur email : {{ $json.body.user_email }}\nWorkspace : {{ $json.body.workspace_name }}\nWorkspace ID : {{ $json.body.workspace_id }}\nDate : {{ $json.body.created_at }}\n\nDescription :\n{{ $json.body.description }}",
+        "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-352, 48],
+      "position": [-400, 48],
       "id": "6dfa3f75-8a95-455f-92f2-a142e772ec96",
       "name": "Send Telegram Message",
-      "webhookId": "896a4629-e667-4ab8-b0a8-acd765b85804",
+      "credentials": {
+        "telegramApi": {
+          "id": "gnyutPSSjt1Z3WWP",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-screenshot",
+              "leftValue": "={{ $('Webhook').item.json.body.screenshot_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-screenshot",
+      "name": "IF Screenshot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-200, 48]
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "7866882300",
+        "file": "={{ $('Webhook').item.json.body.screenshot_url }}",
+        "additionalFields": {
+          "caption": "= Capture d'ecran - {{ $('Webhook').item.json.body.title }}"
+        }
+      },
+      "id": "send-screenshot",
+      "name": "Send Screenshot",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [0, -50],
       "credentials": {
         "telegramApi": {
           "id": "gnyutPSSjt1Z3WWP",
@@ -57,7 +102,7 @@
       "name": "Response OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-160, 48]
+      "position": [200, 48]
     }
   ],
   "connections": {
@@ -73,6 +118,35 @@
       ]
     },
     "Send Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "IF Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Screenshot": {
+      "main": [
+        [
+          {
+            "node": "Send Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Screenshot": {
       "main": [
         [
           {

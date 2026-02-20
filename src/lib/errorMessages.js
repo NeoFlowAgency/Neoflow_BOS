@@ -23,6 +23,8 @@ const ERROR_MAP = {
   'deja membre': 'Vous êtes déjà membre de ce workspace.',
   'Stripe configuration': 'Configuration Stripe manquante. Contactez le support.',
   'Aucun compte de facturation': 'Aucun compte de facturation trouvé pour ce workspace.',
+  'New password should be different': 'Le nouveau mot de passe doit être différent de l\'ancien.',
+  'same_password': 'Le nouveau mot de passe doit être différent de l\'ancien.',
 }
 
 export function translateError(error) {

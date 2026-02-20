@@ -151,8 +151,16 @@ export default function DashboardFinancier() {
         prodMap[key].ca += parseFloat(item.total_ht) || 0
       })
       const prodList = Object.values(prodMap).sort((a, b) => b.quantity - a.quantity)
-      setTopProduits(prodList.slice(0, 5))
-      setFlopProduits(prodList.length > 1 ? [...prodList].sort((a, b) => a.quantity - b.quantity).slice(0, 5) : [])
+      const top = prodList.slice(0, 5)
+      setTopProduits(top)
+      // Only show flop if there are more products than the top list (avoid duplicates)
+      if (prodList.length > top.length) {
+        const topNames = new Set(top.map(p => p.name))
+        const flop = [...prodList].sort((a, b) => a.quantity - b.quantity).filter(p => !topNames.has(p.name)).slice(0, 5)
+        setFlopProduits(flop)
+      } else {
+        setFlopProduits([])
+      }
 
       // Sellers ranking
       const memberMap = {}

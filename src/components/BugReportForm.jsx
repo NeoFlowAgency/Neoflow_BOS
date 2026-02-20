@@ -113,6 +113,8 @@ export default function BugReportForm() {
             priority,
             workspace_id: currentWorkspace.id,
             workspace_name: currentWorkspace.name,
+            user_name: user.user_metadata?.full_name || 'Inconnu',
+            user_id: user.id,
             user_email: user.email,
             screenshot_url: screenshotUrl,
             created_at: new Date().toISOString()

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, invokeFunction } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { translateError } from '../lib/errorMessages'
@@ -221,10 +221,11 @@ export default function Settings() {
         })
       }, 1000)
     } catch (err) {
+      console.error('[password-reset] Error:', err.message || err)
       const msg = err.message || ''
       if (msg.includes('rate limit') || msg.includes('only request this once') || msg.includes('security purposes')) {
-        toast.error('Veuillez patienter 60 secondes avant de refaire une demande.')
-        setPasswordResetCooldown(60)
+        toast.error('Veuillez patienter quelques minutes avant de refaire une demande.')
+        setPasswordResetCooldown(120)
         const interval = setInterval(() => {
           setPasswordResetCooldown(prev => {
             if (prev <= 1) { clearInterval(interval); return 0 }
@@ -232,7 +233,7 @@ export default function Settings() {
           })
         }, 1000)
       } else {
-        toast.error('Une erreur est survenue. Veuillez réessayer.')
+        toast.error(translateError(err))
       }
     } finally {
       setPasswordResetSending(false)
@@ -310,8 +311,40 @@ export default function Settings() {
         }
       }
 
+      // Force refresh session to get a guaranteed fresh token
+      const { data: refreshData } = await supabase.auth.refreshSession()
+      let token = refreshData?.session?.access_token
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession()
+        token = session?.access_token
+      }
+      if (!token) throw new Error('Session expirée. Veuillez vous reconnecter.')
+
       console.log('[delete-account] Deleting account...', body)
-      await invokeFunction('delete-account', body)
+      // Use raw fetch for full control over headers (avoids supabase.functions.invoke JWT issues)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify(body),
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[delete-account] Response error:', response.status, errorData)
+        throw new Error(errorData.error || `Erreur ${response.status}`)
+      }
+
+      const fnData = await response.json()
+      if (fnData?.success === false || fnData?.error) {
+        throw new Error(fnData.error || 'Erreur lors de la suppression')
+      }
 
       // Account deleted - clear local session and hard redirect
       console.log('[delete-account] Account deleted, redirecting...')
