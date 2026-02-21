@@ -10,7 +10,7 @@ export const generatePdf = (documentType, documentId) =>
   invokeFunction('generate-pdf', { document_type: documentType, document_id: documentId })
 
 /**
- * Send an email via Resend
+ * Send an email via SMTP (Gmail)
  * @param {string} to - Recipient email
  * @param {string} subject - Email subject
  * @param {string} html - HTML body

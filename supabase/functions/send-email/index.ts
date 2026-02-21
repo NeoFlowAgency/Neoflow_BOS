@@ -5,18 +5,21 @@
 // Input: { to: string, subject: string, html: string }
 // Output: { success: boolean }
 //
-// Prerequisites:
-// - Set RESEND_API_KEY secret: supabase secrets set RESEND_API_KEY=re_xxxxx
+// Prerequisites - set secrets:
+//   supabase secrets set SMTP_HOST=smtp.gmail.com
+//   supabase secrets set SMTP_PORT=587
+//   supabase secrets set SMTP_USER=contacte.neoflowbos@gmail.com
+//   supabase secrets set SMTP_PASS=xxxx
+//   supabase secrets set SMTP_FROM="NeoFlow BOS <contacte.neoflowbos@gmail.com>"
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,7 +27,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, html, from } = await req.json()
+    const { to, subject, html } = await req.json()
 
     if (!to || !subject || !html) {
       return new Response(
@@ -33,41 +36,52 @@ serve(async (req) => {
       )
     }
 
-    if (!RESEND_API_KEY) {
+    const smtpHost = Deno.env.get('SMTP_HOST') || 'smtp.gmail.com'
+    const smtpPort = parseInt(Deno.env.get('SMTP_PORT') || '587')
+    const smtpUser = Deno.env.get('SMTP_USER')
+    const smtpPass = Deno.env.get('SMTP_PASS')
+    const smtpFrom = Deno.env.get('SMTP_FROM') || smtpUser || ''
+
+    if (!smtpUser || !smtpPass) {
       return new Response(
-        JSON.stringify({ error: 'RESEND_API_KEY not configured. Set it with: supabase secrets set RESEND_API_KEY=re_xxxxx' }),
+        JSON.stringify({
+          error: 'SMTP credentials not configured. Set SMTP_USER and SMTP_PASS secrets.',
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: true,
+        auth: {
+          username: smtpUser,
+          password: smtpPass,
+        },
       },
-      body: JSON.stringify({
-        from: from || 'NeoFlow BOS <noreply@neoflow.agency>',
-        to: [to],
-        subject,
-        html,
-      }),
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'Erreur envoi email via Resend')
-    }
+    await client.send({
+      from: smtpFrom,
+      to,
+      subject,
+      content: 'auto',
+      html,
+    })
 
-    const result = await response.json()
+    await client.close()
 
     return new Response(
-      JSON.stringify({ success: true, id: result.id }),
+      JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[send-email] Error:', msg, error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
