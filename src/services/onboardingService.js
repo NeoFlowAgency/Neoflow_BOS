@@ -199,6 +199,5 @@ export async function markOnboardingComplete(userId) {
  */
 export function shouldShowOnboarding() {
   if (localStorage.getItem('neoflow_onboarding_done')) return false
-  if (localStorage.getItem('neoflow_tuto_done')) return false
   return true
 }

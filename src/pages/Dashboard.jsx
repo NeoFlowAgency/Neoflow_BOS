@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
-import WelcomeTutorial from '../components/WelcomeTutorial'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { workspace, loading: wsLoading, isLivreur } = useWorkspace()
   const [user, setUser] = useState(null)
-  const [showTutorial, setShowTutorial] = useState(false)
   const [stats, setStats] = useState({
     totalFactures: 0,
     livraisonsEnCours: 0,
@@ -59,11 +57,6 @@ export default function Dashboard() {
         totalClients: customersResult.count || 0
       })
       setRecentInvoices(recentResult.data || [])
-
-      // Show tutorial on first visit
-      if (!localStorage.getItem('neoflow_tuto_done')) {
-        setShowTutorial(true)
-      }
     } catch (err) {
       console.error('[Dashboard] Erreur chargement données:', err.message, err)
     } finally {
@@ -111,10 +104,22 @@ export default function Dashboard() {
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur'
 
+  const isEarlyAccess = new Date() < new Date('2026-02-25T00:00:00')
+
   return (
-    <>
-      {showTutorial && <WelcomeTutorial onClose={() => setShowTutorial(false)} />}
     <div className="p-4 md:p-8 min-h-screen">
+      {/* Early access banner */}
+      {isEarlyAccess && (
+        <div className="mb-6 bg-gradient-to-r from-[#313ADF] to-purple-600 rounded-2xl p-4 flex items-center gap-3 text-white shadow-lg">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <p className="text-sm font-medium">
+            Bienvenue en acces anticipe ! Lancement officiel le 25 fevrier 2026.
+          </p>
+        </div>
+      )}
+
       {/* Header de bienvenue */}
       <div className="mb-10">
         <h1 className="text-2xl md:text-4xl font-bold text-[#040741] mb-2">
@@ -302,6 +307,5 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
-    </>
   )
 }

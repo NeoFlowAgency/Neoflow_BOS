@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { convertQuoteToInvoice } from '../services/quoteService'
-import { generatePdf, sendEmail } from '../services/edgeFunctionService'
+import { sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -103,21 +103,8 @@ export default function ApercuDevis() {
     }
   }
 
-  const handleDownloadPdf = async () => {
-    setActionLoading('pdf')
-    try {
-      const response = await generatePdf('quote', devis.id)
-      if (response.pdf_url) {
-        window.open(response.pdf_url, '_blank')
-        toast.success('PDF généré !')
-      } else {
-        throw new Error('URL PDF non retournée')
-      }
-    } catch (err) {
-      toast.error(err.message || 'Erreur lors de la génération du PDF')
-    } finally {
-      setActionLoading(null)
-    }
+  const handleDownloadPdf = () => {
+    window.print()
   }
 
   const handleReject = async () => {
@@ -186,7 +173,7 @@ export default function ApercuDevis() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4 no-print">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-bold text-[#040741]">Aperçu du devis</h1>

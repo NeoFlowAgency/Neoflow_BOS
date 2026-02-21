@@ -28,3 +28,17 @@
   background-color: #f3f4f6;
   border-radius: 4px;
 }
+
+/* Print styles - hide non-document elements */
+@media print {
+  .no-print, nav, aside {
+    display: none !important;
+  }
+  main {
+    margin-left: 0 !important;
+    padding-top: 0 !important;
+  }
+  body {
+    background: white !important;
+  }
+}

@@ -102,7 +102,7 @@ export const createWorkspace = async (name, userId, options = {}) => {
 /**
  * Create a Stripe Checkout session for a workspace
  */
-export const createCheckoutSession = async (workspaceId, successUrl, cancelUrl) => {
+export const createCheckoutSession = async (workspaceId, successUrl, cancelUrl, plan) => {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Non authentifié')
 
@@ -110,6 +110,7 @@ export const createCheckoutSession = async (workspaceId, successUrl, cancelUrl) 
     workspace_id: workspaceId,
     success_url: successUrl || undefined,
     cancel_url: cancelUrl || undefined,
+    plan: plan || undefined,
   })
 }
 

@@ -14,8 +14,9 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    const priceId = Deno.env.get('STRIPE_PRICE_ID')
-    if (!stripeKey || !priceId) {
+    const defaultPriceId = Deno.env.get('STRIPE_PRICE_ID')
+    const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID')
+    if (!stripeKey || !defaultPriceId) {
       throw new Error('Stripe configuration manquante')
     }
 
@@ -34,7 +35,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    const { workspace_id, success_url, cancel_url } = await req.json()
+    const { workspace_id, success_url, cancel_url, plan } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
 
     // Verify user is owner of this workspace
@@ -77,6 +78,11 @@ serve(async (req) => {
         .eq('id', workspace_id)
     }
 
+    // Select price based on plan (early-access or default)
+    const priceId = (plan === 'early-access' && earlyAccessPriceId)
+      ? earlyAccessPriceId
+      : defaultPriceId
+
     // Create Checkout Session with 7-day trial
     const origin = req.headers.get('origin') || 'http://localhost:5173'
     const session = await stripe.checkout.sessions.create({
@@ -88,7 +94,7 @@ serve(async (req) => {
         trial_period_days: 7,
         metadata: { workspace_id: workspace.id },
       },
-      metadata: { workspace_id: workspace.id },
+      metadata: { workspace_id: workspace.id, plan: plan || 'default' },
       success_url: success_url || `${origin}/dashboard?checkout=success`,
       cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
     })

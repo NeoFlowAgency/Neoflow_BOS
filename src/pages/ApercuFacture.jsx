@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { generatePdf, sendEmail } from '../services/edgeFunctionService'
+import { sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -86,24 +86,8 @@ export default function ApercuFacture() {
     }
   }
 
-  const handleDownloadPdf = async () => {
-    setActionLoading('pdf')
-    setActionMessage({ type: '', text: '' })
-
-    try {
-      const response = await generatePdf('invoice', factureId)
-
-      if (response.pdf_url) {
-        window.open(response.pdf_url, '_blank')
-        setActionMessage({ type: 'success', text: 'PDF généré !' })
-      } else {
-        throw new Error('URL PDF non retournée')
-      }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la génération' })
-    } finally {
-      setActionLoading(null)
-    }
+  const handleDownloadPdf = () => {
+    window.print()
   }
 
   const handleCreateLivraison = async () => {
@@ -209,7 +193,7 @@ export default function ApercuFacture() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4 no-print">
         <div>
           <h1 className="text-3xl font-bold text-[#040741] mb-1">Aperçu de la facture</h1>
           <p className="text-gray-500">N° {facture.invoice_number}</p>
