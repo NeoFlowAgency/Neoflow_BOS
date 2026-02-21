@@ -34,7 +34,7 @@ serve(async (req) => {
       .from('workspace_users')
       .select('workspace_id, workspaces(id, name, stripe_subscription_id)')
       .eq('user_id', user.id)
-      .eq('role', 'owner')
+      .eq('role', 'proprietaire')
 
     const owned = (ownedWorkspaces || []).map(wu => wu.workspaces).filter(Boolean)
     console.log(`[delete-account] Owned workspaces: ${owned.length}, action: ${action || 'none'}`)
@@ -97,7 +97,7 @@ serve(async (req) => {
           // Transfer ownership
           await supabase
             .from('workspace_users')
-            .update({ role: 'owner' })
+            .update({ role: 'proprietaire' })
             .eq('workspace_id', ws.id)
             .eq('user_id', transfer_to)
 

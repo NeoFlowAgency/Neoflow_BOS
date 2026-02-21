@@ -14,7 +14,7 @@ async function hashToken(token) {
 /**
  * Create an invitation link for a workspace
  */
-export const createInvitation = async (workspaceId, role = 'member', email = null) => {
+export const createInvitation = async (workspaceId, role = 'vendeur', email = null) => {
   const token = crypto.randomUUID()
   const tokenHash = await hashToken(token)
 

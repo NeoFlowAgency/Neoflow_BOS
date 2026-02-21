@@ -339,11 +339,11 @@ export default function ApercuFacture() {
           {/* En-tête facture */}
           <div className="flex items-start justify-between mb-8 pb-6 border-b border-gray-100">
             <div>
-              <img
-                src="/logo-neoflow.png"
-                alt="Neoflow Agency"
-                className="h-12 mb-2"
-              />
+              {workspace?.logo_url ? (
+                <img src={workspace.logo_url} alt={workspace.name || 'Logo'} className="h-12 mb-2 object-contain" />
+              ) : (
+                <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              )}
               <p className="text-sm text-gray-500">{workspace?.name || ''}</p>
             </div>
             <div className="text-right">
@@ -359,6 +359,10 @@ export default function ApercuFacture() {
               <p className="font-bold text-[#313ADF] text-sm mb-2">ÉMETTEUR</p>
               <p className="font-medium text-[#040741]">{workspace?.name || 'Entreprise'}</p>
               {workspace?.address && <p className="text-gray-600 text-sm">{workspace.address}</p>}
+              {(workspace?.postal_code || workspace?.city) && <p className="text-gray-600 text-sm">{workspace.postal_code} {workspace.city}</p>}
+              {workspace?.phone && <p className="text-gray-600 text-sm">Tel: {workspace.phone}</p>}
+              {workspace?.email && <p className="text-gray-600 text-sm">{workspace.email}</p>}
+              {workspace?.siret && <p className="text-gray-600 text-sm">SIRET: {workspace.siret}</p>}
               {workspace?.vat_number && <p className="text-gray-600 text-sm">TVA: {workspace.vat_number}</p>}
             </div>
             <div className="text-right">
@@ -421,16 +425,32 @@ export default function ApercuFacture() {
           {/* Pied de page */}
           <div className="grid grid-cols-2 gap-8 text-xs text-gray-500 border-t border-gray-200 pt-6">
             <div>
-              <p className="font-bold text-[#040741] text-sm mb-2">Règlement</p>
-              <p>Par virement bancaire:</p>
-              <p>IBAN: FR76 1234 5678 9012</p>
-              <p>BIC: AGRIFRPP</p>
+              <p className="font-bold text-[#040741] text-sm mb-2">Reglement</p>
+              {workspace?.bank_iban || workspace?.bank_bic ? (
+                <>
+                  <p>Par virement bancaire:</p>
+                  {workspace.bank_account_holder && <p>{workspace.bank_account_holder}</p>}
+                  {workspace.bank_iban && <p>IBAN: {workspace.bank_iban}</p>}
+                  {workspace.bank_bic && <p>BIC: {workspace.bank_bic}</p>}
+                </>
+              ) : (
+                <p className="text-gray-400 italic">Coordonnees bancaires non configurees</p>
+              )}
             </div>
             <div>
               <p className="font-bold text-[#040741] text-sm mb-2">Conditions</p>
-              <p>En cas de retard de paiement, une indemnité de 3 fois le taux d'intérêt légal ainsi qu'une indemnité forfaitaire de 40€ seront exigibles.</p>
+              {workspace?.payment_terms ? (
+                <p>{workspace.payment_terms}</p>
+              ) : (
+                <p>En cas de retard de paiement, une indemnite de 3 fois le taux d'interet legal ainsi qu'une indemnite forfaitaire de 40EUR seront exigibles.</p>
+              )}
             </div>
           </div>
+          {workspace?.invoice_footer && (
+            <div className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-100">
+              <p>{workspace.invoice_footer}</p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -14,6 +14,7 @@ import {
   Pie,
   Cell
 } from 'recharts'
+import ChartModal from '../components/ui/ChartModal'
 
 const COLORS = {
   brouillon: '#6B7280',
@@ -31,6 +32,7 @@ export default function DashboardFinancier() {
   const [error, setError] = useState(null)
 
   const [periodeCA, setPeriodeCA] = useState('mois')
+  const [fullscreenChart, setFullscreenChart] = useState(null)
 
   const [stats, setStats] = useState({
     caTotal: 0,
@@ -385,9 +387,14 @@ export default function DashboardFinancier() {
       {/* GRAPHIQUES (2 colonnes) */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
         {/* Graphique CA */}
-        <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-gray-100 shadow-lg">
+        <div className="lg:col-span-3 bg-white rounded-2xl p-6 border border-gray-100 shadow-lg cursor-pointer hover:shadow-xl transition-shadow group" onClick={() => setFullscreenChart('ca')}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h3 className="text-lg font-bold text-[#040741]">Évolution du CA</h3>
+            <h3 className="text-lg font-bold text-[#040741] flex items-center gap-2">
+              Évolution du CA
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-[#313ADF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </h3>
             <div className="flex gap-2 flex-wrap">
               {[
                 { value: 'jour', label: 'Jour' },
@@ -398,7 +405,7 @@ export default function DashboardFinancier() {
               ].map((option) => (
                 <button
                   key={option.value}
-                  onClick={() => setPeriodeCA(option.value)}
+                  onClick={(e) => { e.stopPropagation(); setPeriodeCA(option.value) }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     periodeCA === option.value
                       ? 'bg-[#313ADF] text-white shadow-md'
@@ -452,8 +459,13 @@ export default function DashboardFinancier() {
         </div>
 
         {/* Répartition par statut */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-lg">
-          <h3 className="text-lg font-bold text-[#040741] mb-4">Répartition par statut</h3>
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-lg cursor-pointer hover:shadow-xl transition-shadow group" onClick={() => setFullscreenChart('statut')}>
+          <h3 className="text-lg font-bold text-[#040741] mb-4 flex items-center gap-2">
+            Répartition par statut
+            <svg className="w-4 h-4 text-gray-300 group-hover:text-[#313ADF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </h3>
           {repartitionStatut.length > 0 ? (
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -497,12 +509,15 @@ export default function DashboardFinancier() {
       {/* PRODUITS + VENDEURS (2 colonnes) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top / Flop Produits */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg">
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg cursor-pointer hover:shadow-xl transition-shadow group" onClick={() => setFullscreenChart('produits')}>
           <h3 className="text-lg font-bold text-[#040741] mb-4 flex items-center gap-2">
             <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
             Produits les plus vendus
+            <svg className="w-4 h-4 text-gray-300 group-hover:text-[#313ADF] transition-colors ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
           </h3>
           {topProduits.length > 0 ? (
             <div className="space-y-3">
@@ -556,12 +571,15 @@ export default function DashboardFinancier() {
         </div>
 
         {/* Vendeurs */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg">
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg cursor-pointer hover:shadow-xl transition-shadow group" onClick={() => setFullscreenChart('vendeurs')}>
           <h3 className="text-lg font-bold text-[#040741] mb-4 flex items-center gap-2">
             <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Classement vendeurs
+            <svg className="w-4 h-4 text-gray-300 group-hover:text-[#313ADF] transition-colors ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
           </h3>
           {vendeurs.length > 0 ? (
             <div className="space-y-3">
@@ -670,6 +688,152 @@ export default function DashboardFinancier() {
         </svg>
         Retour à l'accueil
       </button>
+
+      {/* Fullscreen chart modal */}
+      {fullscreenChart === 'ca' && (
+        <ChartModal title="Evolution du CA" onClose={() => setFullscreenChart(null)}>
+          <div className="flex gap-2 flex-wrap mb-4">
+            {[
+              { value: 'jour', label: 'Jour' },
+              { value: 'semaine', label: 'Semaine' },
+              { value: 'mois', label: 'Mois' },
+              { value: 'trimestre', label: 'Trimestre' },
+              { value: 'annee', label: 'Annee' }
+            ].map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setPeriodeCA(option.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  periodeCA === option.value
+                    ? 'bg-[#313ADF] text-white shadow-md'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-[#313ADF] hover:text-[#313ADF]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ height: 'calc(100% - 50px)' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={caParMoisFiltre} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="mois" tick={{ fill: '#6B7280', fontSize: 12 }} axisLine={{ stroke: '#E5E7EB' }} />
+                <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} axisLine={{ stroke: '#E5E7EB' }} />
+                <Tooltip formatter={(value) => [formatCurrency(value), 'CA']} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} labelStyle={{ fontWeight: 'bold', color: '#040741' }} />
+                <Bar dataKey="ca" fill="#313ADF" radius={[8, 8, 0, 0]} maxBarSize={80} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartModal>
+      )}
+
+      {fullscreenChart === 'statut' && (
+        <ChartModal title="Repartition par statut" onClose={() => setFullscreenChart(null)}>
+          <div style={{ height: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={repartitionStatut}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={160}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={{ stroke: '#6B7280', strokeWidth: 1 }}
+                >
+                  {repartitionStatut.map((entry, index) => (
+                    <Cell key={`cell-fs-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name) => [value, name]} contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartModal>
+      )}
+
+      {fullscreenChart === 'produits' && (
+        <ChartModal title="Produits les plus vendus" onClose={() => setFullscreenChart(null)}>
+          <div className="overflow-y-auto" style={{ height: '100%' }}>
+            {topProduits.length > 0 ? (
+              <div className="space-y-4">
+                {topProduits.map((p, i) => {
+                  const maxQty = topProduits[0]?.quantity || 1
+                  return (
+                    <div key={i} className="flex items-center gap-4">
+                      <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                        i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'
+                      }`}>
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-base font-medium text-[#040741] truncate">{p.name}</span>
+                          <span className="text-base font-bold text-[#313ADF] ml-2">{p.quantity} vendus - {formatCurrency(p.ca)}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-3">
+                          <div className="bg-[#313ADF] h-3 rounded-full transition-all" style={{ width: `${(p.quantity / maxQty) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center py-8">Aucune donnee produit</p>
+            )}
+            {flopProduits.length > 0 && (
+              <>
+                <h4 className="text-lg font-bold text-[#040741] mt-8 mb-4">Moins vendus</h4>
+                <div className="space-y-3">
+                  {flopProduits.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-xl">
+                      <span className="text-base text-gray-600 truncate">{p.name}</span>
+                      <span className="text-base font-medium text-gray-500 ml-2">{p.quantity} vendus - {formatCurrency(p.ca)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </ChartModal>
+      )}
+
+      {fullscreenChart === 'vendeurs' && (
+        <ChartModal title="Classement vendeurs" onClose={() => setFullscreenChart(null)}>
+          <div className="overflow-y-auto" style={{ height: '100%' }}>
+            {vendeurs.length > 0 ? (
+              <div className="space-y-4">
+                {vendeurs.map((v, i) => (
+                  <div key={i} className={`flex items-center gap-4 p-5 rounded-xl ${
+                    i === 0 ? 'bg-yellow-50 border-2 border-yellow-300' :
+                    i === 1 ? 'bg-gray-50 border-2 border-gray-300' :
+                    i === 2 ? 'bg-orange-50 border-2 border-orange-300' :
+                    'bg-white border border-gray-100'
+                  }`}>
+                    <span className={`text-3xl font-bold ${
+                      i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-orange-400' : 'text-gray-300'
+                    }`}>#{i + 1}</span>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white"
+                      style={{ backgroundColor: SELLER_COLORS[i % SELLER_COLORS.length] }}>
+                      {v.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[#040741] text-lg truncate">{v.name}</p>
+                      <p className="text-gray-500">{v.nbFactures} facture{v.nbFactures > 1 ? 's' : ''}</p>
+                    </div>
+                    <p className="font-bold text-[#313ADF] text-xl whitespace-nowrap">{formatCurrency(v.ca)}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center py-8">Aucune donnee vendeur</p>
+            )}
+          </div>
+        </ChartModal>
+      )}
     </div>
   )
 }

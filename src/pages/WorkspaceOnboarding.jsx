@@ -29,6 +29,15 @@ export default function WorkspaceOnboarding() {
     siret: '',
     vat_number: '',
     legal_form: 'SAS',
+    phone: '',
+    email: '',
+    website: '',
+    bank_iban: '',
+    bank_bic: '',
+    bank_account_holder: '',
+    payment_terms: '',
+    invoice_footer: '',
+    quote_footer: '',
   })
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState(null)
@@ -116,6 +125,15 @@ export default function WorkspaceOnboarding() {
         vat_number: form.vat_number.replace(/\s/g, '') || null,
         legal_form: form.legal_form,
         logo_url: logoUrl,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        website: form.website.trim() || null,
+        bank_iban: form.bank_iban.replace(/\s/g, '') || null,
+        bank_bic: form.bank_bic.replace(/\s/g, '') || null,
+        bank_account_holder: form.bank_account_holder.trim() || null,
+        payment_terms: form.payment_terms.trim() || null,
+        invoice_footer: form.invoice_footer.trim() || null,
+        quote_footer: form.quote_footer.trim() || null,
       })
 
       // Redirect to Stripe Checkout if Stripe is configured, otherwise go to dashboard
@@ -316,6 +334,120 @@ export default function WorkspaceOnboarding() {
                     />
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Contact (optionnel) */}
+          <div className="border-b border-gray-100 pb-5">
+            <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-1">Contact</h3>
+            <p className="text-xs text-gray-400 mb-4">Optionnel - Affiche sur vos documents</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Telephone</label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => updateForm('phone', e.target.value)}
+                  placeholder="01 23 45 67 89"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Email professionnel</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => updateForm('email', e.target.value)}
+                  placeholder="contact@monentreprise.fr"
+                  className={inputClass}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelClass}>Site web</label>
+                <input
+                  type="url"
+                  value={form.website}
+                  onChange={(e) => updateForm('website', e.target.value)}
+                  placeholder="https://www.monentreprise.fr"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Informations bancaires (optionnel) */}
+          <div className="border-b border-gray-100 pb-5">
+            <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-1">Informations bancaires</h3>
+            <p className="text-xs text-gray-400 mb-4">Optionnel - Pour afficher vos coordonnees bancaires sur les factures</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>IBAN</label>
+                <input
+                  type="text"
+                  value={form.bank_iban}
+                  onChange={(e) => updateForm('bank_iban', e.target.value.toUpperCase())}
+                  placeholder="FR76 1234 5678 9012 3456 7890 123"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>BIC / SWIFT</label>
+                <input
+                  type="text"
+                  value={form.bank_bic}
+                  onChange={(e) => updateForm('bank_bic', e.target.value.toUpperCase())}
+                  placeholder="BNPAFRPP"
+                  className={inputClass}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelClass}>Titulaire du compte</label>
+                <input
+                  type="text"
+                  value={form.bank_account_holder}
+                  onChange={(e) => updateForm('bank_account_holder', e.target.value)}
+                  placeholder="Mon Entreprise SAS"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Personnalisation documents (optionnel) */}
+          <div className="border-b border-gray-100 pb-5">
+            <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-1">Personnalisation documents</h3>
+            <p className="text-xs text-gray-400 mb-4">Optionnel - Textes affiches en bas de vos factures et devis</p>
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Conditions de paiement</label>
+                <textarea
+                  value={form.payment_terms}
+                  onChange={(e) => updateForm('payment_terms', e.target.value)}
+                  placeholder="Ex: Paiement a 30 jours. Penalites de retard : 3x taux legal."
+                  rows={2}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Pied de page factures</label>
+                <textarea
+                  value={form.invoice_footer}
+                  onChange={(e) => updateForm('invoice_footer', e.target.value)}
+                  placeholder="Texte libre en bas de vos factures..."
+                  rows={2}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Pied de page devis</label>
+                <textarea
+                  value={form.quote_footer}
+                  onChange={(e) => updateForm('quote_footer', e.target.value)}
+                  placeholder="Texte libre en bas de vos devis..."
+                  rows={2}
+                  className={`${inputClass} resize-none`}
+                />
               </div>
             </div>
           </div>

@@ -6,7 +6,7 @@ import WelcomeTutorial from '../components/WelcomeTutorial'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { workspace, loading: wsLoading } = useWorkspace()
+  const { workspace, loading: wsLoading, isLivreur } = useWorkspace()
   const [user, setUser] = useState(null)
   const [showTutorial, setShowTutorial] = useState(false)
   const [stats, setStats] = useState({
@@ -126,29 +126,33 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <StatCard
-          icon={
-            <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          }
-          label="Total Factures"
-          value={stats.totalFactures}
-          color="text-[#313ADF]"
-          onClick={() => navigate('/factures')}
-        />
-        <StatCard
-          icon={
-            <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          label="En attente"
-          value={stats.facturesEnAttente}
-          color="text-orange-500"
-          onClick={() => navigate('/factures')}
-        />
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isLivreur ? 'lg:grid-cols-1 max-w-md' : 'lg:grid-cols-4'} gap-6 mb-10`}>
+        {!isLivreur && (
+          <StatCard
+            icon={
+              <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            label="Total Factures"
+            value={stats.totalFactures}
+            color="text-[#313ADF]"
+            onClick={() => navigate('/factures')}
+          />
+        )}
+        {!isLivreur && (
+          <StatCard
+            icon={
+              <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            label="En attente"
+            value={stats.facturesEnAttente}
+            color="text-orange-500"
+            onClick={() => navigate('/factures')}
+          />
+        )}
         <StatCard
           icon={
             <svg className="w-6 h-6 text-[#040741]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,56 +164,64 @@ export default function Dashboard() {
           color="text-[#040741]"
           onClick={() => navigate('/livraisons')}
         />
-        <StatCard
-          icon={
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          label="CA Total"
-          value={`${stats.totalCA.toLocaleString('fr-FR')} €`}
-          color="text-green-600"
-          onClick={() => navigate('/dashboard-financier')}
-        />
+        {!isLivreur && (
+          <StatCard
+            icon={
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            label="CA Total"
+            value={`${stats.totalCA.toLocaleString('fr-FR')} €`}
+            color="text-green-600"
+            onClick={() => navigate('/dashboard-financier')}
+          />
+        )}
       </div>
 
       {/* Actions rapides */}
-      <div className="mb-8">
+      <div className="mb-8" data-tour="quick-actions">
         <h2 className="text-2xl font-bold text-[#040741] mb-6">Actions rapides</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard
-            icon={
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            }
-            title="Nouvelle facture"
-            description="Créer une facture pour un client"
-            onClick={() => navigate('/factures/nouvelle')}
-            gradient="bg-gradient-to-br from-[#313ADF] to-[#040741]"
-          />
-          <ActionCard
-            icon={
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-            }
-            title="Nouveau devis"
-            description="Créer un devis"
-            onClick={() => navigate('/devis/nouveau')}
-            gradient="bg-gradient-to-br from-[#040741] to-[#1a1a5e]"
-          />
-          <ActionCard
-            icon={
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            }
-            title="Clients"
-            description="Gérer les clients CRM"
-            onClick={() => navigate('/clients')}
-            gradient="bg-gradient-to-br from-[#4f46e5] to-[#313ADF]"
-          />
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isLivreur ? 'lg:grid-cols-1 max-w-md' : 'lg:grid-cols-4'} gap-6`}>
+          {!isLivreur && (
+            <ActionCard
+              icon={
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              }
+              title="Nouvelle facture"
+              description="Créer une facture pour un client"
+              onClick={() => navigate('/factures/nouvelle')}
+              gradient="bg-gradient-to-br from-[#313ADF] to-[#040741]"
+            />
+          )}
+          {!isLivreur && (
+            <ActionCard
+              icon={
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              }
+              title="Nouveau devis"
+              description="Créer un devis"
+              onClick={() => navigate('/devis/nouveau')}
+              gradient="bg-gradient-to-br from-[#040741] to-[#1a1a5e]"
+            />
+          )}
+          {!isLivreur && (
+            <ActionCard
+              icon={
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              }
+              title="Clients"
+              description="Gérer les clients CRM"
+              onClick={() => navigate('/clients')}
+              gradient="bg-gradient-to-br from-[#4f46e5] to-[#313ADF]"
+            />
+          )}
           <ActionCard
             icon={
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +237,7 @@ export default function Dashboard() {
       </div>
 
       {/* Dernières factures */}
-      {recentInvoices.length > 0 && (
+      {!isLivreur && recentInvoices.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-[#040741]">Dernières factures</h2>

@@ -274,7 +274,11 @@ export default function ApercuDevis() {
           {/* En-tête */}
           <div className="flex items-start justify-between mb-8 pb-6 border-b border-gray-100">
             <div>
-              <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              {workspace?.logo_url ? (
+                <img src={workspace.logo_url} alt={workspace.name || 'Logo'} className="h-12 mb-2 object-contain" />
+              ) : (
+                <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              )}
               <p className="text-sm text-gray-500">{workspace?.name || ''}</p>
             </div>
             <div className="text-right">
@@ -293,6 +297,11 @@ export default function ApercuDevis() {
               <p className="font-bold text-[#313ADF] text-sm mb-2">ÉMETTEUR</p>
               <p className="font-medium text-[#040741]">{workspace?.name || 'Entreprise'}</p>
               {workspace?.address && <p className="text-gray-600 text-sm">{workspace.address}</p>}
+              {(workspace?.postal_code || workspace?.city) && <p className="text-gray-600 text-sm">{workspace.postal_code} {workspace.city}</p>}
+              {workspace?.phone && <p className="text-gray-600 text-sm">Tel: {workspace.phone}</p>}
+              {workspace?.email && <p className="text-gray-600 text-sm">{workspace.email}</p>}
+              {workspace?.siret && <p className="text-gray-600 text-sm">SIRET: {workspace.siret}</p>}
+              {workspace?.vat_number && <p className="text-gray-600 text-sm">TVA: {workspace.vat_number}</p>}
             </div>
             <div className="text-right">
               <p className="font-bold text-[#313ADF] text-sm mb-2">DESTINATAIRE</p>
@@ -355,7 +364,10 @@ export default function ApercuDevis() {
 
           {/* Pied de page */}
           <div className="text-xs text-gray-500 border-t border-gray-200 pt-6">
-            <p>Ce devis est valable {devis.expiry_date ? `jusqu'au ${new Date(devis.expiry_date).toLocaleDateString('fr-FR')}` : '30 jours'}. Passé ce délai, il devra être renouvelé.</p>
+            <p>Ce devis est valable {devis.expiry_date ? `jusqu'au ${new Date(devis.expiry_date).toLocaleDateString('fr-FR')}` : '30 jours'}. Passe ce delai, il devra etre renouvele.</p>
+            {workspace?.quote_footer && (
+              <p className="mt-2">{workspace.quote_footer}</p>
+            )}
           </div>
         </div>
       </div>

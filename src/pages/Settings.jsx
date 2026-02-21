@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext'
 import { translateError } from '../lib/errorMessages'
 import { updateWorkspace, createPortalSession } from '../services/workspaceService'
 import { createInvitation, listInvitations, revokeInvitation } from '../services/invitationService'
+import { ROLE_LABELS, ROLE_COLORS, getAssignableRoles, canManageRole } from '../lib/permissions'
 import BugReportForm from '../components/BugReportForm'
 
 const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'SNC', 'Autre']
@@ -14,7 +15,7 @@ const COUNTRIES = ['France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada', 'Autr
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { workspaces, currentWorkspace, isAdmin, isOwner, switchWorkspace, refreshWorkspaces } = useWorkspace()
+  const { workspaces, currentWorkspace, isAdmin, isOwner, role: myRole, switchWorkspace, refreshWorkspaces } = useWorkspace()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('compte')
   const [user, setUser] = useState(null)
@@ -32,8 +33,13 @@ export default function Settings() {
   // Workspace form
   const [wsForm, setWsForm] = useState({
     name: '', description: '', address: '', postal_code: '', city: '',
-    country: 'France', currency: 'EUR', siret: '', vat_number: '', legal_form: 'SAS'
+    country: 'France', currency: 'EUR', siret: '', vat_number: '', legal_form: 'SAS',
+    phone: '', email: '', website: '',
+    bank_iban: '', bank_bic: '', bank_account_holder: '',
+    payment_terms: '', invoice_footer: '', quote_footer: ''
   })
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
   const [wsSaving, setWsSaving] = useState(false)
   const [members, setMembers] = useState([])
   const [membersLoading, setMembersLoading] = useState(false)
@@ -41,7 +47,7 @@ export default function Settings() {
   // Invitations
   const [invitations, setInvitations] = useState([])
   const [invitationsLoading, setInvitationsLoading] = useState(false)
-  const [inviteRole, setInviteRole] = useState('member')
+  const [inviteRole, setInviteRole] = useState('vendeur')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
   const [inviteCreating, setInviteCreating] = useState(false)
@@ -77,8 +83,18 @@ export default function Settings() {
         currency: currentWorkspace.currency || 'EUR',
         siret: currentWorkspace.siret || '',
         vat_number: currentWorkspace.vat_number || '',
-        legal_form: currentWorkspace.legal_form || 'SAS'
+        legal_form: currentWorkspace.legal_form || 'SAS',
+        phone: currentWorkspace.phone || '',
+        email: currentWorkspace.email || '',
+        website: currentWorkspace.website || '',
+        bank_iban: currentWorkspace.bank_iban || '',
+        bank_bic: currentWorkspace.bank_bic || '',
+        bank_account_holder: currentWorkspace.bank_account_holder || '',
+        payment_terms: currentWorkspace.payment_terms || '',
+        invoice_footer: currentWorkspace.invoice_footer || '',
+        quote_footer: currentWorkspace.quote_footer || '',
       })
+      setLogoPreview(currentWorkspace.logo_url || null)
       loadMembers()
       loadInvitations()
     }
@@ -240,6 +256,21 @@ export default function Settings() {
     }
   }
 
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      toast.error('Le logo doit être au format PNG ou JPEG')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Le logo ne doit pas dépasser 2 Mo')
+      return
+    }
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
   const handleSaveWorkspace = async () => {
     if (!wsForm.name.trim()) {
       toast.error('Le nom du workspace est requis')
@@ -247,6 +278,24 @@ export default function Settings() {
     }
     setWsSaving(true)
     try {
+      let logoUrl = currentWorkspace.logo_url || null
+      if (logoFile) {
+        const ext = logoFile.name.split('.').pop()
+        const fileName = `${currentWorkspace.id}-${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('workspace-logos')
+          .upload(fileName, logoFile, { contentType: logoFile.type, upsert: true })
+        if (uploadError) {
+          console.error('[Settings] Logo upload error:', uploadError)
+          toast.error('Erreur upload logo: ' + uploadError.message)
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('workspace-logos')
+            .getPublicUrl(fileName)
+          logoUrl = publicUrl
+        }
+      }
+
       await updateWorkspace(currentWorkspace.id, {
         name: wsForm.name.trim(),
         description: wsForm.description.trim() || null,
@@ -257,8 +306,19 @@ export default function Settings() {
         currency: wsForm.currency,
         siret: wsForm.siret.replace(/\s/g, '') || null,
         vat_number: wsForm.vat_number.replace(/\s/g, '') || null,
-        legal_form: wsForm.legal_form
+        legal_form: wsForm.legal_form,
+        phone: wsForm.phone.trim() || null,
+        email: wsForm.email.trim() || null,
+        website: wsForm.website.trim() || null,
+        bank_iban: wsForm.bank_iban.replace(/\s/g, '') || null,
+        bank_bic: wsForm.bank_bic.replace(/\s/g, '') || null,
+        bank_account_holder: wsForm.bank_account_holder.trim() || null,
+        payment_terms: wsForm.payment_terms.trim() || null,
+        invoice_footer: wsForm.invoice_footer.trim() || null,
+        quote_footer: wsForm.quote_footer.trim() || null,
+        logo_url: logoUrl,
       })
+      setLogoFile(null)
       toast.success('Workspace mis à jour')
       refreshWorkspaces()
     } catch (err) {
@@ -396,7 +456,7 @@ export default function Settings() {
 
   const tabs = [
     { key: 'compte', label: 'Compte' },
-    { key: 'workspace', label: 'Workspace' },
+    ...(isAdmin ? [{ key: 'workspace', label: 'Workspace' }] : []),
     ...(isOwner ? [{ key: 'abonnement', label: 'Abonnement' }] : []),
     { key: 'support', label: 'Support' }
   ]
@@ -729,12 +789,8 @@ export default function Settings() {
                 <p className="text-lg font-bold text-[#040741]">
                   {selectedMember.user_id === user?.id ? 'Vous' : (selectedMember.full_name || 'Membre')}
                 </p>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  selectedMember.role === 'owner' ? 'bg-amber-100 text-amber-700' :
-                  selectedMember.role === 'manager' ? 'bg-purple-100 text-purple-600' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {selectedMember.role === 'owner' ? 'Propriétaire' : selectedMember.role === 'manager' ? 'Manager' : 'Membre'}
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ROLE_COLORS[selectedMember.role] || 'bg-gray-100 text-gray-600'}`}>
+                  {ROLE_LABELS[selectedMember.role] || selectedMember.role}
                 </span>
               </div>
             </div>
@@ -756,7 +812,7 @@ export default function Settings() {
                 <div>
                   <p className="text-xs text-gray-400">Rôle</p>
                   <p className="text-sm font-medium text-[#040741]">
-                    {selectedMember.role === 'owner' ? 'Propriétaire' : selectedMember.role === 'manager' ? 'Manager' : 'Membre'}
+                    {ROLE_LABELS[selectedMember.role] || selectedMember.role}
                   </p>
                 </div>
               </div>
@@ -922,6 +978,89 @@ export default function Settings() {
               </div>
             </div>
 
+            {/* Contact */}
+            {isAdmin && (
+              <>
+                <div className="border-t border-gray-100 mt-6 pt-6">
+                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Contact</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Telephone</label>
+                      <input type="tel" value={wsForm.phone} onChange={(e) => setWsForm({ ...wsForm, phone: e.target.value })} className={inputClass} placeholder="01 23 45 67 89" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Email professionnel</label>
+                      <input type="email" value={wsForm.email} onChange={(e) => setWsForm({ ...wsForm, email: e.target.value })} className={inputClass} placeholder="contact@entreprise.fr" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Site web</label>
+                      <input type="url" value={wsForm.website} onChange={(e) => setWsForm({ ...wsForm, website: e.target.value })} className={inputClass} placeholder="https://www.entreprise.fr" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banque & Paiement */}
+                <div className="border-t border-gray-100 mt-6 pt-6">
+                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Banque & Paiement</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>IBAN</label>
+                      <input type="text" value={wsForm.bank_iban} onChange={(e) => setWsForm({ ...wsForm, bank_iban: e.target.value.toUpperCase() })} className={inputClass} placeholder="FR76 1234 5678 9012 3456 7890 123" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>BIC / SWIFT</label>
+                      <input type="text" value={wsForm.bank_bic} onChange={(e) => setWsForm({ ...wsForm, bank_bic: e.target.value.toUpperCase() })} className={inputClass} placeholder="BNPAFRPP" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Titulaire du compte</label>
+                      <input type="text" value={wsForm.bank_account_holder} onChange={(e) => setWsForm({ ...wsForm, bank_account_holder: e.target.value })} className={inputClass} placeholder="Mon Entreprise SAS" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Conditions de paiement</label>
+                      <textarea value={wsForm.payment_terms} onChange={(e) => setWsForm({ ...wsForm, payment_terms: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Ex: Paiement a 30 jours." />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Branding / Logo */}
+                <div className="border-t border-gray-100 mt-6 pt-6">
+                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Logo</h3>
+                  <div className="flex items-center gap-4">
+                    {logoPreview ? (
+                      <img src={logoPreview} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                    <label className="cursor-pointer">
+                      <div className="bg-gray-50 border border-gray-200 border-dashed rounded-xl px-4 py-3 text-sm text-gray-500 hover:border-[#313ADF] hover:text-[#313ADF] transition-colors">
+                        {logoFile ? logoFile.name : 'Changer le logo (PNG, JPEG, max 2 Mo)'}
+                      </div>
+                      <input type="file" accept="image/png,image/jpeg" onChange={handleLogoChange} className="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Personnalisation documents */}
+                <div className="border-t border-gray-100 mt-6 pt-6">
+                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Personnalisation documents</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className={labelClass}>Pied de page factures</label>
+                      <textarea value={wsForm.invoice_footer} onChange={(e) => setWsForm({ ...wsForm, invoice_footer: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Texte en bas de vos factures..." />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Pied de page devis</label>
+                      <textarea value={wsForm.quote_footer} onChange={(e) => setWsForm({ ...wsForm, quote_footer: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Texte en bas de vos devis..." />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
             {isAdmin && (
               <button
                 onClick={handleSaveWorkspace}
@@ -955,7 +1094,7 @@ export default function Settings() {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-[#040741]">{ws.name}</p>
-                      <p className="text-xs text-gray-400">{ws.role}</p>
+                      <p className="text-xs text-gray-400">{ROLE_LABELS[ws.role] || ws.role}</p>
                     </div>
                     {ws.id === currentWorkspace?.id && (
                       <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1005,23 +1144,20 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {isOwner && m.user_id !== user?.id && m.role !== 'owner' ? (
+                      {m.user_id !== user?.id && canManageRole(myRole, m.role) ? (
                         <select
                           value={m.role}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
                           className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#313ADF]"
                         >
-                          <option value="manager">manager</option>
-                          <option value="member">member</option>
+                          {getAssignableRoles(myRole).map(r => (
+                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                          ))}
                         </select>
                       ) : (
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          m.role === 'owner' ? 'bg-amber-100 text-amber-700' :
-                          m.role === 'manager' ? 'bg-purple-100 text-purple-600' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {m.role === 'owner' ? 'proprietaire' : m.role}
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ROLE_COLORS[m.role] || 'bg-gray-100 text-gray-600'}`}>
+                          {ROLE_LABELS[m.role] || m.role}
                         </span>
                       )}
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1061,8 +1197,9 @@ export default function Settings() {
                     onChange={(e) => setInviteRole(e.target.value)}
                     className={inputClass}
                   >
-                    <option value="member">Membre</option>
-                    <option value="manager">Manager</option>
+                    {getAssignableRoles(myRole).map(r => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1117,10 +1254,8 @@ export default function Settings() {
                       return (
                         <div key={inv.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              inv.role === 'manager' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {inv.role}
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[inv.role] || 'bg-gray-100 text-gray-600'}`}>
+                              {ROLE_LABELS[inv.role] || inv.role}
                             </span>
                             {inv.email && (
                               <span className="text-sm text-gray-600 truncate">{inv.email}</span>

@@ -46,6 +46,15 @@ export const createWorkspace = async (name, userId, options = {}) => {
     vat_number: options.vat_number || null,
     legal_form: options.legal_form || null,
     logo_url: options.logo_url || null,
+    phone: options.phone || null,
+    email: options.email || null,
+    website: options.website || null,
+    bank_iban: options.bank_iban || null,
+    bank_bic: options.bank_bic || null,
+    bank_account_holder: options.bank_account_holder || null,
+    payment_terms: options.payment_terms || null,
+    invoice_footer: options.invoice_footer || null,
+    quote_footer: options.quote_footer || null,
     owner_user_id: userId,
     subscription_status: stripeEnabled ? 'incomplete' : 'active',
     is_active: !stripeEnabled,
@@ -79,7 +88,7 @@ export const createWorkspace = async (name, userId, options = {}) => {
     .insert({
       workspace_id: workspace.id,
       user_id: userId,
-      role: 'owner'
+      role: 'proprietaire'
     })
 
   if (userError && userError.code !== '23505') {

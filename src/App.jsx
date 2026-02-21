@@ -26,6 +26,7 @@ import WorkspaceChoice from './pages/WorkspaceChoice'
 import MentionsLegales from './pages/MentionsLegales'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
+import OnboardingTour from './components/OnboardingTour'
 
 function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = false }) {
   const [authLoading, setAuthLoading] = useState(true)
@@ -71,6 +72,16 @@ function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = fa
   return children
 }
 
+function RoleGuard({ children, allowedRoles }) {
+  const { role } = useWorkspace()
+  if (allowedRoles && role && !allowedRoles.includes(role)) {
+    return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
+
+const BUSINESS_ROLES = ['proprietaire', 'manager', 'vendeur']
+
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
@@ -102,6 +113,7 @@ function Layout({ children }) {
       >
         {children}
       </main>
+      <OnboardingTour />
     </div>
   )
 }
@@ -125,17 +137,17 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
-            <Route path="/factures/nouvelle" element={<ProtectedLayout><CreerFacture /></ProtectedLayout>} />
-            <Route path="/factures/:factureId" element={<ProtectedLayout><ApercuFacture /></ProtectedLayout>} />
-            <Route path="/factures" element={<ProtectedLayout><ListeFactures /></ProtectedLayout>} />
-            <Route path="/devis/nouveau" element={<ProtectedLayout><CreerDevis /></ProtectedLayout>} />
-            <Route path="/devis/:devisId" element={<ProtectedLayout><ApercuDevis /></ProtectedLayout>} />
-            <Route path="/devis" element={<ProtectedLayout><ListeDevis /></ProtectedLayout>} />
-            <Route path="/clients/:clientId" element={<ProtectedLayout><FicheClient /></ProtectedLayout>} />
-            <Route path="/clients" element={<ProtectedLayout><ListeClients /></ProtectedLayout>} />
-            <Route path="/produits" element={<ProtectedLayout><Produits /></ProtectedLayout>} />
+            <Route path="/factures/nouvelle" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerFacture /></RoleGuard></ProtectedLayout>} />
+            <Route path="/factures/:factureId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuFacture /></RoleGuard></ProtectedLayout>} />
+            <Route path="/factures" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeFactures /></RoleGuard></ProtectedLayout>} />
+            <Route path="/devis/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerDevis /></RoleGuard></ProtectedLayout>} />
+            <Route path="/devis/:devisId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuDevis /></RoleGuard></ProtectedLayout>} />
+            <Route path="/devis" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeDevis /></RoleGuard></ProtectedLayout>} />
+            <Route path="/clients/:clientId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><FicheClient /></RoleGuard></ProtectedLayout>} />
+            <Route path="/clients" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeClients /></RoleGuard></ProtectedLayout>} />
+            <Route path="/produits" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><Produits /></RoleGuard></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
-            <Route path="/dashboard-financier" element={<ProtectedLayout><DashboardFinancier /></ProtectedLayout>} />
+            <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route
               path="/onboarding/choice"
