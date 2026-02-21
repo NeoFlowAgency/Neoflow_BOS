@@ -41,7 +41,7 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single()
 
-    if (membership?.role !== 'owner') {
+    if (membership?.role !== 'proprietaire') {
       throw new Error('Seul le proprietaire peut gerer la facturation')
     }
 
