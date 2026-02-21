@@ -1295,70 +1295,95 @@ export default function Settings() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
             <h2 className="text-xl font-bold text-[#040741] mb-6">Abonnement</h2>
 
-            <div className="space-y-4">
-              {/* Status badge */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-[#040741]">Statut :</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
-                  currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                  currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
-                  currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
-                   currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
-                   currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
-                   currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
-                   currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :
-                   currentWorkspace?.subscription_status || 'Inconnu'}
-                </span>
-              </div>
-
-              {/* Plan */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-[#040741]">Plan :</span>
-                <span className="text-sm text-gray-600">NeoFlow BOS - 49,99 EUR/mois</span>
-              </div>
-
-              {/* Trial info */}
-              {currentWorkspace?.subscription_status === 'trialing' && currentWorkspace?.trial_ends_at && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <p className="text-sm text-blue-700">
-                    Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>
+            {currentWorkspace?.plan_type === 'early-access' ? (
+              /* Early access display */
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-[#313ADF]/10 to-purple-50 border border-[#313ADF]/30 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span className="font-bold text-[#040741]">Acces Anticipe</span>
+                    {currentWorkspace?.subscription_status === 'early_access' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Paye</span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">En attente</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Paiement unique effectue. Acces complet a partir du <strong>25 fevrier 2026</strong>.
                   </p>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* Standard subscription display */
+              <>
+                <div className="space-y-4">
+                  {/* Status badge */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-[#040741]">Statut :</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
+                      currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                      currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
+                      currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
+                       currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
+                       currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
+                       currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
+                       currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :
+                       currentWorkspace?.subscription_status || 'Inconnu'}
+                    </span>
+                  </div>
 
-              {/* Past due warning */}
-              {currentWorkspace?.subscription_status === 'past_due' && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                  <p className="text-sm text-orange-700">
-                    Votre paiement est en retard. Veuillez régulariser votre situation pour éviter la suspension de votre workspace.
-                  </p>
+                  {/* Plan */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-[#040741]">Plan :</span>
+                    <span className="text-sm text-gray-600">NeoFlow BOS - 49,99 EUR/mois</span>
+                  </div>
+
+                  {/* Trial info */}
+                  {currentWorkspace?.subscription_status === 'trialing' && currentWorkspace?.trial_ends_at && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <p className="text-sm text-blue-700">
+                        Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Past due warning */}
+                  {currentWorkspace?.subscription_status === 'past_due' && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                      <p className="text-sm text-orange-700">
+                        Votre paiement est en retard. Veuillez régulariser votre situation pour éviter la suspension de votre workspace.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Next billing */}
+                  {currentWorkspace?.current_period_end && currentWorkspace?.subscription_status !== 'canceled' && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-[#040741]">Prochaine facturation :</span>
+                      <span className="text-sm text-gray-600">
+                        {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* Next billing */}
-              {currentWorkspace?.current_period_end && currentWorkspace?.subscription_status !== 'canceled' && (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-[#040741]">Prochaine facturation :</span>
-                  <span className="text-sm text-gray-600">
-                    {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleManageBilling}
-              className="mt-6 bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
-            >
-              Gérer mon abonnement
-            </button>
-            <p className="text-xs text-gray-400 mt-2">
-              Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
-            </p>
+                <button
+                  onClick={handleManageBilling}
+                  className="mt-6 bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
+                >
+                  Gérer mon abonnement
+                </button>
+                <p className="text-xs text-gray-400 mt-2">
+                  Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

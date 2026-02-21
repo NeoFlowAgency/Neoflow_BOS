@@ -50,6 +50,18 @@ serve(async (req) => {
       throw new Error('Seul le proprietaire du workspace peut creer un abonnement')
     }
 
+    // Early access: enforce max 3 workspaces per user
+    if (plan === 'early-access') {
+      const { count } = await supabase
+        .from('workspace_users')
+        .select('workspace_id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('role', 'proprietaire')
+      if ((count || 0) > 3) {
+        throw new Error('Maximum 3 workspaces en acces anticipe. Contactez le support pour en ajouter.')
+      }
+    }
+
     // Get workspace info
     const { data: workspace } = await supabase
       .from('workspaces')
@@ -78,26 +90,43 @@ serve(async (req) => {
         .eq('id', workspace_id)
     }
 
-    // Select price based on plan (early-access or default)
-    const priceId = (plan === 'early-access' && earlyAccessPriceId)
-      ? earlyAccessPriceId
-      : defaultPriceId
-
-    // Create Checkout Session with 7-day trial
     const origin = req.headers.get('origin') || 'http://localhost:5173'
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ['card'],
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: {
-        trial_period_days: 7,
-        metadata: { workspace_id: workspace.id },
-      },
-      metadata: { workspace_id: workspace.id, plan: plan || 'default' },
-      success_url: success_url || `${origin}/dashboard?checkout=success`,
-      cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
-    })
+    let session
+
+    if (plan === 'early-access' && earlyAccessPriceId) {
+      // Early access: one-time payment (not subscription)
+      session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [{ price: earlyAccessPriceId, quantity: 1 }],
+        metadata: { workspace_id: workspace.id, plan: 'early-access' },
+        success_url: success_url || `${origin}/dashboard?checkout=success`,
+        cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
+      })
+
+      // Mark workspace as early-access
+      await supabase
+        .from('workspaces')
+        .update({ plan_type: 'early-access' })
+        .eq('id', workspace_id)
+    } else {
+      // Standard: subscription with 7-day trial
+      const priceId = defaultPriceId
+      session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        mode: 'subscription',
+        line_items: [{ price: priceId, quantity: 1 }],
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: { workspace_id: workspace.id },
+        },
+        metadata: { workspace_id: workspace.id, plan: plan || 'default' },
+        success_url: success_url || `${origin}/dashboard?checkout=success`,
+        cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
+      })
+    }
 
     return new Response(
       JSON.stringify({ url: session.url, session_id: session.id }),

@@ -33,6 +33,8 @@ export const createWorkspace = async (name, userId, options = {}) => {
   const slug = generateSlug(name)
   const stripeEnabled = isStripeEnabled()
 
+  const plan = sessionStorage.getItem('neoflow_plan')
+
   const insertData = {
     name,
     slug,
@@ -56,6 +58,7 @@ export const createWorkspace = async (name, userId, options = {}) => {
     invoice_footer: options.invoice_footer || null,
     quote_footer: options.quote_footer || null,
     owner_user_id: userId,
+    plan_type: plan === 'early-access' ? 'early-access' : 'standard',
     subscription_status: stripeEnabled ? 'incomplete' : 'active',
     is_active: !stripeEnabled,
   }

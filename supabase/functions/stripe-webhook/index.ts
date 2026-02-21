@@ -37,8 +37,72 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const workspaceId = session.metadata?.workspace_id
+        const plan = session.metadata?.plan
         const subscriptionId = session.subscription as string
 
+        // Early access: one-time payment (no subscription)
+        if (plan === 'early-access' && workspaceId && !subscriptionId) {
+          await supabase.from('workspaces').update({
+            subscription_status: 'early_access',
+            is_active: true,
+            plan_type: 'early-access',
+            stripe_payment_intent_id: session.payment_intent as string,
+          }).eq('id', workspaceId)
+
+          // Send confirmation email
+          try {
+            const { data: ws } = await supabase
+              .from('workspaces')
+              .select('name, owner_user_id')
+              .eq('id', workspaceId)
+              .single()
+
+            if (ws?.owner_user_id) {
+              const { data: { user: owner } } = await supabase.auth.admin.getUserById(ws.owner_user_id)
+              if (owner?.email) {
+                const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+                const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+                await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${serviceKey}`,
+                  },
+                  body: JSON.stringify({
+                    to: owner.email,
+                    subject: 'Bienvenue en Acces Anticipe NeoFlow BOS !',
+                    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+                      <div style="text-align:center;margin-bottom:30px">
+                        <h1 style="color:#040741;margin:0">NeoFlow BOS</h1>
+                        <p style="color:#313ADF;font-weight:bold;margin:5px 0">Acces Anticipe</p>
+                      </div>
+                      <h2 style="color:#040741">Votre acces anticipe est active !</h2>
+                      <p>Bonjour ${owner.user_metadata?.full_name || ''},</p>
+                      <p>Merci pour votre confiance ! Votre paiement pour le workspace <strong>${ws.name}</strong> a ete confirme.</p>
+                      <p>L'application sera pleinement accessible a partir du <strong>25 fevrier 2026 a 00h01</strong>.</p>
+                      <p>D'ici la, vous pouvez vous connecter pour :</p>
+                      <ul>
+                        <li>Modifier vos informations personnelles</li>
+                        <li>Configurer votre workspace (adresse, SIRET, logo, etc.)</li>
+                        <li>Acceder au support</li>
+                      </ul>
+                      <p style="margin-top:30px">A tres bientot !<br><strong>L'equipe NeoFlow</strong></p>
+                      <hr style="border:none;border-top:1px solid #eee;margin:30px 0" />
+                      <p style="color:#999;font-size:12px;text-align:center">NeoFlow BOS - Propulse par Neoflow Agency</p>
+                    </div>`,
+                  }),
+                })
+              }
+            }
+          } catch (emailErr) {
+            console.error('[stripe-webhook] Error sending early access email:', emailErr)
+          }
+
+          console.log(`[stripe-webhook] early-access completed: workspace=${workspaceId}`)
+          break
+        }
+
+        // Standard: subscription checkout
         if (workspaceId && subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 

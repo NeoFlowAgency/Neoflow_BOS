@@ -50,6 +50,31 @@ serve(async (req) => {
       )
     }
 
+    const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' })
+
+    // Early access: check for completed one-time payment
+    if (!workspace.is_active && workspace.stripe_customer_id) {
+      const paymentIntents = await stripe.paymentIntents.list({
+        customer: workspace.stripe_customer_id,
+        limit: 5,
+      })
+      const succeeded = paymentIntents.data.find((pi: Stripe.PaymentIntent) => pi.status === 'succeeded')
+      if (succeeded) {
+        await supabase.from('workspaces').update({
+          subscription_status: 'early_access',
+          is_active: true,
+          plan_type: 'early-access',
+          stripe_payment_intent_id: succeeded.id,
+        }).eq('id', workspace_id)
+
+        console.log(`[verify-checkout] Early access activated: workspace=${workspace_id}`)
+        return new Response(
+          JSON.stringify({ success: true, is_active: true, subscription_status: 'early_access' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // No Stripe customer - can't verify
     if (!workspace.stripe_customer_id) {
       return new Response(
@@ -59,7 +84,6 @@ serve(async (req) => {
     }
 
     // Check Stripe for subscriptions
-    const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' })
     const subscriptions = await stripe.subscriptions.list({
       customer: workspace.stripe_customer_id,
       limit: 5,

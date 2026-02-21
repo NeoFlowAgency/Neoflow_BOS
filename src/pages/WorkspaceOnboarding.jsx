@@ -16,7 +16,27 @@ export default function WorkspaceOnboarding() {
   const { currentWorkspace } = useWorkspace()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [wsLimitReached, setWsLimitReached] = useState(false)
   const plan = sessionStorage.getItem('neoflow_plan')
+
+  // Check workspace limit for early access (max 3)
+  useEffect(() => {
+    if (plan === 'early-access') {
+      const checkLimit = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data } = await supabase
+          .from('workspace_users')
+          .select('workspace_id')
+          .eq('user_id', user.id)
+          .eq('role', 'proprietaire')
+        if (data && data.length >= 3) {
+          setWsLimitReached(true)
+        }
+      }
+      checkLimit()
+    }
+  }, [plan])
 
   // Create mode state
   const [form, setForm] = useState({
@@ -179,6 +199,18 @@ export default function WorkspaceOnboarding() {
             Renseignez les informations de votre entreprise pour commencer
           </p>
         </div>
+
+        {wsLimitReached && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-semibold">Limite atteinte</span>
+            </div>
+            <p>Vous avez atteint la limite de 3 workspaces en acces anticipe. Pour en creer davantage, veuillez contacter le support a <a href="mailto:contacte.neoflowbos@gmail.com" className="underline font-medium">contacte.neoflowbos@gmail.com</a>.</p>
+          </div>
+        )}
 
         {checkoutCanceled && (
           <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
@@ -463,9 +495,9 @@ export default function WorkspaceOnboarding() {
                 <div>
                   {plan === 'early-access' ? (
                     <>
-                      <p className="text-sm font-semibold text-[#040741]">Acces Anticipe NeoFlow BOS</p>
+                      <p className="text-sm font-semibold text-[#040741]">Acces Anticipe NeoFlow BOS - Paiement unique</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Tarif preferentiel acces anticipe. 7 jours d'essai gratuit. Carte bancaire requise.
+                        Paiement unique. Acces complet a partir du 25 fevrier 2026. Carte bancaire requise.
                       </p>
                     </>
                   ) : (
@@ -492,7 +524,7 @@ export default function WorkspaceOnboarding() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || wsLimitReached}
             className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {loading ? (
@@ -503,7 +535,7 @@ export default function WorkspaceOnboarding() {
                 </svg>
                 {isStripeEnabled() ? 'Redirection vers le paiement...' : 'Création en cours...'}
               </span>
-            ) : isStripeEnabled() ? 'Créer et souscrire' : 'Créer mon workspace'}
+            ) : isStripeEnabled() ? (plan === 'early-access' ? "Creer et payer l'acces" : 'Créer et souscrire') : 'Créer mon workspace'}
           </button>
         </form>
       </div>

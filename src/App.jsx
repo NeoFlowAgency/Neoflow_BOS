@@ -24,9 +24,12 @@ import WorkspaceSuspended from './pages/WorkspaceSuspended'
 import JoinWorkspace from './pages/JoinWorkspace'
 import WorkspaceChoice from './pages/WorkspaceChoice'
 import MentionsLegales from './pages/MentionsLegales'
+import EarlyAccessWaiting from './pages/EarlyAccessWaiting'
+import AdminDashboard from './pages/AdminDashboard'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
+import { shouldShowWaitingPage } from './lib/earlyAccess'
 
 function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = false }) {
   const [authLoading, setAuthLoading] = useState(true)
@@ -76,6 +79,26 @@ function RoleGuard({ children, allowedRoles }) {
   const { role } = useWorkspace()
   if (allowedRoles && role && !allowedRoles.includes(role)) {
     return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
+
+function EarlyAccessGate({ children }) {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const { currentWorkspace } = useWorkspace()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      setUser(u)
+      setLoading(false)
+    })
+  }, [])
+
+  if (loading) return null
+
+  if (shouldShowWaitingPage(currentWorkspace, user?.email)) {
+    return <Navigate to="/early-access/waiting" replace />
   }
   return children
 }
@@ -136,19 +159,20 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
-            <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
-            <Route path="/factures/nouvelle" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerFacture /></RoleGuard></ProtectedLayout>} />
-            <Route path="/factures/:factureId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuFacture /></RoleGuard></ProtectedLayout>} />
-            <Route path="/factures" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeFactures /></RoleGuard></ProtectedLayout>} />
-            <Route path="/devis/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerDevis /></RoleGuard></ProtectedLayout>} />
-            <Route path="/devis/:devisId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuDevis /></RoleGuard></ProtectedLayout>} />
-            <Route path="/devis" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeDevis /></RoleGuard></ProtectedLayout>} />
-            <Route path="/clients/:clientId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><FicheClient /></RoleGuard></ProtectedLayout>} />
-            <Route path="/clients" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeClients /></RoleGuard></ProtectedLayout>} />
-            <Route path="/produits" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><Produits /></RoleGuard></ProtectedLayout>} />
-            <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
-            <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
+            <Route path="/dashboard" element={<ProtectedLayout><EarlyAccessGate><Dashboard /></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/factures/nouvelle" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerFacture /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/factures/:factureId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuFacture /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/factures" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeFactures /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/devis/nouveau" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerDevis /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/devis/:devisId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuDevis /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/devis" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeDevis /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/clients/:clientId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><FicheClient /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/clients" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeClients /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/produits" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><Produits /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/livraisons" element={<ProtectedLayout><EarlyAccessGate><Livraisons /></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/dashboard-financier" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><DashboardFinancier /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
+            <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
             <Route
               path="/onboarding/choice"
               element={
@@ -170,6 +194,14 @@ function App() {
               element={
                 <ProtectedRoute requireWorkspace={true} allowSuspended={true}>
                   <WorkspaceSuspended />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/early-access/waiting"
+              element={
+                <ProtectedRoute requireWorkspace={true} allowSuspended={false}>
+                  <EarlyAccessWaiting />
                 </ProtectedRoute>
               }
             />

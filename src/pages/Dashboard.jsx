@@ -5,7 +5,7 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { workspace, loading: wsLoading, isLivreur } = useWorkspace()
+  const { workspace, loading: wsLoading, isLivreur, isEarlyAccess } = useWorkspace()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState({
     totalFactures: 0,
@@ -103,8 +103,6 @@ export default function Dashboard() {
   }
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur'
-
-  const isEarlyAccess = new Date() < new Date('2026-02-25T00:00:00')
 
   return (
     <div className="p-4 md:p-8 min-h-screen">
