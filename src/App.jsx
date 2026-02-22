@@ -29,7 +29,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
-import { shouldShowWaitingPage } from './lib/earlyAccess'
+import { shouldShowWaitingPage, isDevUser, isAdminUser } from './lib/earlyAccess'
 
 function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = false }) {
   const [authLoading, setAuthLoading] = useState(true)
@@ -68,7 +68,11 @@ function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = fa
     return <Navigate to="/onboarding/choice" replace />
   }
 
-  if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended) {
+  // Dev and admin bypass the is_active check (they may not have paid)
+  const userEmail = user?.email
+  const isBypassUser = isDevUser(userEmail) || isAdminUser(userEmail)
+
+  if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended && !isBypassUser) {
     return <Navigate to="/workspace/suspended" replace />
   }
 
@@ -200,7 +204,7 @@ function App() {
             <Route
               path="/early-access/waiting"
               element={
-                <ProtectedRoute requireWorkspace={true} allowSuspended={false}>
+                <ProtectedRoute requireWorkspace={true} allowSuspended={true}>
                   <EarlyAccessWaiting />
                 </ProtectedRoute>
               }

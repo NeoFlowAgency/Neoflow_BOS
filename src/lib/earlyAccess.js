@@ -10,6 +10,6 @@ export const getLaunchDate = () => LAUNCH_DATE
 export function shouldShowWaitingPage(workspace, userEmail) {
   if (!workspace) return false
   if (isDevUser(userEmail)) return false
-  if (workspace?.plan_type !== 'early-access') return false
+  if (isAdminUser(userEmail)) return false
   return isBeforeLaunch()
 }

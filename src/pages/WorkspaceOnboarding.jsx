@@ -5,6 +5,7 @@ import { createWorkspace, createCheckoutSession, isStripeEnabled } from '../serv
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
+import { isBeforeLaunch } from '../lib/earlyAccess'
 
 const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'SNC', 'Autre']
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF']
@@ -17,7 +18,8 @@ export default function WorkspaceOnboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [wsLimitReached, setWsLimitReached] = useState(false)
-  const plan = sessionStorage.getItem('neoflow_plan')
+  // Before launch, ALL workspaces are early-access regardless of sessionStorage
+  const plan = isBeforeLaunch() ? 'early-access' : sessionStorage.getItem('neoflow_plan')
 
   // Check workspace limit for early access (max 3)
   useEffect(() => {
@@ -495,9 +497,9 @@ export default function WorkspaceOnboarding() {
                 <div>
                   {plan === 'early-access' ? (
                     <>
-                      <p className="text-sm font-semibold text-[#040741]">Acces Anticipe NeoFlow BOS - Paiement unique</p>
+                      <p className="text-sm font-semibold text-[#040741]">Acces Anticipe NeoFlow BOS - 29,00 EUR / workspace</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Paiement unique. Acces complet a partir du 25 fevrier 2026. Carte bancaire requise.
+                        Paiement unique de 29 EUR par workspace. Acces complet a partir du 25 fevrier 2026. Carte bancaire requise.
                       </p>
                     </>
                   ) : (

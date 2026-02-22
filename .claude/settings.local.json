@@ -5,7 +5,11 @@
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
       "Bash(copy \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\logo avec texte neoflow agency.png\" \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\mvp maison de la literie v1\\\\public\\\\logo-neoflow.png\")",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: écran de chargement suppression compte, message confirmation login, bouton déconnexion onboarding\n\n- Écran plein pendant la suppression du compte \\(plus de latence visible\\)\n- Redirect vers /login?account_deleted=1 avec message de confirmation vert\n- Clear sessionStorage en plus de localStorage pour éviter session zombie\n- Bouton \"Se déconnecter\" sur la page de création workspace\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
     ]
   }
 }

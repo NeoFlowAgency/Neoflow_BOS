@@ -15,8 +15,10 @@ serve(async (req) => {
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     const defaultPriceId = Deno.env.get('STRIPE_PRICE_ID')
-    const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID')
-    if (!stripeKey || !defaultPriceId) {
+    // Early access one-time price (29€) - hardcoded to avoid env var misconfiguration
+    const EARLY_ACCESS_PRICE_ID = 'price_1T30pHApeYuOBUUXshjPCUOK'
+    const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID') || EARLY_ACCESS_PRICE_ID
+    if (!stripeKey) {
       throw new Error('Stripe configuration manquante')
     }
 
@@ -35,8 +37,12 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    const { workspace_id, success_url, cancel_url, plan } = await req.json()
+    const { workspace_id, success_url, cancel_url, plan: rawPlan } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
+
+    // Before launch (25 feb 2026), ALL checkouts are early-access one-time payment
+    const LAUNCH_DATE = new Date('2026-02-25T00:01:00+01:00')
+    const plan = (new Date() < LAUNCH_DATE) ? 'early-access' : rawPlan
 
     // Verify user is owner of this workspace
     const { data: membership } = await supabase
@@ -93,8 +99,8 @@ serve(async (req) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173'
     let session
 
-    if (plan === 'early-access' && earlyAccessPriceId) {
-      // Early access: one-time payment (not subscription)
+    if (plan === 'early-access') {
+      // Early access: one-time payment 29€ (not subscription)
       session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],

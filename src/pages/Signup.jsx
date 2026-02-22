@@ -30,7 +30,8 @@ export default function Signup() {
   const [emailSent, setEmailSent] = useState(false)
 
   const plan = searchParams.get('plan')
-  const isEarlyAccess = plan === 'early-access'
+  // Before launch (25 feb 2026), ALL signups are early-access
+  const isEarlyAccess = plan === 'early-access' || new Date() < new Date('2026-02-25T00:01:00+01:00')
 
   const handleSubmit = async (e) => {
     e.preventDefault()

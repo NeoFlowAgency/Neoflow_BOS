@@ -1,4 +1,5 @@
 import { supabase, invokeFunction } from '../lib/supabase'
+import { isBeforeLaunch } from '../lib/earlyAccess'
 
 /**
  * Generate a URL-friendly slug from a name (with random suffix to avoid collisions)
@@ -33,7 +34,8 @@ export const createWorkspace = async (name, userId, options = {}) => {
   const slug = generateSlug(name)
   const stripeEnabled = isStripeEnabled()
 
-  const plan = sessionStorage.getItem('neoflow_plan')
+  // Before launch, ALL workspaces are early-access
+  const plan = isBeforeLaunch() ? 'early-access' : sessionStorage.getItem('neoflow_plan')
 
   const insertData = {
     name,
