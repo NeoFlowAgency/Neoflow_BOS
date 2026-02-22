@@ -1,4 +1,4 @@
-const LAUNCH_DATE = new Date('2026-02-25T00:01:00+01:00') // Heure Paris
+const LAUNCH_DATE = new Date('2026-03-01T00:00:00+01:00') // Heure Paris
 const DEV_EMAIL = 'gnoakim05@gmail.com'
 const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
 

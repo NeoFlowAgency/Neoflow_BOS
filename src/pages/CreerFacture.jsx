@@ -228,8 +228,7 @@ export default function CreerFacture() {
               last_name: client.nom,
               phone: client.telephone,
               email: client.email || null,
-              address: client.adresse,
-              default_delivery_address: client.adresse
+              address: client.adresse
             })
             .select('id')
             .single()

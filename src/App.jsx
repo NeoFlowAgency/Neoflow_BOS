@@ -107,7 +107,7 @@ function EarlyAccessGate({ children }) {
   return children
 }
 
-const BUSINESS_ROLES = ['proprietaire', 'manager', 'vendeur']
+const BUSINESS_ROLES = ['proprietaire', 'manager', 'vendeur', 'livreur']
 
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)

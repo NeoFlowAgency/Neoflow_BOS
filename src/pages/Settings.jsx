@@ -1309,7 +1309,7 @@ export default function Settings() {
                     )}
                   </div>
                   <p className="text-sm text-gray-600">
-                    Paiement unique effectue. Acces complet a partir du <strong>25 fevrier 2026</strong>.
+                    Paiement unique effectue. Acces complet a partir du <strong>1er mars 2026</strong>.
                   </p>
                 </div>
               </div>

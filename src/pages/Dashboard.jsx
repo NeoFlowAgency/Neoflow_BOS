@@ -113,7 +113,7 @@ export default function Dashboard() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <p className="text-sm font-medium">
-            Bienvenue en acces anticipe ! Lancement officiel le 25 fevrier 2026.
+            Bienvenue en acces anticipe ! Lancement officiel le 1er mars 2026.
           </p>
         </div>
       )}

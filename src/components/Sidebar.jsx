@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase } from '../lib/supabase'
@@ -9,7 +9,9 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const location = useLocation()
   const [isMobile, setIsMobile] = useState(false)
   const [userEmail, setUserEmail] = useState(null)
-  const { currentWorkspace, isLivreur } = useWorkspace()
+  const [wsDropdownOpen, setWsDropdownOpen] = useState(false)
+  const wsDropdownRef = useRef(null)
+  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -31,6 +33,17 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       setIsOpen(false)
     }
   }, [location.pathname, isMobile, setIsOpen])
+
+  // Close workspace dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
+        setWsDropdownOpen(false)
+      }
+    }
+    if (wsDropdownOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [wsDropdownOpen])
 
   const NavItem = ({ to, icon, label, end }) => (
     <NavLink
@@ -120,12 +133,68 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           )}
         </button>
 
-        {/* Workspace name badge */}
+        {/* Workspace switcher */}
         {currentWorkspace && (isOpen || isMobile) && (
-          <div className="mb-4 px-3 py-2 bg-white/10 rounded-xl">
-            <p className="text-white/50 text-xs font-medium uppercase tracking-wider">Workspace</p>
-            <p className="text-white text-sm font-semibold truncate">{currentWorkspace.name}</p>
+          <div className="mb-4 relative" ref={wsDropdownRef}>
+            <button
+              onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
+              className="w-full px-3 py-2 bg-white/10 rounded-xl hover:bg-white/15 transition-colors text-left"
+            >
+              <p className="text-white/50 text-xs font-medium uppercase tracking-wider">Workspace</p>
+              <div className="flex items-center justify-between">
+                <p className="text-white text-sm font-semibold truncate">{currentWorkspace.name}</p>
+                <svg className={`w-4 h-4 text-white/50 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            {wsDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#0a0b52] border border-white/20 rounded-xl shadow-xl z-50 overflow-hidden">
+                {workspaces.map(ws => (
+                  <button
+                    key={ws.id}
+                    onClick={() => {
+                      switchWorkspace(ws.id)
+                      setWsDropdownOpen(false)
+                    }}
+                    className={`w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2 ${
+                      ws.id === currentWorkspace.id
+                        ? 'bg-[#313ADF] text-white'
+                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <span className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {ws.name?.charAt(0)?.toUpperCase()}
+                    </span>
+                    <span className="truncate">{ws.name}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setWsDropdownOpen(false)
+                    navigate('/onboarding/workspace')
+                  }}
+                  className="w-full px-3 py-2.5 text-left text-sm text-white/50 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2 border-t border-white/10"
+                >
+                  <span className="w-6 h-6 border border-dashed border-white/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </span>
+                  <span>Nouveau workspace</span>
+                </button>
+              </div>
+            )}
           </div>
+        )}
+        {currentWorkspace && !isOpen && !isMobile && (
+          <button
+            onClick={() => setWsDropdownOpen(!wsDropdownOpen)}
+            className="mb-4 w-10 h-10 mx-auto bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/15 transition-colors"
+            title={currentWorkspace.name}
+          >
+            <span className="text-white text-sm font-bold">{currentWorkspace.name?.charAt(0)?.toUpperCase()}</span>
+          </button>
         )}
 
         {/* Navigation */}
@@ -139,52 +208,44 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Accueil"
           />
-          {!isLivreur && (
-            <NavItem
-              to="/factures"
-              end
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              }
-              label="Factures"
-            />
-          )}
-          {!isLivreur && (
-            <NavItem
-              to="/devis"
-              end
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              }
-              label="Devis"
-            />
-          )}
-          {!isLivreur && (
-            <NavItem
-              to="/clients"
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              }
-              label="Clients"
-            />
-          )}
-          {!isLivreur && (
-            <NavItem
-              to="/produits"
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              }
-              label="Produits"
-            />
-          )}
+          <NavItem
+            to="/factures"
+            end
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            label="Factures"
+          />
+          <NavItem
+            to="/devis"
+            end
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            }
+            label="Devis"
+          />
+          <NavItem
+            to="/clients"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            }
+            label="Clients"
+          />
+          <NavItem
+            to="/produits"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            }
+            label="Produits"
+          />
           <NavItem
             to="/livraisons"
             icon={
@@ -194,17 +255,15 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Livraisons"
           />
-          {!isLivreur && (
-            <NavItem
-              to="/dashboard-financier"
-              icon={
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              }
-              label="Statistiques"
-            />
-          )}
+          <NavItem
+            to="/dashboard-financier"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            }
+            label="Statistiques"
+          />
         </nav>
 
         {/* Settings */}

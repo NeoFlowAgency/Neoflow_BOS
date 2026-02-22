@@ -30,8 +30,8 @@ export default function Signup() {
   const [emailSent, setEmailSent] = useState(false)
 
   const plan = searchParams.get('plan')
-  // Before launch (25 feb 2026), ALL signups are early-access
-  const isEarlyAccess = plan === 'early-access' || new Date() < new Date('2026-02-25T00:01:00+01:00')
+  // Before launch (1 march 2026), ALL signups are early-access
+  const isEarlyAccess = plan === 'early-access' || new Date() < new Date('2026-03-01T00:00:00+01:00')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -159,7 +159,7 @@ export default function Signup() {
               </svg>
               ACCES ANTICIPE
             </div>
-            <p className="text-sm text-[#040741] font-medium">Lancement officiel le 25 fevrier 2026</p>
+            <p className="text-sm text-[#040741] font-medium">Lancement officiel le 1er mars 2026</p>
             <p className="text-xs text-gray-500 mt-1">Rejoignez les premiers utilisateurs de NeoFlow BOS</p>
           </div>
         )}

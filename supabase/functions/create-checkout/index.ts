@@ -40,8 +40,8 @@ serve(async (req) => {
     const { workspace_id, success_url, cancel_url, plan: rawPlan } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
 
-    // Before launch (25 feb 2026), ALL checkouts are early-access one-time payment
-    const LAUNCH_DATE = new Date('2026-02-25T00:01:00+01:00')
+    // Before launch (1 march 2026), ALL checkouts are early-access one-time payment
+    const LAUNCH_DATE = new Date('2026-03-01T00:00:00+01:00')
     const plan = (new Date() < LAUNCH_DATE) ? 'early-access' : rawPlan
 
     // Verify user is owner of this workspace
@@ -54,18 +54,6 @@ serve(async (req) => {
 
     if (membership?.role !== 'proprietaire') {
       throw new Error('Seul le proprietaire du workspace peut creer un abonnement')
-    }
-
-    // Early access: enforce max 3 workspaces per user
-    if (plan === 'early-access') {
-      const { count } = await supabase
-        .from('workspace_users')
-        .select('workspace_id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('role', 'proprietaire')
-      if ((count || 0) > 3) {
-        throw new Error('Maximum 3 workspaces en acces anticipe. Contactez le support pour en ajouter.')
-      }
     }
 
     // Get workspace info

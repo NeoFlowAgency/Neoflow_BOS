@@ -79,7 +79,7 @@ serve(async (req) => {
                       <h2 style="color:#040741">Votre acces anticipe est active !</h2>
                       <p>Bonjour ${owner.user_metadata?.full_name || ''},</p>
                       <p>Merci pour votre confiance ! Votre paiement pour le workspace <strong>${ws.name}</strong> a ete confirme.</p>
-                      <p>L'application sera pleinement accessible a partir du <strong>25 fevrier 2026 a 00h01</strong>.</p>
+                      <p>L'application sera pleinement accessible a partir du <strong>1er mars 2026 a 00h00</strong>.</p>
                       <p>D'ici la, vous pouvez vous connecter pour :</p>
                       <ul>
                         <li>Modifier vos informations personnelles</li>
