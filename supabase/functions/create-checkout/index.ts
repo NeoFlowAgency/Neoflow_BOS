@@ -106,6 +106,7 @@ serve(async (req) => {
         payment_method_types: ['card'],
         mode: 'payment',
         line_items: [{ price: earlyAccessPriceId, quantity: 1 }],
+        allow_promotion_codes: true,
         metadata: { workspace_id: workspace.id, plan: 'early-access' },
         success_url: success_url || `${origin}/dashboard?checkout=success`,
         cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,

@@ -68,7 +68,8 @@ export default function Signup() {
 
       // If session returned directly (email confirmation disabled), redirect
       if (data.session) {
-        navigate('/onboarding/choice')
+        const redirect = searchParams.get('redirect')
+        navigate(redirect && redirect.startsWith('/') ? redirect : '/onboarding/choice')
       } else {
         // Email confirmation enabled - show confirmation screen
         setEmailSent(true)
@@ -128,7 +129,7 @@ export default function Signup() {
             Cliquez sur le lien dans l'email pour activer votre compte. Pensez à vérifier vos spams.
           </p>
           <Link
-            to="/login"
+            to={searchParams.get('redirect') ? `/login?redirect=${encodeURIComponent(searchParams.get('redirect'))}` : '/login'}
             className="inline-block w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg text-center"
           >
             Retour à la connexion

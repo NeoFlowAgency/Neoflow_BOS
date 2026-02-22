@@ -25,10 +25,11 @@ BEGIN
     );
 
     -- 2. Nettoyage des workspaces incomplets (checkout abandonne)
+    -- Exclut les workspaces early-access (paiement unique, pas de subscription)
     PERFORM cron.schedule(
       'cleanup-incomplete-workspaces',
       '0 4 * * *',
-      $$DELETE FROM workspace_users WHERE workspace_id IN (SELECT id FROM workspaces WHERE subscription_status = 'incomplete' AND created_at < NOW() - INTERVAL '24 hours'); DELETE FROM workspaces WHERE subscription_status = 'incomplete' AND created_at < NOW() - INTERVAL '24 hours'$$
+      $$DELETE FROM workspace_users WHERE workspace_id IN (SELECT id FROM workspaces WHERE subscription_status = 'incomplete' AND (plan_type IS NULL OR plan_type != 'early-access') AND created_at < NOW() - INTERVAL '24 hours'); DELETE FROM workspaces WHERE subscription_status = 'incomplete' AND (plan_type IS NULL OR plan_type != 'early-access') AND created_at < NOW() - INTERVAL '24 hours'$$
     );
 
     -- 3. Nettoyage des invitations expirees
@@ -61,11 +62,13 @@ END $body$;
 -- WHERE subscription_status = 'past_due' AND grace_period_until IS NOT NULL
 --   AND grace_period_until < NOW() AND is_active = true;
 --
--- Requete cleanup incomplete :
+-- Requete cleanup incomplete (exclut early-access) :
 -- DELETE FROM workspace_users WHERE workspace_id IN (
 --   SELECT id FROM workspaces WHERE subscription_status = 'incomplete'
+--     AND (plan_type IS NULL OR plan_type != 'early-access')
 --     AND created_at < NOW() - INTERVAL '24 hours');
 -- DELETE FROM workspaces WHERE subscription_status = 'incomplete'
+--   AND (plan_type IS NULL OR plan_type != 'early-access')
 --   AND created_at < NOW() - INTERVAL '24 hours';
 --
 -- Requete cleanup invitations :
