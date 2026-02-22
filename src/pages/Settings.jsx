@@ -456,7 +456,7 @@ export default function Settings() {
 
   const tabs = [
     { key: 'compte', label: 'Compte' },
-    ...(isAdmin ? [{ key: 'workspace', label: 'Workspace' }] : []),
+    { key: 'workspace', label: 'Workspace' },
     ...(isOwner ? [{ key: 'abonnement', label: 'Abonnement' }] : []),
     { key: 'support', label: 'Support' }
   ]
@@ -857,7 +857,7 @@ export default function Settings() {
               <h2 className="text-xl font-bold text-[#040741]">Informations du workspace</h2>
               {!isAdmin && (
                 <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">
-                  Seul l'administrateur peut modifier
+                  Lecture seule
                 </span>
               )}
             </div>
@@ -979,87 +979,85 @@ export default function Settings() {
             </div>
 
             {/* Contact */}
-            {isAdmin && (
-              <>
-                <div className="border-t border-gray-100 mt-6 pt-6">
-                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Contact</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Telephone</label>
-                      <input type="tel" value={wsForm.phone} onChange={(e) => setWsForm({ ...wsForm, phone: e.target.value })} className={inputClass} placeholder="01 23 45 67 89" />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Email professionnel</label>
-                      <input type="email" value={wsForm.email} onChange={(e) => setWsForm({ ...wsForm, email: e.target.value })} className={inputClass} placeholder="contact@entreprise.fr" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={labelClass}>Site web</label>
-                      <input type="url" value={wsForm.website} onChange={(e) => setWsForm({ ...wsForm, website: e.target.value })} className={inputClass} placeholder="https://www.entreprise.fr" />
-                    </div>
-                  </div>
+            <div className="border-t border-gray-100 mt-6 pt-6">
+              <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Contact</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Telephone</label>
+                  <input type="tel" value={wsForm.phone} onChange={(e) => setWsForm({ ...wsForm, phone: e.target.value })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="01 23 45 67 89" />
                 </div>
+                <div>
+                  <label className={labelClass}>Email professionnel</label>
+                  <input type="email" value={wsForm.email} onChange={(e) => setWsForm({ ...wsForm, email: e.target.value })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="contact@entreprise.fr" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Site web</label>
+                  <input type="url" value={wsForm.website} onChange={(e) => setWsForm({ ...wsForm, website: e.target.value })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="https://www.entreprise.fr" />
+                </div>
+              </div>
+            </div>
 
-                {/* Banque & Paiement */}
-                <div className="border-t border-gray-100 mt-6 pt-6">
-                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Banque & Paiement</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>IBAN</label>
-                      <input type="text" value={wsForm.bank_iban} onChange={(e) => setWsForm({ ...wsForm, bank_iban: e.target.value.toUpperCase() })} className={inputClass} placeholder="FR76 1234 5678 9012 3456 7890 123" />
-                    </div>
-                    <div>
-                      <label className={labelClass}>BIC / SWIFT</label>
-                      <input type="text" value={wsForm.bank_bic} onChange={(e) => setWsForm({ ...wsForm, bank_bic: e.target.value.toUpperCase() })} className={inputClass} placeholder="BNPAFRPP" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={labelClass}>Titulaire du compte</label>
-                      <input type="text" value={wsForm.bank_account_holder} onChange={(e) => setWsForm({ ...wsForm, bank_account_holder: e.target.value })} className={inputClass} placeholder="Mon Entreprise SAS" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={labelClass}>Conditions de paiement</label>
-                      <textarea value={wsForm.payment_terms} onChange={(e) => setWsForm({ ...wsForm, payment_terms: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Ex: Paiement a 30 jours." />
-                    </div>
-                  </div>
+            {/* Banque & Paiement */}
+            <div className="border-t border-gray-100 mt-6 pt-6">
+              <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Banque & Paiement</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>IBAN</label>
+                  <input type="text" value={wsForm.bank_iban} onChange={(e) => setWsForm({ ...wsForm, bank_iban: e.target.value.toUpperCase() })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="FR76 1234 5678 9012 3456 7890 123" />
                 </div>
+                <div>
+                  <label className={labelClass}>BIC / SWIFT</label>
+                  <input type="text" value={wsForm.bank_bic} onChange={(e) => setWsForm({ ...wsForm, bank_bic: e.target.value.toUpperCase() })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="BNPAFRPP" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Titulaire du compte</label>
+                  <input type="text" value={wsForm.bank_account_holder} onChange={(e) => setWsForm({ ...wsForm, bank_account_holder: e.target.value })} disabled={!isAdmin} className={isAdmin ? inputClass : inputDisabledClass} placeholder="Mon Entreprise SAS" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Conditions de paiement</label>
+                  <textarea value={wsForm.payment_terms} onChange={(e) => setWsForm({ ...wsForm, payment_terms: e.target.value })} disabled={!isAdmin} rows={2} className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`} placeholder="Ex: Paiement a 30 jours." />
+                </div>
+              </div>
+            </div>
 
-                {/* Branding / Logo */}
-                <div className="border-t border-gray-100 mt-6 pt-6">
-                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Logo</h3>
-                  <div className="flex items-center gap-4">
-                    {logoPreview ? (
-                      <img src={logoPreview} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    <label className="cursor-pointer">
-                      <div className="bg-gray-50 border border-gray-200 border-dashed rounded-xl px-4 py-3 text-sm text-gray-500 hover:border-[#313ADF] hover:text-[#313ADF] transition-colors">
-                        {logoFile ? logoFile.name : 'Changer le logo (PNG, JPEG, max 2 Mo)'}
-                      </div>
-                      <input type="file" accept="image/png,image/jpeg" onChange={handleLogoChange} className="hidden" />
-                    </label>
+            {/* Branding / Logo */}
+            <div className="border-t border-gray-100 mt-6 pt-6">
+              <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Logo</h3>
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                </div>
+                )}
+                {isAdmin && (
+                  <label className="cursor-pointer">
+                    <div className="bg-gray-50 border border-gray-200 border-dashed rounded-xl px-4 py-3 text-sm text-gray-500 hover:border-[#313ADF] hover:text-[#313ADF] transition-colors">
+                      {logoFile ? logoFile.name : 'Changer le logo (PNG, JPEG, max 2 Mo)'}
+                    </div>
+                    <input type="file" accept="image/png,image/jpeg" onChange={handleLogoChange} className="hidden" />
+                  </label>
+                )}
+              </div>
+            </div>
 
-                {/* Personnalisation documents */}
-                <div className="border-t border-gray-100 mt-6 pt-6">
-                  <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Personnalisation documents</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>Pied de page factures</label>
-                      <textarea value={wsForm.invoice_footer} onChange={(e) => setWsForm({ ...wsForm, invoice_footer: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Texte en bas de vos factures..." />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Pied de page devis</label>
-                      <textarea value={wsForm.quote_footer} onChange={(e) => setWsForm({ ...wsForm, quote_footer: e.target.value })} rows={2} className={`${inputClass} resize-none`} placeholder="Texte en bas de vos devis..." />
-                    </div>
-                  </div>
+            {/* Personnalisation documents */}
+            <div className="border-t border-gray-100 mt-6 pt-6">
+              <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-4">Personnalisation documents</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Pied de page factures</label>
+                  <textarea value={wsForm.invoice_footer} onChange={(e) => setWsForm({ ...wsForm, invoice_footer: e.target.value })} disabled={!isAdmin} rows={2} className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`} placeholder="Texte en bas de vos factures..." />
                 </div>
-              </>
-            )}
+                <div>
+                  <label className={labelClass}>Pied de page devis</label>
+                  <textarea value={wsForm.quote_footer} onChange={(e) => setWsForm({ ...wsForm, quote_footer: e.target.value })} disabled={!isAdmin} rows={2} className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`} placeholder="Texte en bas de vos devis..." />
+                </div>
+              </div>
+            </div>
 
             {isAdmin && (
               <button
