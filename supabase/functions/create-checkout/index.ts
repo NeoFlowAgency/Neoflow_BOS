@@ -15,8 +15,8 @@ serve(async (req) => {
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     const defaultPriceId = Deno.env.get('STRIPE_PRICE_ID')
-    // Early access one-time price (29€) - hardcoded to avoid env var misconfiguration
-    const EARLY_ACCESS_PRICE_ID = 'price_1T30pHApeYuOBUUXshjPCUOK'
+    // Early access one-time price (29€) - LIVE
+    const EARLY_ACCESS_PRICE_ID = 'price_1T4JjkATgHeWcCdm2fi94WbA'
     const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID') || EARLY_ACCESS_PRICE_ID
     if (!stripeKey) {
       throw new Error('Stripe configuration manquante')
