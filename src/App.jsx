@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { Analytics } from '@vercel/analytics/react'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import ResetPassword from './pages/ResetPassword'
@@ -213,6 +214,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          <Analytics />
         </ToastProvider>
       </WorkspaceProvider>
     </BrowserRouter>
