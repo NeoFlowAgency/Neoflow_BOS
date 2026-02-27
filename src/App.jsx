@@ -16,7 +16,19 @@ import ApercuDevis from './pages/ApercuDevis'
 import ListeClients from './pages/ListeClients'
 import FicheClient from './pages/FicheClient'
 import Produits from './pages/Produits'
+import VenteRapide from './pages/VenteRapide'
+import CreerCommande from './pages/CreerCommande'
+import ListeCommandes from './pages/ListeCommandes'
+import ApercuCommande from './pages/ApercuCommande'
+import Stock from './pages/Stock'
+import StockLocations from './pages/StockLocations'
+import Fournisseurs from './pages/Fournisseurs'
+import FicheFournisseur from './pages/FicheFournisseur'
+import CreerBonCommande from './pages/CreerBonCommande'
+import ApercuBonCommande from './pages/ApercuBonCommande'
 import Livraisons from './pages/Livraisons'
+import Documentation from './pages/Documentation'
+import DocumentationAdmin from './pages/DocumentationAdmin'
 import DashboardFinancier from './pages/DashboardFinancier'
 import Settings from './pages/Settings'
 import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
@@ -108,6 +120,8 @@ function EarlyAccessGate({ children }) {
 }
 
 const BUSINESS_ROLES = ['proprietaire', 'manager', 'vendeur', 'livreur']
+const SALES_ROLES = ['proprietaire', 'manager', 'vendeur']
+const MANAGEMENT_ROLES = ['proprietaire', 'manager']
 
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -164,6 +178,10 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/dashboard" element={<ProtectedLayout><EarlyAccessGate><Dashboard /></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/vente-rapide" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={SALES_ROLES}><VenteRapide /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/commandes/nouvelle" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={SALES_ROLES}><CreerCommande /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/commandes/:commandeId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={SALES_ROLES}><ApercuCommande /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/commandes" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={SALES_ROLES}><ListeCommandes /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/factures/nouvelle" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerFacture /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/factures/:factureId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuFacture /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/factures" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeFactures /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
@@ -173,8 +191,16 @@ function App() {
             <Route path="/clients/:clientId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><FicheClient /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/clients" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeClients /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/produits" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><Produits /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/stock/emplacements" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={MANAGEMENT_ROLES}><StockLocations /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/stock" element={<ProtectedLayout><EarlyAccessGate><Stock /></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/fournisseurs/:fournisseurId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={MANAGEMENT_ROLES}><FicheFournisseur /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/fournisseurs" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={MANAGEMENT_ROLES}><Fournisseurs /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/bons-commande/nouveau" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={MANAGEMENT_ROLES}><CreerBonCommande /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/bons-commande/:bonCommandeId" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={MANAGEMENT_ROLES}><ApercuBonCommande /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><EarlyAccessGate><Livraisons /></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/dashboard-financier" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={BUSINESS_ROLES}><DashboardFinancier /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/documentation/admin" element={<ProtectedLayout><EarlyAccessGate><RoleGuard allowedRoles={['proprietaire']}><DocumentationAdmin /></RoleGuard></EarlyAccessGate></ProtectedLayout>} />
+            <Route path="/documentation" element={<ProtectedLayout><EarlyAccessGate><Documentation /></EarlyAccessGate></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
             <Route

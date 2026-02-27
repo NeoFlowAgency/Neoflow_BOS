@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase } from '../lib/supabase'
 import { isAdminUser } from '../lib/earlyAccess'
+import { canManageSuppliers, canViewStatistics } from '../lib/permissions'
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const navigate = useNavigate()
@@ -10,8 +11,17 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [isMobile, setIsMobile] = useState(false)
   const [userEmail, setUserEmail] = useState(null)
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false)
+  const [ventesOpen, setVentesOpen] = useState(true)
   const wsDropdownRef = useRef(null)
-  const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
+  const { currentWorkspace, workspaces, switchWorkspace, role } = useWorkspace()
+
+  // Auto-expand Ventes group when on a ventes-related route
+  const ventesRoutes = ['/vente-rapide', '/commandes', '/factures', '/devis']
+  const isOnVentesRoute = ventesRoutes.some(r => location.pathname.startsWith(r))
+
+  useEffect(() => {
+    if (isOnVentesRoute) setVentesOpen(true)
+  }, [location.pathname])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -45,22 +55,54 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [wsDropdownOpen])
 
-  const NavItem = ({ to, icon, label, end }) => (
+  const NavItem = ({ to, icon, label, end, indent }) => (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+        `flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all ${
           isActive
             ? 'bg-[#313ADF] text-white shadow-lg'
             : 'text-white/70 hover:bg-white/10 hover:text-white'
-        } ${!isOpen && !isMobile ? 'justify-center' : ''}`
+        } ${!isOpen && !isMobile ? 'justify-center' : ''} ${indent && (isOpen || isMobile) ? 'ml-4' : ''}`
       }
       title={!isOpen ? label : ''}
     >
       <span className="flex-shrink-0">{icon}</span>
-      {(isOpen || isMobile) && <span>{label}</span>}
+      {(isOpen || isMobile) && <span className="text-sm">{label}</span>}
     </NavLink>
+  )
+
+  const NavGroup = ({ icon, label, isExpanded, onToggle, children }) => (
+    <div>
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all text-white/70 hover:bg-white/10 hover:text-white ${
+          !isOpen && !isMobile ? 'justify-center' : ''
+        }`}
+        title={!isOpen ? label : ''}
+      >
+        <span className="flex-shrink-0">{icon}</span>
+        {(isOpen || isMobile) && (
+          <>
+            <span className="text-sm flex-1 text-left">{label}</span>
+            <svg
+              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </>
+        )}
+      </button>
+      {isExpanded && (isOpen || isMobile) && (
+        <div className="mt-1 space-y-1">
+          {children}
+        </div>
+      )}
+    </div>
   )
 
   const MobileToggle = () => (
@@ -198,7 +240,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {/* Accueil */}
           <NavItem
             to="/dashboard"
             icon={
@@ -208,26 +251,64 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Accueil"
           />
-          <NavItem
-            to="/factures"
-            end
+
+          {/* Ventes (groupe depliable) */}
+          <NavGroup
             icon={
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
               </svg>
             }
-            label="Factures"
-          />
-          <NavItem
-            to="/devis"
-            end
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-            }
-            label="Devis"
-          />
+            label="Ventes"
+            isExpanded={ventesOpen}
+            onToggle={() => setVentesOpen(!ventesOpen)}
+          >
+            <NavItem
+              to="/vente-rapide"
+              indent
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              }
+              label="Vente rapide"
+            />
+            <NavItem
+              to="/commandes"
+              end
+              indent
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              }
+              label="Commandes"
+            />
+            <NavItem
+              to="/factures"
+              end
+              indent
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              }
+              label="Factures"
+            />
+            <NavItem
+              to="/devis"
+              end
+              indent
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              }
+              label="Devis"
+            />
+          </NavGroup>
+
+          {/* Clients */}
           <NavItem
             to="/clients"
             icon={
@@ -237,6 +318,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Clients"
           />
+
+          {/* Produits */}
           <NavItem
             to="/produits"
             icon={
@@ -246,6 +329,32 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Produits"
           />
+
+          {/* Stock */}
+          <NavItem
+            to="/stock"
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+              </svg>
+            }
+            label="Stock"
+          />
+
+          {/* Fournisseurs (proprietaire/manager only) */}
+          {canManageSuppliers(role) && (
+            <NavItem
+              to="/fournisseurs"
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              }
+              label="Fournisseurs"
+            />
+          )}
+
+          {/* Livraisons */}
           <NavItem
             to="/livraisons"
             icon={
@@ -255,39 +364,45 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Livraisons"
           />
-          <NavItem
-            to="/dashboard-financier"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            }
-            label="Statistiques"
-          />
+
+          {/* Statistiques (proprietaire/manager only) */}
+          {canViewStatistics(role) && (
+            <NavItem
+              to="/dashboard-financier"
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              }
+              label="Statistiques"
+            />
+          )}
         </nav>
 
-        {/* Settings */}
-        <NavItem
-          to="/settings"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          }
-          label="Paramètres"
-        />
-        {isAdminUser(userEmail) && (
+        {/* Settings + Admin */}
+        <div className="space-y-1">
           <NavItem
-            to="/admin"
+            to="/settings"
             icon={
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             }
-            label="Admin"
+            label="Parametres"
           />
-        )}
+          {isAdminUser(userEmail) && (
+            <NavItem
+              to="/admin"
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              }
+              label="Admin"
+            />
+          )}
+        </div>
       </aside>
     </>
   )

@@ -2,18 +2,38 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { canViewMargins } from '../lib/permissions'
+
+const CATEGORIES = [
+  { value: '', label: 'Sans categorie' },
+  { value: 'matelas', label: 'Matelas' },
+  { value: 'sommier', label: 'Sommier' },
+  { value: 'literie', label: 'Ensemble literie' },
+  { value: 'tete_de_lit', label: 'Tete de lit' },
+  { value: 'linge', label: 'Linge de lit' },
+  { value: 'oreiller', label: 'Oreiller / Traversin' },
+  { value: 'couette', label: 'Couette' },
+  { value: 'accessoire', label: 'Accessoire' },
+  { value: 'meuble', label: 'Meuble' },
+  { value: 'autre', label: 'Autre' },
+]
 
 export default function Produits() {
-  const { workspace, loading: wsLoading } = useWorkspace()
+  const { workspace, role, loading: wsLoading } = useWorkspace()
   const toast = useToast()
   const [produits, setProduits] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const showMargins = canViewMargins(role)
 
   // Modal
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', unit_price_ht: '', tax_rate: '20' })
+  const [form, setForm] = useState({
+    name: '', description: '', unit_price_ht: '', tax_rate: '20',
+    reference: '', cost_price_ht: '', technical_sheet: '', category: ''
+  })
   const [saveLoading, setSaveLoading] = useState(false)
 
   // Delete confirmation
@@ -49,7 +69,10 @@ export default function Produits() {
 
   const openCreate = () => {
     setEditingProduct(null)
-    setForm({ name: '', description: '', unit_price_ht: '', tax_rate: '20' })
+    setForm({
+      name: '', description: '', unit_price_ht: '', tax_rate: '20',
+      reference: '', cost_price_ht: '', technical_sheet: '', category: ''
+    })
     setShowModal(true)
   }
 
@@ -59,7 +82,11 @@ export default function Produits() {
       name: product.name || '',
       description: product.description || '',
       unit_price_ht: product.unit_price_ht?.toString() || '',
-      tax_rate: product.tax_rate?.toString() || '20'
+      tax_rate: product.tax_rate?.toString() || '20',
+      reference: product.reference || '',
+      cost_price_ht: product.cost_price_ht?.toString() || '',
+      technical_sheet: product.technical_sheet || '',
+      category: product.category || ''
     })
     setShowModal(true)
   }
@@ -81,7 +108,11 @@ export default function Produits() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         unit_price_ht: parseFloat(form.unit_price_ht),
-        tax_rate: parseFloat(form.tax_rate) || 20
+        tax_rate: parseFloat(form.tax_rate) || 20,
+        reference: form.reference.trim() || null,
+        cost_price_ht: form.cost_price_ht ? parseFloat(form.cost_price_ht) : null,
+        technical_sheet: form.technical_sheet.trim() || null,
+        category: form.category || null
       }
 
       if (editingProduct) {
@@ -129,9 +160,14 @@ export default function Produits() {
   }
 
   const filteredProduits = produits.filter(p => {
+    if (categoryFilter && p.category !== categoryFilter) return false
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
-    return p.name?.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term)
+    return (
+      p.name?.toLowerCase().includes(term) ||
+      p.description?.toLowerCase().includes(term) ||
+      p.reference?.toLowerCase().includes(term)
+    )
   })
 
   if (loading) {
@@ -161,21 +197,31 @@ export default function Produits() {
         </button>
       </div>
 
-      {/* Recherche */}
+      {/* Recherche + Filtre categorie */}
       {produits.length > 0 && (
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        <div className="mb-6 flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
             <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher par nom, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
             />
           </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 cursor-pointer"
+          >
+            <option value="">Toutes categories</option>
+            {CATEGORIES.filter(c => c.value).map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -202,31 +248,127 @@ export default function Produits() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
-          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500">
-            <div className="col-span-4">Nom</div>
-            <div className="col-span-3">Description</div>
+          <div className={`hidden md:grid gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500 ${showMargins ? 'grid-cols-16' : 'grid-cols-12'}`}>
+            <div className="col-span-1">Ref</div>
+            <div className="col-span-3">Nom</div>
+            <div className="col-span-2">Categorie</div>
             <div className="col-span-2 text-right">Prix HT</div>
             <div className="col-span-1 text-center">TVA</div>
-            <div className="col-span-2 text-center">Actions</div>
+            {showMargins && (
+              <>
+                <div className="col-span-2 text-right">Cout / Marge</div>
+              </>
+            )}
+            <div className={`${showMargins ? 'col-span-2' : 'col-span-3'} text-center`}>Actions</div>
           </div>
 
           <div className="divide-y divide-gray-100">
-            {filteredProduits.map((p) => (
-              <div key={p.id} className="px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors">
-                {/* Mobile layout */}
-                <div className="md:hidden">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-[#040741]">{p.name}</p>
-                      {p.description && <p className="text-gray-500 text-sm truncate mt-1">{p.description}</p>}
-                      <div className="flex items-center gap-3 mt-2">
-                        <span className="text-xs text-gray-500">Prix HT:</span>
-                        <span className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</span>
-                        <span className="text-xs text-gray-500">TVA:</span>
-                        <span className="text-gray-600 text-sm">{p.tax_rate || 20}%</span>
+            {filteredProduits.map((p) => {
+              const margin = (p.unit_price_ht && p.cost_price_ht)
+                ? p.unit_price_ht - p.cost_price_ht
+                : null
+              const marginPercent = (margin !== null && p.unit_price_ht > 0)
+                ? (margin / p.unit_price_ht * 100)
+                : null
+              const categoryLabel = CATEGORIES.find(c => c.value === p.category)?.label || p.category || '-'
+
+              return (
+                <div key={p.id} className="px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors">
+                  {/* Mobile layout */}
+                  <div className="md:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-[#040741]">{p.name}</p>
+                          {p.reference && (
+                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{p.reference}</span>
+                          )}
+                        </div>
+                        {p.category && (
+                          <span className="inline-block text-xs text-[#313ADF] bg-[#313ADF]/10 px-2 py-0.5 rounded mt-1">{categoryLabel}</span>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-xs text-gray-500">Prix HT:</span>
+                          <span className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</span>
+                          <span className="text-xs text-gray-500">TVA:</span>
+                          <span className="text-gray-600 text-sm">{p.tax_rate || 20}%</span>
+                        </div>
+                        {showMargins && margin !== null && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">Marge:</span>
+                            <span className={`text-sm font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {margin.toFixed(2)} € ({marginPercent?.toFixed(1)}%)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => openEdit(p)}
+                          className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
+                          title="Modifier"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        {deleteId === p.id ? (
+                          <div className="flex gap-1">
+                            <button onClick={() => handleDelete(p.id)} className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Oui</button>
+                            <button onClick={() => setDeleteId(null)} className="px-2 py-1 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">Non</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteId(p.id)}
+                            className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Supprimer"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                  </div>
+
+                  {/* Desktop layout */}
+                  <div className={`hidden md:grid gap-4 items-center ${showMargins ? 'grid-cols-16' : 'grid-cols-12'}`}>
+                    <div className="col-span-1">
+                      <span className="text-xs text-gray-400 font-mono">{p.reference || '-'}</span>
+                    </div>
+                    <div className="col-span-3">
+                      <p className="font-bold text-[#040741]">{p.name}</p>
+                      {p.description && <p className="text-gray-400 text-xs truncate mt-0.5">{p.description}</p>}
+                    </div>
+                    <div className="col-span-2">
+                      {p.category ? (
+                        <span className="text-xs text-[#313ADF] bg-[#313ADF]/10 px-2 py-1 rounded">{categoryLabel}</span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">-</span>
+                      )}
+                    </div>
+                    <div className="col-span-2 text-right">
+                      <p className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</p>
+                    </div>
+                    <div className="col-span-1 text-center">
+                      <span className="text-gray-500 text-sm">{p.tax_rate || 20}%</span>
+                    </div>
+                    {showMargins && (
+                      <div className="col-span-2 text-right">
+                        {margin !== null ? (
+                          <div>
+                            <p className="text-xs text-gray-400">{p.cost_price_ht?.toFixed(2)} €</p>
+                            <p className={`text-sm font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              +{margin.toFixed(2)} € ({marginPercent?.toFixed(1)}%)
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300 text-xs">-</span>
+                        )}
+                      </div>
+                    )}
+                    <div className={`${showMargins ? 'col-span-2' : 'col-span-3'} flex justify-center gap-2`}>
                       <button
                         onClick={() => openEdit(p)}
                         className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
@@ -255,51 +397,8 @@ export default function Produits() {
                     </div>
                   </div>
                 </div>
-
-                {/* Desktop layout */}
-                <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                  <div className="col-span-4">
-                    <p className="font-bold text-[#040741]">{p.name}</p>
-                  </div>
-                  <div className="col-span-3">
-                    <p className="text-gray-500 text-sm truncate">{p.description || '-'}</p>
-                  </div>
-                  <div className="col-span-2 text-right">
-                    <p className="font-bold text-[#313ADF]">{p.unit_price_ht?.toFixed(2)} €</p>
-                  </div>
-                  <div className="col-span-1 text-center">
-                    <span className="text-gray-500 text-sm">{p.tax_rate || 20}%</span>
-                  </div>
-                  <div className="col-span-2 flex justify-center gap-2">
-                    <button
-                      onClick={() => openEdit(p)}
-                      className="p-2 text-[#313ADF] hover:bg-[#313ADF]/10 rounded-lg transition-colors"
-                      title="Modifier"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    {deleteId === p.id ? (
-                      <div className="flex gap-1">
-                        <button onClick={() => handleDelete(p.id)} className="px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-medium">Oui</button>
-                        <button onClick={() => setDeleteId(null)} className="px-2 py-1 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">Non</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteId(p.id)}
-                        className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Supprimer"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -319,16 +418,41 @@ export default function Produits() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">Nom du produit *</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Ex: Matelas Premium 160x200"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">Reference</label>
+                  <input
+                    type="text"
+                    value={form.reference}
+                    onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                    placeholder="Ex: MAT-160-PREM"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-semibold text-[#040741] mb-2">Nom du produit *</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ex: Matelas Premium 160x200"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                />
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Categorie</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 cursor-pointer"
+                >
+                  {CATEGORIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -344,7 +468,7 @@ export default function Produits() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#040741] mb-2">Prix unitaire HT (€) *</label>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">Prix vente HT (€) *</label>
                   <input
                     type="number"
                     min="0"
@@ -370,10 +494,37 @@ export default function Produits() {
                 </div>
               </div>
 
+              {showMargins && (
+                <div>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">Prix d'achat HT (€)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.cost_price_ht}
+                    onChange={(e) => setForm({ ...form, cost_price_ht: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Fiche technique</label>
+                <textarea
+                  value={form.technical_sheet}
+                  onChange={(e) => setForm({ ...form, technical_sheet: e.target.value })}
+                  placeholder="Dimensions, materiaux, fermete, garantie..."
+                  rows={3}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 resize-none"
+                />
+              </div>
+
+              {/* Resume prix */}
               {form.unit_price_ht && (
                 <div className="bg-[#313ADF]/5 rounded-xl p-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Prix HT</span>
+                    <span className="text-gray-600">Prix vente HT</span>
                     <span className="font-medium text-[#040741]">{parseFloat(form.unit_price_ht || 0).toFixed(2)} €</span>
                   </div>
                   <div className="flex justify-between text-sm mt-1">
@@ -386,6 +537,26 @@ export default function Produits() {
                       {(parseFloat(form.unit_price_ht || 0) * (1 + parseFloat(form.tax_rate || 0) / 100)).toFixed(2)} €
                     </span>
                   </div>
+                  {showMargins && form.cost_price_ht && (
+                    <>
+                      <div className="flex justify-between text-sm mt-2 pt-2 border-t border-[#313ADF]/20">
+                        <span className="text-gray-600">Prix d'achat HT</span>
+                        <span className="font-medium text-[#040741]">{parseFloat(form.cost_price_ht || 0).toFixed(2)} €</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="font-semibold text-gray-700">Marge</span>
+                        {(() => {
+                          const m = parseFloat(form.unit_price_ht || 0) - parseFloat(form.cost_price_ht || 0)
+                          const mp = parseFloat(form.unit_price_ht) > 0 ? (m / parseFloat(form.unit_price_ht) * 100) : 0
+                          return (
+                            <span className={`font-bold ${m >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {m.toFixed(2)} € ({mp.toFixed(1)}%)
+                            </span>
+                          )
+                        })()}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 

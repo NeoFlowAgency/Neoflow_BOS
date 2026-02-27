@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { convertQuoteToInvoice } from '../services/quoteService'
+import { convertQuoteToOrder } from '../services/orderService'
 import { sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
@@ -55,18 +55,18 @@ export default function ApercuDevis() {
     }
   }
 
-  const handleConvertToInvoice = async () => {
+  const handleConvertToOrder = async () => {
     setActionLoading('convert')
     try {
-      const result = await convertQuoteToInvoice(devis.id)
+      const result = await convertQuoteToOrder(devis.id)
 
-      const invoiceId = result?.invoice_id
-      if (!invoiceId) {
-        throw new Error('La conversion a échoué : aucune facture créée')
+      const orderId = result?.order_id
+      if (!orderId) {
+        throw new Error('La conversion a échoué : aucune commande créée')
       }
 
-      toast.success(`Facture ${result.invoice_number || ''} créée !`)
-      navigate(`/factures/${invoiceId}`)
+      toast.success(`Commande ${result.order_number || ''} créée !`)
+      navigate(`/commandes/${orderId}`)
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la conversion')
     } finally {
@@ -186,7 +186,7 @@ export default function ApercuDevis() {
         <div className="flex gap-3 flex-wrap">
           {devis.status !== 'accepted' && devis.status !== 'rejected' && (
             <button
-              onClick={handleConvertToInvoice}
+              onClick={handleConvertToOrder}
               disabled={actionLoading === 'convert'}
               className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
             >
@@ -200,7 +200,7 @@ export default function ApercuDevis() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               )}
-              Convertir en facture
+              Convertir en commande
             </button>
           )}
 

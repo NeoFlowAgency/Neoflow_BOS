@@ -1,199 +1,385 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { createPayment } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { useToast } from '../contexts/ToastContext'
+import PaymentModal from '../components/PaymentModal'
+
+// ─── Configs ────────────────────────────────────────────────────────────────
+
+const COLUMNS = [
+  { key: 'a_planifier', label: 'A planifier',  color: 'gray',   bg: 'bg-gray-50',    header: 'bg-gray-100',    text: 'text-gray-700' },
+  { key: 'planifiee',   label: 'Planifiee',     color: 'blue',   bg: 'bg-blue-50',    header: 'bg-blue-100',    text: 'text-blue-700' },
+  { key: 'en_cours',    label: 'En cours',      color: 'yellow', bg: 'bg-yellow-50',  header: 'bg-yellow-100',  text: 'text-yellow-700' },
+  { key: 'livree',      label: 'Livree',        color: 'green',  bg: 'bg-green-50',   header: 'bg-green-100',   text: 'text-green-700' },
+]
+
+const DELIVERY_TYPE_BADGE = {
+  delivery: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Livraison' },
+  pickup:   { bg: 'bg-teal-100',   text: 'text-teal-700',   label: 'Retrait' },
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export default function Livraisons() {
   const navigate = useNavigate()
-  const { workspace, loading: wsLoading } = useWorkspace()
-  const [livraisons, setLivraisons] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { workspace, role } = useWorkspace()
+  const toast = useToast()
 
-  // Modal state for new delivery workflow
-  const [showModal, setShowModal] = useState(false)
-  const [modalStep, setModalStep] = useState('choice')
-  const [facturesDisponibles, setFacturesDisponibles] = useState([])
-  const [selectedFacture, setSelectedFacture] = useState(null)
-  const [livraisonForm, setLivraisonForm] = useState({
-    date_prevue: '',
-    adresse_livraison: '',
-    notes: ''
-  })
-  const [createLoading, setCreateLoading] = useState(false)
-  const [createError, setCreateError] = useState('')
+  const [deliveries, setDeliveries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState(null)
+  const [workspaceMembers, setWorkspaceMembers] = useState([])
+
+  // Vue livreur : uniquement ses livraisons
+  const isLivreur = role === 'livreur'
+
+  // ── Modals ────────────────────────────────────────
+  // Plan modal (a_planifier → planifiee)
+  const [showPlanModal, setShowPlanModal] = useState(false)
+  const [planTarget, setPlanTarget] = useState(null)
+  const [planForm, setPlanForm] = useState({ scheduled_date: '', time_slot: '', assigned_to: '', delivery_fees: '' })
+  const [planLoading, setPlanLoading] = useState(false)
+
+  // Livraison completee (en_cours → livree) avec option paiement
+  const [showLivraisonModal, setShowLivraisonModal] = useState(false)
+  const [livraisonTarget, setLivraisonTarget] = useState(null)
+  const [offerPayment, setOfferPayment] = useState(false)
+  const [livraisonLoading, setLivraisonLoading] = useState(false)
+
+  // PaymentModal
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentOrderId, setPaymentOrderId] = useState(null)
+  const [paymentOrderTotal, setPaymentOrderTotal] = useState(0)
+  const [paymentAmountPaid, setPaymentAmountPaid] = useState(0)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+
+  // ── Load ──────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null)
+    })
+  }, [])
 
   useEffect(() => {
-    if (wsLoading) return
-    if (!workspace?.id) {
-      setLoading(false)
-      return
+    if (workspace?.id) {
+      loadDeliveries()
+      loadWorkspaceMembers()
     }
-    loadLivraisons()
-  }, [workspace?.id, wsLoading])
+  }, [workspace?.id])
 
-  const loadLivraisons = async () => {
+  const loadDeliveries = async () => {
     try {
-      const { data } = await supabase
+      let query = supabase
         .from('deliveries')
-        .select('*, invoices(invoice_number, total_ttc, customers(last_name, first_name, address))')
-        .eq('workspace_id', workspace?.id)
-        .order('scheduled_date', { ascending: true })
+        .select(`
+          *,
+          order:orders(
+            id, order_number, total_ttc, remaining_amount, amount_paid,
+            customer:customers(first_name, last_name, phone, address)
+          )
+        `)
+        .eq('workspace_id', workspace.id)
+        .neq('status', 'annulee')
+        .order('scheduled_date', { ascending: true, nullsFirst: true })
 
-      setLivraisons(data || [])
+      const { data, error } = await query
+      if (error) throw error
+      setDeliveries(data || [])
     } catch (err) {
-      console.error('[Livraisons] Erreur chargement:', err.message, err)
+      console.error('[Livraisons] Erreur:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadFacturesDisponibles = async () => {
+  const loadWorkspaceMembers = async () => {
     try {
       const { data } = await supabase
-        .from('invoices')
-        .select('*, customers(last_name, first_name, address)')
-        .eq('workspace_id', workspace?.id)
-        .neq('has_delivery', false)
-        .in('status', ['brouillon', 'envoyée', 'payée'])
-        .order('created_at', { ascending: false })
-
-      setFacturesDisponibles(data || [])
+        .from('workspace_users')
+        .select('user_id, role, profiles:user_id(full_name)')
+        .eq('workspace_id', workspace.id)
+      setWorkspaceMembers(data || [])
     } catch (err) {
-      console.error('Erreur chargement factures:', err)
+      console.error('[Livraisons] Erreur membres:', err)
     }
   }
 
-  const aujourdhui = new Date().toISOString().split('T')[0]
+  // ── Filtrage vue livreur ───────────────────────────
+  const visibleDeliveries = isLivreur
+    ? deliveries.filter(d => d.assigned_to === currentUserId)
+    : deliveries
 
-  const grouped = {
-    en_cours: livraisons.filter(l => l.status === 'en_cours' && (!l.scheduled_date || l.scheduled_date >= aujourdhui)),
-    en_retard: livraisons.filter(l => l.status === 'en_cours' && l.scheduled_date && l.scheduled_date < aujourdhui),
-    finalise: livraisons.filter(l => l.status === 'finalise')
+  const grouped = COLUMNS.reduce((acc, col) => {
+    acc[col.key] = visibleDeliveries.filter(d => d.status === col.key)
+    return acc
+  }, {})
+
+  // "Mes livraisons du jour" (pour livreur)
+  const today = new Date().toISOString().split('T')[0]
+  const mesDuJour = isLivreur
+    ? visibleDeliveries.filter(d => d.scheduled_date === today && d.status !== 'livree')
+    : []
+
+  // ── Helpers ───────────────────────────────────────
+  const getMemberName = (userId) => {
+    const m = workspaceMembers.find(u => u.user_id === userId)
+    return m?.profiles?.full_name || 'Inconnu'
   }
 
-  const handleStatutChange = async (livraisonId, newStatut) => {
-    try {
-      const updateData = { status: newStatut }
-      if (newStatut === 'finalise') {
-        updateData.delivered_at = new Date().toISOString()
-      }
+  const clientName = (delivery) => {
+    const c = delivery.order?.customer
+    if (!c) return 'Client inconnu'
+    return `${c.first_name || ''} ${c.last_name || ''}`.trim()
+  }
 
+  // ── Status changes ────────────────────────────────
+  const handleSimpleStatusChange = async (delivery, newStatus) => {
+    try {
+      const updates = { status: newStatus }
+      if (newStatus === 'en_cours') updates.started_at = new Date().toISOString()
+      if (newStatus === 'livree') updates.delivered_at = new Date().toISOString()
+      await supabase.from('deliveries').update(updates).eq('id', delivery.id)
+      // Si livree et order: mettre a jour order status
+      if (newStatus === 'livree' && delivery.order?.id) {
+        const order = delivery.order
+        const fullyPaid = (order.remaining_amount || 0) <= 0
+        await supabase.from('orders').update({ status: fullyPaid ? 'termine' : 'livre' }).eq('id', order.id)
+      }
+      toast.success('Statut mis a jour')
+      loadDeliveries()
+    } catch (err) {
+      toast.error(err.message || 'Erreur mise a jour')
+    }
+  }
+
+  // ── Plan modal ────────────────────────────────────
+  const openPlanModal = (delivery) => {
+    setPlanTarget(delivery)
+    setPlanForm({
+      scheduled_date: delivery.scheduled_date || '',
+      time_slot: delivery.time_slot || '',
+      assigned_to: delivery.assigned_to || (currentUserId || ''),
+      delivery_fees: delivery.delivery_fees || ''
+    })
+    setShowPlanModal(true)
+  }
+
+  const handlePlan = async () => {
+    if (!planForm.scheduled_date) {
+      toast.error('La date est obligatoire')
+      return
+    }
+    setPlanLoading(true)
+    try {
       await supabase
         .from('deliveries')
-        .update(updateData)
-        .eq('id', livraisonId)
-        .eq('workspace_id', workspace.id)
-
-      await loadLivraisons()
+        .update({
+          status: 'planifiee',
+          scheduled_date: planForm.scheduled_date,
+          time_slot: planForm.time_slot || null,
+          assigned_to: planForm.assigned_to || null,
+          delivery_fees: parseFloat(planForm.delivery_fees) || null
+        })
+        .eq('id', planTarget.id)
+      toast.success('Livraison planifiee !')
+      setShowPlanModal(false)
+      loadDeliveries()
     } catch (err) {
-      console.error('[Livraisons] Erreur changement statut:', err.message, err)
-    }
-  }
-
-  const openNewLivraisonModal = async () => {
-    setShowModal(true)
-    setModalStep('choice')
-    setSelectedFacture(null)
-    setLivraisonForm({ date_prevue: '', adresse_livraison: '', notes: '' })
-    setCreateError('')
-    await loadFacturesDisponibles()
-  }
-
-  const handleSelectFacture = (facture) => {
-    setSelectedFacture(facture)
-    setLivraisonForm({
-      ...livraisonForm,
-      date_prevue: facture.delivery_date || '',
-      adresse_livraison: facture.customers?.address || ''
-    })
-  }
-
-  const handleCreateLivraison = async () => {
-    if (!selectedFacture) {
-      setCreateError('Veuillez sélectionner une facture')
-      return
-    }
-    if (!livraisonForm.date_prevue) {
-      setCreateError('Veuillez sélectionner une date de livraison')
-      return
-    }
-
-    setCreateLoading(true)
-    setCreateError('')
-
-    try {
-      const { error } = await supabase.from('deliveries').insert({
-        invoice_id: selectedFacture.id,
-        workspace_id: workspace.id,
-        scheduled_date: livraisonForm.date_prevue,
-        delivery_address: livraisonForm.adresse_livraison,
-        notes: livraisonForm.notes,
-        status: 'en_cours'
-      })
-      if (error) throw error
-
-      setShowModal(false)
-      await loadLivraisons()
-    } catch (err) {
-      setCreateError(err.message || 'Erreur lors de la création')
+      toast.error(err.message || 'Erreur planification')
     } finally {
-      setCreateLoading(false)
+      setPlanLoading(false)
     }
   }
 
-  const LivraisonCard = ({ livraison, onClick, showComplete = false }) => {
-    const client = livraison.invoices?.customers
-    const clientName = client ? `${client.first_name} ${client.last_name}` : 'Client inconnu'
-    const adresse = livraison.delivery_address || client?.address || ''
-    const datePrevue = livraison.scheduled_date ? new Date(livraison.scheduled_date).toLocaleDateString('fr-FR') : ''
+  // ── Livraison completee ───────────────────────────
+  const openLivraisonModal = (delivery) => {
+    setLivraisonTarget(delivery)
+    const hasRemaining = (delivery.order?.remaining_amount || 0) > 0.01
+    setOfferPayment(hasRemaining)
+    setShowLivraisonModal(true)
+  }
+
+  const handleConfirmLivree = async (withPayment = false) => {
+    setLivraisonLoading(true)
+    try {
+      const updates = { status: 'livree', delivered_at: new Date().toISOString() }
+      await supabase.from('deliveries').update(updates).eq('id', livraisonTarget.id)
+      if (livraisonTarget.order?.id) {
+        const order = livraisonTarget.order
+        const fullyPaid = !withPayment && (order.remaining_amount || 0) <= 0.01
+        await supabase.from('orders').update({ status: fullyPaid ? 'termine' : 'livre' }).eq('id', order.id)
+      }
+      setShowLivraisonModal(false)
+      if (withPayment && livraisonTarget.order?.id) {
+        setPaymentOrderId(livraisonTarget.order.id)
+        setPaymentOrderTotal(livraisonTarget.order.total_ttc || 0)
+        setPaymentAmountPaid(livraisonTarget.order.amount_paid || 0)
+        setShowPaymentModal(true)
+      } else {
+        toast.success('Livraison confirmee !')
+      }
+      loadDeliveries()
+    } catch (err) {
+      toast.error(err.message || 'Erreur confirmation livraison')
+    } finally {
+      setLivraisonLoading(false)
+    }
+  }
+
+  // ── Payment a la livraison ────────────────────────
+  const handlePayment = async (paymentData) => {
+    if (!paymentOrderId) return
+    setPaymentLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await createPayment(workspace.id, paymentOrderId, user.id, paymentData)
+      toast.success('Paiement enregistre !')
+      setShowPaymentModal(false)
+      setPaymentOrderId(null)
+      loadDeliveries()
+    } catch (err) {
+      toast.error(err.message || 'Erreur paiement')
+    } finally {
+      setPaymentLoading(false)
+    }
+  }
+
+  // ── Cards ─────────────────────────────────────────
+  const DeliveryCard = ({ delivery, compact = false }) => {
+    const name = clientName(delivery)
+    const order = delivery.order
+    const typeBadge = DELIVERY_TYPE_BADGE[delivery.delivery_type] || DELIVERY_TYPE_BADGE.delivery
+    const isOverdue = delivery.scheduled_date && delivery.scheduled_date < today && delivery.status !== 'livree'
+    const assigneeName = delivery.assigned_to ? getMemberName(delivery.assigned_to) : null
 
     return (
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
-        <div
-          className="cursor-pointer"
-          onClick={() => livraison.invoice_id && navigate(`/factures/${livraison.invoice_id}`)}
-        >
-          <div className="flex items-start justify-between mb-2">
-            <p className="font-bold text-[#040741] text-lg group-hover:text-[#313ADF] transition-colors">{clientName}</p>
-            {livraison.invoices?.total_ttc && (
-              <span className="text-sm font-semibold text-[#313ADF]">
-                {livraison.invoices.total_ttc.toFixed(0)} €
-              </span>
+      <div className={`bg-white rounded-xl p-4 shadow-sm border transition-all hover:shadow-md ${isOverdue ? 'border-orange-200' : 'border-gray-100'}`}>
+        {/* Top */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <p className="font-bold text-[#040741] truncate">{name}</p>
+            {order?.order_number && (
+              <button
+                onClick={() => navigate(`/commandes/${order.id}`)}
+                className="text-xs text-[#313ADF] hover:underline"
+              >
+                {order.order_number}
+              </button>
             )}
           </div>
-          <p className="text-sm text-gray-600 leading-snug mb-2">{adresse}</p>
-          {datePrevue && (
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${typeBadge.bg} ${typeBadge.text}`}>
+            {typeBadge.label}
+          </span>
+        </div>
+
+        {/* Adresse */}
+        {delivery.delivery_address && (
+          <p className="text-xs text-gray-500 mb-2 leading-snug">{delivery.delivery_address}</p>
+        )}
+
+        {/* Infos */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400 mb-3">
+          {delivery.scheduled_date && (
+            <span className={`flex items-center gap-1 ${isOverdue ? 'text-orange-500 font-medium' : ''}`}>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {datePrevue}
-            </p>
+              {new Date(delivery.scheduled_date).toLocaleDateString('fr-FR')}
+              {isOverdue && ' ⚠'}
+            </span>
           )}
-          {livraison.invoice_id && (
-            <p className="text-xs text-[#313ADF] mt-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {delivery.time_slot && (
+            <span className="flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Voir la facture
-            </p>
+              {delivery.time_slot}
+            </span>
+          )}
+          {assigneeName && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {assigneeName}
+            </span>
+          )}
+          {order?.total_ttc && (
+            <span className="font-medium text-[#040741]">{order.total_ttc.toFixed(0)} EUR</span>
           )}
         </div>
-        {showComplete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onClick(livraison.id) }}
-            className="mt-3 w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Marquer comme livré
-          </button>
+
+        {/* Paiement restant */}
+        {(order?.remaining_amount || 0) > 0.01 && (
+          <div className="mb-3 px-2.5 py-1.5 bg-orange-50 rounded-lg border border-orange-100">
+            <p className="text-xs text-orange-600 font-medium">
+              Restant : {(order.remaining_amount || 0).toFixed(2)} EUR
+            </p>
+          </div>
+        )}
+
+        {/* Boutons action */}
+        {!compact && (
+          <div className="space-y-2 mt-2">
+            {delivery.status === 'a_planifier' && (
+              <button
+                onClick={() => openPlanModal(delivery)}
+                className="w-full py-2 bg-[#313ADF]/10 text-[#313ADF] rounded-lg text-xs font-semibold hover:bg-[#313ADF]/20 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Planifier
+              </button>
+            )}
+            {delivery.status === 'planifiee' && (
+              <button
+                onClick={() => handleSimpleStatusChange(delivery, 'en_cours')}
+                className="w-full py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Demarrer la livraison
+              </button>
+            )}
+            {delivery.status === 'en_cours' && (
+              <button
+                onClick={() => openLivraisonModal(delivery)}
+                className="w-full py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Confirmer la livraison
+              </button>
+            )}
+            {delivery.status !== 'livree' && (order?.remaining_amount || 0) > 0.01 && (
+              <button
+                onClick={() => {
+                  setPaymentOrderId(order.id)
+                  setPaymentOrderTotal(order.total_ttc || 0)
+                  setPaymentAmountPaid(order.amount_paid || 0)
+                  setShowPaymentModal(true)
+                }}
+                className="w-full py-2 bg-[#040741]/5 text-[#040741] rounded-lg text-xs font-medium hover:bg-[#040741]/10 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Enregistrer un paiement
+              </button>
+            )}
+          </div>
         )}
       </div>
     )
   }
 
+  // ── Render ────────────────────────────────────────
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -207,302 +393,229 @@ export default function Livraisons() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Livraisons</h1>
-          <p className="text-gray-500">Gérez vos livraisons en cours</p>
-        </div>
-        <button
-          onClick={openNewLivraisonModal}
-          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouvelle livraison
-        </button>
-      </div>
-
-      {/* Kanban Board */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* En cours */}
-        <div>
-          <div className="bg-[#313ADF]/10 rounded-xl py-3 px-6 text-center mb-4">
-            <h2 className="font-bold text-[#313ADF] text-lg flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              En cours ({grouped.en_cours.length})
-            </h2>
-          </div>
-          <div className="bg-gray-50 rounded-2xl p-4 min-h-[500px]">
-            <div className="space-y-3">
-              {grouped.en_cours.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">Aucune livraison en cours</p>
-              ) : (
-                grouped.en_cours.map(l => (
-                  <LivraisonCard
-                    key={l.id}
-                    livraison={l}
-                    onClick={(id) => handleStatutChange(id, 'finalise')}
-                    showComplete={true}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* En retard */}
-        <div>
-          <div className="bg-orange-100 rounded-xl py-3 px-6 text-center mb-4">
-            <h2 className="font-bold text-orange-600 text-lg flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              En retard ({grouped.en_retard.length})
-            </h2>
-          </div>
-          <div className="bg-orange-50 rounded-2xl p-4 min-h-[500px]">
-            <div className="space-y-3">
-              {grouped.en_retard.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">Aucune livraison en retard</p>
-              ) : (
-                grouped.en_retard.map(l => (
-                  <LivraisonCard
-                    key={l.id}
-                    livraison={l}
-                    onClick={(id) => handleStatutChange(id, 'finalise')}
-                    showComplete={true}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Finalisées */}
-        <div>
-          <div className="bg-green-100 rounded-xl py-3 px-6 text-center mb-4">
-            <h2 className="font-bold text-green-600 text-lg flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Finalisées ({grouped.finalise.length})
-            </h2>
-          </div>
-          <div className="bg-green-50 rounded-2xl p-4 min-h-[500px]">
-            <div className="space-y-3">
-              {grouped.finalise.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">Aucune livraison finalisée</p>
-              ) : (
-                grouped.finalise.map(l => (
-                  <LivraisonCard
-                    key={l.id}
-                    livraison={l}
-                    onClick={() => {}}
-                    showComplete={false}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Livraisons & Retraits</h1>
+          <p className="text-gray-500">
+            {isLivreur ? 'Vos livraisons assignees' : `${visibleDeliveries.length} livraison(s) actives`}
+          </p>
         </div>
       </div>
 
-      {/* Modal Nouvelle Livraison */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-            {/* Header Modal */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-[#040741]">Nouvelle livraison</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Step: Choice */}
-            {modalStep === 'choice' && (
-              <div className="space-y-4">
-                <p className="text-gray-600 mb-4">Comment souhaitez-vous créer cette livraison ?</p>
-
-                <button
-                  onClick={() => setModalStep('existing')}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-[#313ADF] hover:bg-[#313ADF]/5 transition-all text-left group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#313ADF]/10 rounded-xl flex items-center justify-center group-hover:bg-[#313ADF]/20 transition-colors">
-                      <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[#040741]">Lier à une facture existante</p>
-                      <p className="text-sm text-gray-500">Sélectionner une facture déjà créée</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => navigate('/factures/nouvelle')}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-[#313ADF] hover:bg-[#313ADF]/5 transition-all text-left group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#313ADF]/10 rounded-xl flex items-center justify-center group-hover:bg-[#313ADF]/20 transition-colors">
-                      <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[#040741]">Créer une nouvelle facture</p>
-                      <p className="text-sm text-gray-500">D'abord créer la facture, puis la livraison</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {/* Step: Select Existing Facture */}
-            {modalStep === 'existing' && (
-              <div>
-                <button
-                  onClick={() => setModalStep('choice')}
-                  className="mb-4 text-sm text-gray-500 hover:text-[#313ADF] flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Retour
-                </button>
-
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-[#040741] mb-3">
-                    Sélectionner une facture
-                  </label>
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl">
-                    {facturesDisponibles.length === 0 ? (
-                      <p className="p-4 text-center text-gray-500">Aucune facture disponible</p>
-                    ) : (
-                      facturesDisponibles.map((facture) => (
-                        <button
-                          key={facture.id}
-                          onClick={() => handleSelectFacture(facture)}
-                          className={`w-full p-3 text-left border-b last:border-b-0 transition-colors ${
-                            selectedFacture?.id === facture.id
-                              ? 'bg-[#313ADF]/10 border-[#313ADF]'
-                              : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-[#040741]">
-                                {facture.customers?.first_name} {facture.customers?.last_name}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {facture.invoice_number} - {new Date(facture.created_at).toLocaleDateString('fr-FR')}
-                              </p>
-                            </div>
-                            <span className="font-semibold text-[#313ADF]">
-                              {facture.total_ttc?.toFixed(0)} €
-                            </span>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {selectedFacture && (
-                  <div className="space-y-4 border-t border-gray-100 pt-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#040741] mb-2">
-                        Date de livraison prévue *
-                      </label>
-                      <input
-                        type="date"
-                        value={livraisonForm.date_prevue}
-                        onChange={(e) => setLivraisonForm({ ...livraisonForm, date_prevue: e.target.value })}
-                        min={aujourdhui}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#040741] mb-2">
-                        Adresse de livraison
-                      </label>
-                      <input
-                        type="text"
-                        value={livraisonForm.adresse_livraison}
-                        onChange={(e) => setLivraisonForm({ ...livraisonForm, adresse_livraison: e.target.value })}
-                        placeholder="Adresse de livraison"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#040741] mb-2">
-                        Notes (optionnel)
-                      </label>
-                      <textarea
-                        value={livraisonForm.notes}
-                        onChange={(e) => setLivraisonForm({ ...livraisonForm, notes: e.target.value })}
-                        placeholder="Instructions de livraison..."
-                        rows={2}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 resize-none"
-                      />
-                    </div>
-
-                    {createError && (
-                      <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-xl text-sm">
-                        {createError}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleCreateLivraison}
-                      disabled={createLoading}
-                      className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {createLoading ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Création...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Créer la livraison
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+      {/* Mes livraisons du jour (livreur uniquement) */}
+      {isLivreur && mesDuJour.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-base font-bold text-[#040741] mb-3 flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            Mes livraisons du jour ({mesDuJour.length})
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mesDuJour.map(d => (
+              <DeliveryCard key={d.id} delivery={d} />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Bouton Retour */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="mt-8 inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Retour à l'accueil
-      </button>
+      {/* Kanban */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        {COLUMNS.map(col => {
+          const colDeliveries = grouped[col.key] || []
+          return (
+            <div key={col.key}>
+              {/* Header colonne */}
+              <div className={`${col.header} rounded-xl py-3 px-4 mb-4 flex items-center justify-between`}>
+                <h3 className={`font-bold ${col.text} flex items-center gap-2`}>
+                  {col.key === 'a_planifier' && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  )}
+                  {col.key === 'planifiee' && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                  {col.key === 'en_cours' && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  {col.key === 'livree' && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  {col.label}
+                </h3>
+                <span className={`text-sm font-bold ${col.text} opacity-70`}>{colDeliveries.length}</span>
+              </div>
+
+              {/* Cards */}
+              <div className={`${col.bg} rounded-2xl p-3 min-h-[400px] space-y-3`}>
+                {colDeliveries.length === 0 ? (
+                  <p className="text-center text-gray-400 text-sm py-8">Aucune</p>
+                ) : (
+                  colDeliveries.map(d => (
+                    <DeliveryCard key={d.id} delivery={d} />
+                  ))
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Modal Planifier ──────────────────────────── */}
+      {showPlanModal && planTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-[#040741]">Planifier la livraison</h3>
+              <p className="text-sm text-gray-500 mt-1">{clientName(planTarget)}</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Date *</label>
+                <input
+                  type="date"
+                  value={planForm.scheduled_date}
+                  onChange={(e) => setPlanForm({ ...planForm, scheduled_date: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Creneau horaire (optionnel)</label>
+                <input
+                  type="text"
+                  value={planForm.time_slot}
+                  onChange={(e) => setPlanForm({ ...planForm, time_slot: e.target.value })}
+                  placeholder="ex: 9h-12h, apres-midi..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Assigner a</label>
+                <div className="relative">
+                  <select
+                    value={planForm.assigned_to}
+                    onChange={(e) => setPlanForm({ ...planForm, assigned_to: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  >
+                    <option value="">Non assigne</option>
+                    {workspaceMembers.map(m => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.profiles?.full_name || m.user_id} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Frais de livraison (optionnel)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={planForm.delivery_fees}
+                  onChange={(e) => setPlanForm({ ...planForm, delivery_fees: e.target.value })}
+                  placeholder="0.00 EUR"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowPlanModal(false)}
+                className="px-6 py-2 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handlePlan}
+                disabled={planLoading}
+                className="px-6 py-2 bg-[#313ADF] text-white rounded-xl font-semibold hover:bg-[#4149e8] disabled:opacity-50 flex items-center gap-2"
+              >
+                {planLoading ? 'Enregistrement...' : 'Planifier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Confirmer livraison ─────────────────── */}
+      {showLivraisonModal && livraisonTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-[#040741]">Confirmer la livraison</h3>
+                <p className="text-sm text-gray-500">{clientName(livraisonTarget)}</p>
+              </div>
+            </div>
+
+            {offerPayment && (
+              <div className="mb-5 p-4 bg-orange-50 rounded-xl border border-orange-100">
+                <p className="text-sm font-semibold text-orange-700 mb-1">Paiement restant</p>
+                <p className="text-lg font-bold text-orange-600">
+                  {(livraisonTarget.order?.remaining_amount || 0).toFixed(2)} EUR
+                </p>
+                <p className="text-xs text-orange-500 mt-1">Souhaitez-vous encaisser le solde maintenant ?</p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {offerPayment && (
+                <button
+                  onClick={() => handleConfirmLivree(true)}
+                  disabled={livraisonLoading}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Livree + Encaisser le solde
+                </button>
+              )}
+              <button
+                onClick={() => handleConfirmLivree(false)}
+                disabled={livraisonLoading}
+                className={`w-full py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  offerPayment
+                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {offerPayment ? 'Livree sans paiement' : 'Confirmer la livraison'}
+              </button>
+              <button
+                onClick={() => setShowLivraisonModal(false)}
+                className="w-full py-2 border border-gray-200 rounded-xl font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PaymentModal ──────────────────────────────── */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => { setShowPaymentModal(false); setPaymentOrderId(null) }}
+        onConfirm={handlePayment}
+        orderTotal={paymentOrderTotal}
+        amountPaid={paymentAmountPaid}
+        loading={paymentLoading}
+      />
     </div>
   )
 }
