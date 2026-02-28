@@ -166,14 +166,14 @@ supabase secrets set STRIPE_PRICE_ID=price_xxxxx
 ## Déploiement Edge Functions
 
 ```bash
-supabase functions deploy create-checkout
+supabase functions deploy create-checkout --no-verify-jwt
 supabase functions deploy stripe-webhook --no-verify-jwt
-supabase functions deploy create-portal-session
-supabase functions deploy accept-invitation
-supabase functions deploy delete-account
+supabase functions deploy create-portal-session --no-verify-jwt
+supabase functions deploy accept-invitation --no-verify-jwt
+supabase functions deploy delete-account --no-verify-jwt
 ```
 
-**IMPORTANT** : `stripe-webhook` doit être déployé avec `--no-verify-jwt` car Stripe n'envoie pas de token d'authentification.
+**IMPORTANT** : Toutes les fonctions doivent être déployées avec `--no-verify-jwt`. Elles gèrent l'auth en interne via `supabase.auth.getUser(token)`. Sans ce flag, la Gateway Supabase bloque les requêtes avec "Invalid JWT" avant que la fonction s'exécute.
 
 ## SQL Migrations (V3)
 

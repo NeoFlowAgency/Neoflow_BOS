@@ -15,8 +15,8 @@ serve(async (req) => {
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     const defaultPriceId = Deno.env.get('STRIPE_PRICE_ID')
-    // Early access one-time price (29€) - LIVE
-    const EARLY_ACCESS_PRICE_ID = 'price_1T4JjkATgHeWcCdm2fi94WbA'
+    // Early access one-time price (29€) - TEST
+    const EARLY_ACCESS_PRICE_ID = 'price_1T0OkIApeYuOBUUXOdLDw8N6'
     const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID') || EARLY_ACCESS_PRICE_ID
     if (!stripeKey) {
       throw new Error('Stripe configuration manquante')
@@ -40,9 +40,8 @@ serve(async (req) => {
     const { workspace_id, success_url, cancel_url, plan: rawPlan } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
 
-    // Before launch (1 march 2026), ALL checkouts are early-access one-time payment
-    const LAUNCH_DATE = new Date('2026-03-01T00:00:00+01:00')
-    const plan = (new Date() < LAUNCH_DATE) ? 'early-access' : rawPlan
+    // Launch date passed — use standard subscription mode
+    const plan = rawPlan || 'standard'
 
     // Verify user is owner of this workspace
     const { data: membership } = await supabase

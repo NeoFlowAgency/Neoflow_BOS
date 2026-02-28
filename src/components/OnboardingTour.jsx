@@ -1,321 +1,521 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
-import SpotlightOverlay from './ui/SpotlightOverlay'
-import { createTestData, deleteTestData, markOnboardingComplete, shouldShowOnboarding } from '../services/onboardingService'
+import {
+  createTestData,
+  deleteTestData,
+  markOnboardingComplete,
+  shouldShowOnboarding,
+} from '../services/onboardingService'
+import { supabase } from '../lib/supabase'
+
+// ─── Step definitions ────────────────────────────────────────────────────────
 
 const STEPS = [
+  // ── Welcome modal ──
   {
     id: 'welcome',
-    route: '/dashboard',
-    target: null,
-    position: 'bottom',
-    isWelcome: true,
+    type: 'modal',
+    emoji: '👋',
     title: 'Bienvenue sur NeoFlow BOS !',
-    description: 'Votre OS metier pour la literie. En quelques etapes, decouvrez comment gerer vos ventes, votre stock, vos livraisons et vos statistiques. Des donnees de demonstration seront creees pour ce tutoriel.',
+    description:
+      'Ce tutoriel interactif (≈ 10 min) vous guide à travers toutes les fonctionnalités clés. Des données de démonstration seront créées pour que vous voyiez l\'interface en situation réelle. Vous effectuerez de vraies actions, puis tout sera nettoyé à la fin.',
+    buttonText: 'Démarrer le tutoriel',
   },
+
+  // ── 1 · Dashboard ──
   {
     id: 'dashboard',
+    type: 'tour',
     route: '/dashboard',
-    target: 'quick-actions',
-    position: 'top',
+    emoji: '📊',
     title: 'Tableau de bord',
-    description: 'Votre centre de pilotage : CA du mois, commandes en cours, livraisons a effectuer et soldes a recuperer. Les actions rapides vous permettent de demarrer une vente en un clic.',
+    description:
+      'Votre centre de pilotage. Les données de démonstration sont déjà visibles : chiffre d\'affaires, commandes en cours, livraisons à effectuer, acomptes à encaisser.',
+    tip: 'Les KPIs se mettent à jour en temps réel dès que vous enregistrez une vente ou un paiement.',
   },
+
+  // ── 2 · Produits ──
   {
-    id: 'produits',
+    id: 'products',
+    type: 'tour',
     route: '/produits',
-    target: null,
-    position: 'bottom',
+    emoji: '🏷️',
     title: 'Catalogue produits',
-    description: 'Trois produits de demonstration ont ete crees (matelas, sommier, oreiller). Chaque produit a un prix de vente, un cout d\'achat et une reference. La marge est calculee automatiquement et visible pour les managers.',
+    description:
+      'Trois produits de démonstration ont été créés : matelas, sommier et oreiller — avec prix de vente, coût d\'achat et marge calculée automatiquement.',
+    tip: 'La marge n\'est visible que par les propriétaires et managers, jamais par les vendeurs ni sur les documents clients.',
   },
+
+  // ── 3 · Créer un produit (INTERACTIVE) ──
   {
-    id: 'vente-rapide',
+    id: 'create-product',
+    type: 'tour',
+    route: '/produits',
+    emoji: '➕',
+    title: 'À vous : créez un produit',
+    description: 'Ajoutez votre premier article réel au catalogue.',
+    interactive: true,
+    instructions: [
+      'Cliquez sur le bouton "Nouveau produit" en haut à droite',
+      'Saisissez un nom, un prix de vente et optionnellement un coût d\'achat',
+      'Cliquez "Enregistrer" pour valider',
+    ],
+    confirmText: 'Mon produit est créé ✓',
+  },
+
+  // ── 4 · Clients ──
+  {
+    id: 'clients',
+    type: 'tour',
+    route: '/clients',
+    emoji: '👥',
+    title: 'Gestion clients (CRM)',
+    description:
+      'Un client de démonstration a été créé. Chaque fiche client regroupe ses coordonnées, son historique de commandes et son CA total. Le statut (prospect → actif → prioritaire) est calculé automatiquement.',
+    tip: 'Un client devient "prioritaire" dès 5 000€ de CA cumulé, ou en le marquant manuellement.',
+  },
+
+  // ── 5 · Créer un devis (INTERACTIVE) ──
+  {
+    id: 'create-quote',
+    type: 'tour',
+    route: '/devis',
+    emoji: '📄',
+    title: 'À vous : créez un devis',
+    description:
+      'Les devis permettent de faire une proposition commerciale avant de la transformer en commande.',
+    interactive: true,
+    instructions: [
+      'Cliquez sur "Nouveau devis"',
+      'Sélectionnez le client "[TUTORIEL]" dans la liste',
+      'Ajoutez une ligne produit avec une quantité et un prix',
+      'Enregistrez le devis — il apparaîtra dans la liste',
+    ],
+    confirmText: 'Mon devis est créé ✓',
+  },
+
+  // ── 6 · Commandes ──
+  {
+    id: 'orders',
+    type: 'tour',
+    route: '/commandes',
+    emoji: '🛒',
+    title: 'Gestion des commandes',
+    description:
+      'Le cœur du système. Une commande de démonstration a été créée avec un acompte déjà versé. Chaque commande suit son cycle : Brouillon → Confirmé → En cours → Livré → Terminé.',
+    tip: 'Un devis converti en commande conserve tous les produits et le client — aucune ressaisie.',
+  },
+
+  // ── 7 · Enregistrer un paiement (INTERACTIVE) ──
+  {
+    id: 'payment',
+    type: 'tour',
+    route: '/commandes',
+    emoji: '💳',
+    title: 'À vous : enregistrez un paiement',
+    description:
+      'Les paiements sont multiples et flexibles : acompte, règlement partiel, solde. La barre de progression se met à jour en temps réel.',
+    interactive: true,
+    instructions: [
+      'Ouvrez la commande de démonstration (statut "Confirmé") dans la liste',
+      'Dans la section "Paiements", cliquez "Enregistrer un paiement"',
+      'Saisissez un montant, choisissez le mode (espèces, CB, chèque…)',
+      'Confirmez et observez la barre de progression se mettre à jour',
+    ],
+    confirmText: 'Paiement enregistré ✓',
+  },
+
+  // ── 8 · Vente rapide (INTERACTIVE) ──
+  {
+    id: 'quick-sale',
+    type: 'tour',
     route: '/vente-rapide',
-    target: null,
-    position: 'bottom',
-    title: 'Vente rapide',
-    description: 'Pour les ventes comptoir ou client inconnu : selectionnez les produits, choisissez le mode de paiement, confirmez. Une commande et une facture simplifiee sont generees instantanement.',
+    emoji: '⚡',
+    title: 'À vous : faites une vente rapide',
+    description:
+      'Pour les ventes comptoir, la vente rapide crée commande + facture simplifiée en quelques clics. Le client est optionnel.',
+    interactive: true,
+    instructions: [
+      'Recherchez et sélectionnez un produit dans la barre de recherche',
+      'Ajustez la quantité si nécessaire',
+      'Choisissez le mode de paiement (espèces, CB…)',
+      'Cliquez "Confirmer la vente" — la facture est générée automatiquement',
+    ],
+    confirmText: 'Vente rapide effectuée ✓',
   },
-  {
-    id: 'commandes',
-    route: '/commandes',
-    target: null,
-    position: 'bottom',
-    title: 'Commandes',
-    description: 'La commande est l\'element central de NeoFlow BOS. Une commande de demonstration a ete creee depuis le devis test. Elle inclut un acompte de 30 % et une livraison planifiee dans 7 jours.',
-  },
-  {
-    id: 'paiements',
-    route: '/commandes',
-    target: null,
-    position: 'bottom',
-    title: 'Suivi des paiements',
-    description: 'Chaque commande peut recevoir plusieurs paiements : acompte, paiement partiel, solde. Une barre de progression indique le montant recu vs le total. Vous pouvez enregistrer un paiement depuis la fiche commande.',
-  },
+
+  // ── 9 · Stock ──
   {
     id: 'stock',
+    type: 'tour',
     route: '/stock',
-    target: null,
-    position: 'bottom',
+    emoji: '📦',
     title: 'Gestion du stock',
-    description: 'Suivez vos niveaux de stock par produit et par emplacement. Les alertes vous signalent les ruptures et les stocks faibles. Le stock se met a jour automatiquement a chaque vente validee.',
+    description:
+      'Suivez vos niveaux de stock par emplacement. Les produits de démo ont du stock. Les alertes apparaissent en rouge (rupture) ou orange (stock faible).',
+    tip: 'Le stock est réservé à la confirmation d\'une commande et débité lors du paiement complet.',
   },
+
+  // ── 10 · Livraisons ──
   {
-    id: 'livraisons',
+    id: 'deliveries',
+    type: 'tour',
     route: '/livraisons',
-    target: null,
-    position: 'bottom',
-    title: 'Livraisons',
-    description: 'Gerez vos livraisons et retraits en vue kanban : A planifier > Planifiee > En cours > Livree. Les livreurs voient uniquement leurs livraisons assignees et peuvent enregistrer le paiement a la livraison.',
+    emoji: '🚚',
+    title: 'Planning des livraisons',
+    description:
+      'Organisez vos livraisons en kanban. Une livraison de démonstration est planifiée. Assignez un livreur, définissez un créneau horaire.',
+    tip: 'Le livreur voit uniquement ses livraisons assignées et peut encaisser le paiement directement.',
   },
+
+  // ── 11 · Statistiques ──
   {
-    id: 'statistiques',
+    id: 'stats',
+    type: 'tour',
     route: '/dashboard-financier',
-    target: null,
-    position: 'bottom',
-    title: 'Statistiques',
-    description: 'Analysez vos performances : evolution du CA, marge par produit, classement vendeurs, produits faible rotation et livraisons en retard. Les couts et marges sont reserves aux managers et proprietaires.',
+    emoji: '📈',
+    title: 'Statistiques & Performances',
+    description:
+      'Analysez votre activité : CA, marges par produit, performance vendeurs, taux de conversion devis → vente. Les données de démo rendent les graphiques exploitables dès maintenant.',
+    tip: 'Les marges et coûts d\'achat n\'apparaissent jamais sur les documents envoyés aux clients.',
   },
+
+  // ── Done modal ──
   {
-    id: 'documentation',
-    route: '/documentation',
-    target: null,
-    position: 'bottom',
-    title: 'Documentation',
-    description: 'Retrouvez ici tous les guides d\'utilisation de NeoFlow BOS. La documentation est accessible a toute l\'equipe. Les proprietaires peuvent modifier et publier de nouveaux articles.',
-  },
-  {
-    id: 'neo',
-    route: '/dashboard',
-    target: null,
-    position: 'bottom',
-    title: 'Neo arrive bientot',
-    description: 'Neo est votre assistant IA contextuel. Il vous guidera dans vos actions, repondra a vos questions et cherchera dans la documentation pour vous. Neo V1 est en cours de developpement.',
-  },
-  {
-    id: 'cleanup',
-    route: '/dashboard',
-    target: null,
-    position: 'bottom',
-    isCleanup: true,
-    title: 'Tutoriel termine !',
-    description: 'Vous avez decouvert les fonctionnalites cles de NeoFlow BOS. Cliquez sur "Demarrer" pour supprimer les donnees de demonstration et commencer a utiliser votre espace de travail.',
+    id: 'done',
+    type: 'modal',
+    emoji: '🎉',
+    title: 'Félicitations !',
+    description:
+      'Vous maîtrisez NeoFlow BOS. Vous avez créé des produits, des devis, enregistré des paiements et effectué une vente rapide. Les données de démonstration vont maintenant être supprimées — votre workspace sera vierge et prêt pour votre vraie activité.',
+    buttonText: 'Terminer et nettoyer le workspace',
   },
 ]
 
-// Number of real tour steps (excluding welcome and cleanup)
-const TOUR_STEPS = STEPS.filter(s => !s.isWelcome && !s.isCleanup)
+const TOUR_STEPS = STEPS.filter((s) => s.type === 'tour')
+const TOTAL_STEPS = TOUR_STEPS.length // 11
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function PulseBeacon({ color = '#313ADF' }) {
+  return (
+    <span className="relative flex h-3 w-3 flex-shrink-0">
+      <span
+        className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+        style={{ backgroundColor: color }}
+      />
+      <span
+        className="relative inline-flex rounded-full h-3 w-3"
+        style={{ backgroundColor: color }}
+      />
+    </span>
+  )
+}
+
+// ─── Minimised pill ───────────────────────────────────────────────────────────
+
+function MinimisedPill({ stepIdx, onRestore }) {
+  return (
+    <button
+      onClick={onRestore}
+      className="fixed bottom-4 right-4 z-[9999] flex items-center gap-2 bg-[#313ADF] text-white px-4 py-2 rounded-full shadow-lg hover:bg-[#2730c4] transition-all text-sm font-medium"
+    >
+      <PulseBeacon color="#fff" />
+      <span>Tutoriel — étape {stepIdx + 1}/{TOTAL_STEPS}</span>
+    </button>
+  )
+}
+
+// ─── Welcome / Done modal ────────────────────────────────────────────────────
+
+function TourModal({ step, onAction, loading }) {
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#040741]/60 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 flex flex-col items-center text-center gap-6">
+        <div className="text-6xl">{step.emoji}</div>
+        <div>
+          <h2 className="text-2xl font-bold text-[#040741]">{step.title}</h2>
+        </div>
+        <p className="text-gray-600 leading-relaxed">{step.description}</p>
+        <button
+          onClick={() => onAction('start')}
+          disabled={loading}
+          className="w-full py-3 px-6 bg-[#313ADF] text-white rounded-xl font-semibold text-base hover:bg-[#2730c4] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+        >
+          {loading && (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          )}
+          {loading
+            ? step.id === 'welcome'
+              ? 'Création des données de démo…'
+              : 'Nettoyage en cours…'
+            : step.buttonText}
+        </button>
+        {step.id === 'welcome' && !loading && (
+          <button
+            onClick={() => onAction('skip')}
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Passer le tutoriel
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Floating tour panel ─────────────────────────────────────────────────────
+
+function TourPanel({ step, stepIdx, onNext, onPrev, onSkip, onMinimize }) {
+  const isFirst = stepIdx === 0
+  const isLast = stepIdx === TOTAL_STEPS - 1
+  const progress = Math.round(((stepIdx + 1) / TOTAL_STEPS) * 100)
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[9999] w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="bg-[#313ADF] px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <PulseBeacon color="#fff" />
+          <span className="text-white text-xs font-semibold tracking-wide uppercase truncate">
+            Tutoriel — {stepIdx + 1}/{TOTAL_STEPS}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={onMinimize}
+            title="Réduire"
+            className="text-white/70 hover:text-white transition-colors p-1 rounded"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <button
+            onClick={onSkip}
+            title="Quitter le tutoriel"
+            className="text-white/70 hover:text-white transition-colors p-1 rounded"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 bg-gray-100">
+        <div
+          className="h-full bg-[#313ADF] transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Content */}
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{step.emoji}</span>
+          <h3 className="font-bold text-[#040741] text-base leading-tight">{step.title}</h3>
+        </div>
+
+        <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
+
+        {/* Instructions for interactive steps */}
+        {step.interactive && step.instructions && (
+          <div className="bg-[#313ADF]/5 border border-[#313ADF]/20 rounded-xl p-3">
+            <p className="text-xs font-semibold text-[#313ADF] uppercase tracking-wide mb-2 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              À faire maintenant
+            </p>
+            <ol className="flex flex-col gap-1.5">
+              {step.instructions.map((inst, i) => (
+                <li key={i} className="flex gap-2 text-xs text-gray-700">
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[#313ADF] text-white flex items-center justify-center text-[10px] font-bold mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span>{inst}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* Tip for non-interactive steps */}
+        {!step.interactive && step.tip && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2">
+            <span className="flex-shrink-0">💡</span>
+            <p className="text-xs text-amber-800">{step.tip}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 pb-4 flex gap-2">
+        {!isFirst && (
+          <button
+            onClick={onPrev}
+            className="flex-1 py-2 px-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            ← Préc.
+          </button>
+        )}
+
+        {step.interactive ? (
+          <button
+            onClick={onNext}
+            className="flex-1 py-2 px-3 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors"
+          >
+            {step.confirmText || 'J\'ai fait ça ✓'}
+          </button>
+        ) : (
+          <button
+            onClick={onNext}
+            className="flex-1 py-2 px-3 bg-[#313ADF] text-white rounded-xl text-sm font-semibold hover:bg-[#2730c4] transition-colors"
+          >
+            {isLast ? 'Terminer →' : 'Suivant →'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function OnboardingTour() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { workspace } = useWorkspace()
-  const [active, setActive] = useState(false)
-  const [step, setStep] = useState(0)
-  const [testDataCreated, setTestDataCreated] = useState(false)
-  const [initializing, setInitializing] = useState(false)
-  const [cleaning, setCleaning] = useState(false)
+  const { currentWorkspace } = useWorkspace()
 
-  // Check if tour should start
+  // phase: 'idle' | 'welcome' | 'touring' | 'done'
+  const [phase, setPhase] = useState('idle')
+  const [stepIdx, setStepIdx] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+
+  // ── Show on mount if needed ──
   useEffect(() => {
-    if (!workspace?.id) return
+    if (!currentWorkspace) return
     if (shouldShowOnboarding()) {
-      setActive(true)
+      setPhase('welcome')
     }
-  }, [workspace?.id])
+  }, [currentWorkspace])
 
-  // Navigate to current step's route
+  // ── Auto-navigate when step changes ──
   useEffect(() => {
-    if (!active) return
-    const currentStep = STEPS[step]
-    if (currentStep && location.pathname !== currentStep.route) {
-      navigate(currentStep.route)
+    if (phase !== 'touring') return
+    const step = TOUR_STEPS[stepIdx]
+    if (step?.route && location.pathname !== step.route) {
+      navigate(step.route)
     }
-  }, [active, step])
+  }, [phase, stepIdx]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleStart = async () => {
-    if (!workspace?.id) return
-    setInitializing(true)
+  // ── Welcome action ──
+  const handleWelcomeAction = useCallback(
+    async (action) => {
+      if (action === 'skip') {
+        await markOnboardingComplete(currentWorkspace?.owner_user_id)
+        setPhase('idle')
+        return
+      }
+      if (!currentWorkspace) return
+      setLoading(true)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        await createTestData(currentWorkspace.id, user?.id)
+      } catch (err) {
+        console.error('[OnboardingTour] createTestData error:', err)
+      } finally {
+        setLoading(false)
+        setStepIdx(0)
+        setPhase('touring')
+      }
+    },
+    [currentWorkspace]
+  )
+
+  // ── Navigation ──
+  const goNext = useCallback(() => {
+    if (stepIdx < TOUR_STEPS.length - 1) {
+      setStepIdx((i) => i + 1)
+      setMinimized(false)
+    } else {
+      setPhase('done')
+    }
+  }, [stepIdx])
+
+  const goPrev = useCallback(() => {
+    if (stepIdx > 0) {
+      setStepIdx((i) => i - 1)
+      setMinimized(false)
+    }
+  }, [stepIdx])
+
+  // ── Skip ──
+  const handleSkip = useCallback(async () => {
+    if (!confirm('Quitter le tutoriel ? Les données de démonstration seront supprimées.')) return
+    setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await createTestData(workspace.id, user.id)
-        setTestDataCreated(true)
-      }
+      if (currentWorkspace) await deleteTestData(currentWorkspace.id)
+      await markOnboardingComplete(currentWorkspace?.owner_user_id)
     } catch (err) {
-      console.error('[onboarding] Error starting tour:', err)
+      console.error('[OnboardingTour] cleanup error:', err)
     } finally {
-      setInitializing(false)
-      setStep(1)
+      setLoading(false)
+      setPhase('idle')
     }
-  }
+  }, [currentWorkspace])
 
-  const handleNext = () => {
-    if (step < STEPS.length - 1) {
-      setStep(step + 1)
-    }
-  }
-
-  const handlePrev = () => {
-    if (step > 1) {
-      setStep(step - 1)
-    }
-  }
-
-  const handleFinish = async () => {
-    setCleaning(true)
+  // ── Done ──
+  const handleDoneAction = useCallback(async () => {
+    setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await markOnboardingComplete(user.id)
-      }
-      if (testDataCreated && workspace?.id) {
-        await deleteTestData(workspace.id)
-      }
-    } catch (err) {
-      console.error('[onboarding] Error finishing tour:', err)
-    } finally {
-      setCleaning(false)
-      setActive(false)
+      if (currentWorkspace) await deleteTestData(currentWorkspace.id)
+      await markOnboardingComplete(currentWorkspace?.owner_user_id)
       navigate('/dashboard')
-    }
-  }
-
-  const handleSkip = async () => {
-    setActive(false)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await markOnboardingComplete(user.id)
-      }
-      if (testDataCreated && workspace?.id) {
-        await deleteTestData(workspace.id)
-      }
     } catch (err) {
-      console.error('[onboarding] Error skipping tour:', err)
+      console.error('[OnboardingTour] cleanup error:', err)
+    } finally {
+      setLoading(false)
+      setPhase('idle')
     }
-    navigate('/dashboard')
+  }, [currentWorkspace, navigate])
+
+  if (phase === 'idle') return null
+
+  if (phase === 'welcome') {
+    return <TourModal step={STEPS[0]} onAction={handleWelcomeAction} loading={loading} />
   }
 
-  if (!active) return null
+  if (phase === 'done') {
+    return <TourModal step={STEPS[STEPS.length - 1]} onAction={handleDoneAction} loading={loading} />
+  }
 
-  const currentStep = STEPS[step]
+  // touring
+  const currentStep = TOUR_STEPS[stepIdx]
+  if (!currentStep) return null
 
-  // ── Welcome step ──────────────────────────────────────────────────────────
-  if (currentStep.isWelcome) {
+  if (minimized) {
     return (
-      <SpotlightOverlay targetSelector={null}>
-        <div className="text-center">
-          <div className="w-16 h-16 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-[#040741] mb-3">{currentStep.title}</h2>
-          <p className="text-gray-600 text-sm mb-6">{currentStep.description}</p>
-          <div className="flex gap-3">
-            <button
-              onClick={handleSkip}
-              className="flex-1 px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm"
-            >
-              Passer
-            </button>
-            <button
-              onClick={handleStart}
-              disabled={initializing}
-              className="flex-1 px-4 py-3 bg-[#313ADF] text-white rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50 text-sm"
-            >
-              {initializing ? 'Preparation...' : 'Commencer'}
-            </button>
-          </div>
-        </div>
-      </SpotlightOverlay>
+      <MinimisedPill
+        stepIdx={stepIdx}
+        onRestore={() => setMinimized(false)}
+      />
     )
   }
-
-  // ── Cleanup step ──────────────────────────────────────────────────────────
-  if (currentStep.isCleanup) {
-    return (
-      <SpotlightOverlay targetSelector={null}>
-        <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-[#040741] mb-3">{currentStep.title}</h2>
-          <p className="text-gray-600 text-sm mb-6">{currentStep.description}</p>
-          <div className="flex gap-3">
-            <button
-              onClick={handlePrev}
-              className="flex-1 px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm"
-            >
-              Retour
-            </button>
-            <button
-              onClick={handleFinish}
-              disabled={cleaning}
-              className="flex-1 px-4 py-3 bg-[#313ADF] text-white rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50 text-sm"
-            >
-              {cleaning ? 'Nettoyage...' : 'Demarrer'}
-            </button>
-          </div>
-        </div>
-      </SpotlightOverlay>
-    )
-  }
-
-  // ── Tour steps (1 to N-1) ─────────────────────────────────────────────────
-  // step index among tour steps (1-based → 0-based for indicator)
-  const tourIndex = step - 1  // steps 1..10 → index 0..9
 
   return (
-    <SpotlightOverlay targetSelector={currentStep.target} position={currentStep.position}>
-      <div>
-        {/* Progress bar */}
-        <div className="flex items-center gap-1 mb-4">
-          {TOUR_STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i < tourIndex ? 'bg-[#313ADF]' : i === tourIndex ? 'bg-[#313ADF]/60' : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
-
-        <p className="text-xs text-gray-400 mb-1">Etape {tourIndex + 1} / {TOUR_STEPS.length}</p>
-        <h2 className="text-lg font-bold text-[#040741] mb-2">{currentStep.title}</h2>
-        <p className="text-gray-600 text-sm mb-6">{currentStep.description}</p>
-
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handleSkip}
-            className="text-sm text-gray-400 hover:text-gray-600 font-medium"
-          >
-            Quitter
-          </button>
-          <div className="flex gap-2">
-            {step > 1 && (
-              <button
-                onClick={handlePrev}
-                className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-semibold hover:bg-gray-200 transition-colors text-sm"
-              >
-                Precedent
-              </button>
-            )}
-            <button
-              onClick={handleNext}
-              className="px-4 py-2 bg-[#313ADF] text-white rounded-xl font-semibold hover:bg-[#040741] transition-colors text-sm"
-            >
-              Suivant
-            </button>
-          </div>
-        </div>
-      </div>
-    </SpotlightOverlay>
+    <TourPanel
+      step={currentStep}
+      stepIdx={stepIdx}
+      onNext={goNext}
+      onPrev={goPrev}
+      onSkip={handleSkip}
+      onMinimize={() => setMinimized(true)}
+    />
   )
 }
