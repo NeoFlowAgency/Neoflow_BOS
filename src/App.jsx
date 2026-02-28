@@ -125,7 +125,7 @@ function Layout({ children }) {
       <main
         className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-300 ${
           isMobile
-            ? 'ml-0 pt-16'
+            ? 'ml-0 pb-16'
             : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
         }`}
       >

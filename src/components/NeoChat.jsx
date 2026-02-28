@@ -433,7 +433,7 @@ export default function NeoChat() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-[#313ADF] to-[#040741] text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[55] flex items-center gap-2.5 bg-gradient-to-r from-[#313ADF] to-[#040741] text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
         title="Ouvrir Neo"
       >
         <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
@@ -450,12 +450,12 @@ export default function NeoChat() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-40 transition-opacity"
+        className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-[55] transition-opacity"
         onClick={() => setIsOpen(false)}
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-screen w-full max-w-[460px] z-50 flex flex-col bg-white shadow-2xl">
+      <div className="fixed right-0 top-0 h-screen w-full max-w-[460px] z-[60] flex flex-col bg-white shadow-2xl">
 
         {/* ── Header ── */}
         <div className="flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#313ADF] to-[#040741] flex-shrink-0">
