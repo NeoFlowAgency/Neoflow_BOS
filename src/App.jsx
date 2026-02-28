@@ -40,7 +40,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
-import NeoButton from './components/NeoButton'
+import NeoChat from './components/NeoChat'
 
 // Internal admin email — bypass Stripe/active check
 const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
@@ -132,7 +132,7 @@ function Layout({ children }) {
         {children}
       </main>
       <OnboardingTour />
-      <NeoButton />
+      <NeoChat />
     </div>
   )
 }
