@@ -455,10 +455,31 @@ export default function Settings() {
   const labelClass = "block text-sm font-semibold text-[#040741] mb-2"
 
   const tabs = [
-    { key: 'compte', label: 'Compte' },
-    { key: 'workspace', label: 'Workspace' },
-    ...(isOwner ? [{ key: 'abonnement', label: 'Abonnement' }] : []),
-    { key: 'support', label: 'Support' }
+    {
+      key: 'compte', label: 'Compte',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />,
+      desc: 'Profil et mot de passe'
+    },
+    {
+      key: 'workspace', label: 'Workspace',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />,
+      desc: 'Informations et facturation'
+    },
+    {
+      key: 'membres', label: 'Membres',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />,
+      desc: 'Equipe et invitations'
+    },
+    ...(isOwner ? [{
+      key: 'abonnement', label: 'Abonnement',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />,
+      desc: 'Plan et facturation Stripe'
+    }] : []),
+    {
+      key: 'support', label: 'Support',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+      desc: 'Aide et documentation'
+    },
   ]
 
   if (loading) {
@@ -481,28 +502,67 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-4 md:p-8 min-h-screen max-w-4xl">
+    <div className="p-4 md:p-8 min-h-screen">
+      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Paramètres</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Paramètres</h1>
         <p className="text-gray-500">Gérez votre compte et votre workspace</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-8 border-b border-gray-200 overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-3 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? 'border-[#313ADF] text-[#313ADF]'
-                : 'border-transparent text-gray-500 hover:text-[#040741]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col md:flex-row gap-6 items-start">
+        {/* Sidebar nav */}
+        <div className="w-full md:w-64 flex-shrink-0">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+            {/* User info */}
+            <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-[#040741] to-[#313ADF]">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <p className="font-bold text-white text-sm truncate">{user?.user_metadata?.full_name || 'Utilisateur'}</p>
+              <p className="text-white/60 text-xs truncate">{user?.email}</p>
+            </div>
+            {/* Nav items */}
+            <nav className="p-2">
+              {tabs.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                    activeTab === tab.key
+                      ? 'bg-[#313ADF] text-white shadow-md'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-[#040741]'
+                  }`}
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {tab.icon}
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-tight">{tab.label}</p>
+                    <p className={`text-xs leading-tight mt-0.5 ${activeTab === tab.key ? 'text-white/70' : 'text-gray-400'}`}>{tab.desc}</p>
+                  </div>
+                </button>
+              ))}
+
+              {/* Logout */}
+              <div className="border-t border-gray-100 mt-2 pt-2">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors text-left"
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="text-sm font-semibold">Se déconnecter</span>
+                </button>
+              </div>
+            </nav>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Compte */}
       {activeTab === 'compte' && (
@@ -559,24 +619,6 @@ export default function Settings() {
               </svg>
               {passwordResetSending ? 'Envoi...' : passwordResetCooldown > 0 ? `Renvoyer dans ${passwordResetCooldown}s` : 'Modifier mon mot de passe'}
             </button>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-red-100 shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-[#040741]">Déconnexion</h2>
-                <p className="text-gray-500 text-sm">Se déconnecter de votre compte</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 rounded-xl font-semibold hover:bg-red-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Se déconnecter
-              </button>
-            </div>
           </div>
 
           {/* Danger zone */}
@@ -848,6 +890,189 @@ export default function Settings() {
         </div>
       )}
 
+      {/* Tab: Membres */}
+      {activeTab === 'membres' && (
+        <div className="space-y-6">
+          {/* Members list */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-xl font-bold text-[#040741] mb-4">
+              Membres ({members.length})
+            </h2>
+            {membersLoading ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#313ADF] border-t-transparent"></div>
+              </div>
+            ) : members.length === 0 ? (
+              <p className="text-gray-400 text-center py-4">Aucun membre trouvé</p>
+            ) : (
+              <div className="space-y-2">
+                {members.map((m, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedMember(m)}
+                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-[#313ADF]/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-[#313ADF]/10 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="text-sm text-[#040741] font-medium">
+                          {m.user_id === user?.id ? 'Vous' : (m.full_name || 'Membre')}
+                        </span>
+                        {m.created_at && (
+                          <p className="text-xs text-gray-400">
+                            Depuis le {new Date(m.created_at).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {m.user_id !== user?.id && canManageRole(myRole, m.role) ? (
+                        <select
+                          value={m.role}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#313ADF]"
+                        >
+                          {getAssignableRoles(myRole).map(r => (
+                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ROLE_COLORS[m.role] || 'bg-gray-100 text-gray-600'}`}>
+                          {ROLE_LABELS[m.role] || m.role}
+                        </span>
+                      )}
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Invitations (owner/admin only) */}
+          {isAdmin && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+              <h2 className="text-xl font-bold text-[#040741] mb-2">Inviter un membre</h2>
+              <p className="text-gray-500 text-sm mb-4">
+                Générez un lien d'invitation pour permettre à un nouveau membre de rejoindre votre workspace.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="flex-1">
+                  <label className={labelClass}>Email (optionnel)</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="email@exemple.com"
+                    className={inputClass}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Si renseigné, seul cet email pourra utiliser le lien</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Rôle</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className={inputClass}
+                  >
+                    {getAssignableRoles(myRole).map(r => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCreateInvitation}
+                disabled={inviteCreating}
+                className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50"
+              >
+                {inviteCreating ? 'Génération...' : 'Générer un lien d\'invitation'}
+              </button>
+
+              {inviteUrl && (
+                <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-green-700 mb-2">Lien d'invitation généré :</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={inviteUrl}
+                      readOnly
+                      className="flex-1 bg-white border border-green-200 rounded-lg px-3 py-2 text-sm text-gray-700 font-mono"
+                    />
+                    <button
+                      onClick={handleCopyUrl}
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                        copied ? 'bg-green-600 text-white' : 'bg-[#313ADF] text-white hover:bg-[#040741]'
+                      }`}
+                    >
+                      {copied ? 'Copié !' : 'Copier'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Ce lien expire dans 7 jours.</p>
+                </div>
+              )}
+
+              {/* Invitations list */}
+              <div className="mt-6">
+                <h3 className="text-sm font-bold text-[#040741] mb-3">Invitations ({invitations.length})</h3>
+                {invitationsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-4 border-[#313ADF] border-t-transparent"></div>
+                  </div>
+                ) : invitations.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-3">Aucune invitation</p>
+                ) : (
+                  <div className="space-y-2">
+                    {invitations.map(inv => {
+                      const isUsed = !!inv.used_at
+                      const isExpired = !isUsed && new Date(inv.expires_at) < new Date()
+                      return (
+                        <div key={inv.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[inv.role] || 'bg-gray-100 text-gray-600'}`}>
+                              {ROLE_LABELS[inv.role] || inv.role}
+                            </span>
+                            {inv.email && (
+                              <span className="text-sm text-gray-600 truncate">{inv.email}</span>
+                            )}
+                            <span className="text-xs text-gray-400">
+                              {isUsed ? 'Utilisée' : isExpired ? 'Expirée' : `Expire le ${new Date(inv.expires_at).toLocaleDateString('fr-FR')}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {isUsed ? (
+                              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold">Utilisée</span>
+                            ) : isExpired ? (
+                              <span className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded-full font-semibold">Expirée</span>
+                            ) : (
+                              <button
+                                onClick={() => handleRevokeInvitation(inv.id)}
+                                className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                              >
+                                Révoquer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab: Workspace */}
       {activeTab === 'workspace' && (
         <div className="space-y-6">
@@ -1104,186 +1329,6 @@ export default function Settings() {
               </div>
             </div>
           )}
-
-          {/* Members */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#040741] mb-4">
-              Membres ({members.length})
-            </h2>
-            {membersLoading ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#313ADF] border-t-transparent"></div>
-              </div>
-            ) : members.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">Aucun membre trouvé</p>
-            ) : (
-              <div className="space-y-2">
-                {members.map((m, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setSelectedMember(m)}
-                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-[#313ADF]/5 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#313ADF]/10 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <span className="text-sm text-[#040741] font-medium">
-                          {m.user_id === user?.id ? 'Vous' : (m.full_name || 'Membre')}
-                        </span>
-                        {m.created_at && (
-                          <p className="text-xs text-gray-400">
-                            Depuis le {new Date(m.created_at).toLocaleDateString('fr-FR')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {m.user_id !== user?.id && canManageRole(myRole, m.role) ? (
-                        <select
-                          value={m.role}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
-                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#313ADF]"
-                        >
-                          {getAssignableRoles(myRole).map(r => (
-                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ROLE_COLORS[m.role] || 'bg-gray-100 text-gray-600'}`}>
-                          {ROLE_LABELS[m.role] || m.role}
-                        </span>
-                      )}
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Invitations (owner/admin only) */}
-          {isAdmin && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-              <h2 className="text-xl font-bold text-[#040741] mb-2">Inviter un membre</h2>
-              <p className="text-gray-500 text-sm mb-4">
-                Générez un lien d'invitation pour permettre à un nouveau membre de rejoindre votre workspace.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <div className="flex-1">
-                  <label className={labelClass}>Email (optionnel)</label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="email@exemple.com"
-                    className={inputClass}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Si renseigné, seul cet email pourra utiliser le lien</p>
-                </div>
-                <div>
-                  <label className={labelClass}>Rôle</label>
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                    className={inputClass}
-                  >
-                    {getAssignableRoles(myRole).map(r => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                onClick={handleCreateInvitation}
-                disabled={inviteCreating}
-                className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors disabled:opacity-50"
-              >
-                {inviteCreating ? 'Génération...' : 'Générer un lien d\'invitation'}
-              </button>
-
-              {inviteUrl && (
-                <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-green-700 mb-2">Lien d'invitation généré :</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={inviteUrl}
-                      readOnly
-                      className="flex-1 bg-white border border-green-200 rounded-lg px-3 py-2 text-sm text-gray-700 font-mono"
-                    />
-                    <button
-                      onClick={handleCopyUrl}
-                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                        copied
-                          ? 'bg-green-600 text-white'
-                          : 'bg-[#313ADF] text-white hover:bg-[#040741]'
-                      }`}
-                    >
-                      {copied ? 'Copié !' : 'Copier'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">Ce lien expire dans 7 jours.</p>
-                </div>
-              )}
-
-              {/* Invitations list */}
-              <div className="mt-6">
-                <h3 className="text-sm font-bold text-[#040741] mb-3">Invitations ({invitations.length})</h3>
-                {invitationsLoading ? (
-                  <div className="flex justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-4 border-[#313ADF] border-t-transparent"></div>
-                  </div>
-                ) : invitations.length === 0 ? (
-                  <p className="text-gray-400 text-sm text-center py-3">Aucune invitation</p>
-                ) : (
-                  <div className="space-y-2">
-                    {invitations.map(inv => {
-                      const isUsed = !!inv.used_at
-                      const isExpired = !isUsed && new Date(inv.expires_at) < new Date()
-                      return (
-                        <div key={inv.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[inv.role] || 'bg-gray-100 text-gray-600'}`}>
-                              {ROLE_LABELS[inv.role] || inv.role}
-                            </span>
-                            {inv.email && (
-                              <span className="text-sm text-gray-600 truncate">{inv.email}</span>
-                            )}
-                            <span className="text-xs text-gray-400">
-                              {isUsed ? 'Utilisée' : isExpired ? 'Expirée' : `Expire le ${new Date(inv.expires_at).toLocaleDateString('fr-FR')}`}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {isUsed ? (
-                              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold">Utilisée</span>
-                            ) : isExpired ? (
-                              <span className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded-full font-semibold">Expirée</span>
-                            ) : (
-                              <button
-                                onClick={() => handleRevokeInvitation(inv.id)}
-                                className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
-                              >
-                                Révoquer
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1293,95 +1338,70 @@ export default function Settings() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
             <h2 className="text-xl font-bold text-[#040741] mb-6">Abonnement</h2>
 
-            {currentWorkspace?.plan_type === 'early-access' ? (
-              /* Early access display */
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-[#313ADF]/10 to-purple-50 border border-[#313ADF]/30 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span className="font-bold text-[#040741]">Acces Anticipe</span>
-                    {currentWorkspace?.subscription_status === 'early_access' ? (
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Paye</span>
-                    ) : (
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">En attente</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Paiement unique effectue. Acces complet a partir du <strong>1er mars 2026</strong>.
-                  </p>
+            <div className="space-y-4">
+                {/* Status badge */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-[#040741]">Statut :</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
+                    currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                    currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
+                    currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
+                     currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
+                     currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
+                     currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
+                     currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :
+                     currentWorkspace?.subscription_status || 'Inconnu'}
+                  </span>
                 </div>
-              </div>
-            ) : (
-              /* Standard subscription display */
-              <>
-                <div className="space-y-4">
-                  {/* Status badge */}
+
+                {/* Plan */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-[#040741]">Plan :</span>
+                  <span className="text-sm text-gray-600">NeoFlow BOS - 49,99 EUR/mois</span>
+                </div>
+
+                {/* Trial info */}
+                {currentWorkspace?.subscription_status === 'trialing' && currentWorkspace?.trial_ends_at && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-sm text-blue-700">
+                      Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Past due warning */}
+                {currentWorkspace?.subscription_status === 'past_due' && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                    <p className="text-sm text-orange-700">
+                      Votre paiement est en retard. Veuillez régulariser votre situation pour éviter la suspension de votre workspace.
+                    </p>
+                  </div>
+                )}
+
+                {/* Next billing */}
+                {currentWorkspace?.current_period_end && currentWorkspace?.subscription_status !== 'canceled' && (
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-[#040741]">Statut :</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
-                      currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                      currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
-                      currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
-                       currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
-                       currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
-                       currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
-                       currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :
-                       currentWorkspace?.subscription_status || 'Inconnu'}
+                    <span className="text-sm font-semibold text-[#040741]">Prochaine facturation :</span>
+                    <span className="text-sm text-gray-600">
+                      {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
+                )}
+              </div>
 
-                  {/* Plan */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-[#040741]">Plan :</span>
-                    <span className="text-sm text-gray-600">NeoFlow BOS - 49,99 EUR/mois</span>
-                  </div>
-
-                  {/* Trial info */}
-                  {currentWorkspace?.subscription_status === 'trialing' && currentWorkspace?.trial_ends_at && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                      <p className="text-sm text-blue-700">
-                        Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Past due warning */}
-                  {currentWorkspace?.subscription_status === 'past_due' && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                      <p className="text-sm text-orange-700">
-                        Votre paiement est en retard. Veuillez régulariser votre situation pour éviter la suspension de votre workspace.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Next billing */}
-                  {currentWorkspace?.current_period_end && currentWorkspace?.subscription_status !== 'canceled' && (
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-[#040741]">Prochaine facturation :</span>
-                      <span className="text-sm text-gray-600">
-                        {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={handleManageBilling}
-                  className="mt-6 bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
-                >
-                  Gérer mon abonnement
-                </button>
-                <p className="text-xs text-gray-400 mt-2">
-                  Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
-                </p>
-              </>
-            )}
+              <button
+                onClick={handleManageBilling}
+                className="mt-6 bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
+              >
+                Gérer mon abonnement
+              </button>
+              <p className="text-xs text-gray-400 mt-2">
+                Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
+              </p>
           </div>
         </div>
       )}
@@ -1444,6 +1464,8 @@ export default function Settings() {
           <BugReportForm />
         </div>
       )}
+        </div>
+      </div>
     </div>
   )
 }

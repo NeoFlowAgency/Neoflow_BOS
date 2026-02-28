@@ -40,6 +40,8 @@ export default function DashboardFinancier() {
 
   const [stats, setStats] = useState({
     caTotal: 0,
+    beneficeTotal: 0,
+    margeGlobale: 0,
     totalCommandes: 0,
     commandesTerminees: 0,
     livraisonsEnRetard: 0
@@ -113,8 +115,11 @@ export default function DashboardFinancier() {
       const ordersTermines = orders.filter(o => o.status === 'termine')
       const caTotal = ordersTermines.reduce((sum, o) => sum + (parseFloat(o.total_ttc) || 0), 0)
 
+      // Bénéfice brut (calculé après items fetch, set below)
       setStats({
         caTotal,
+        beneficeTotal: 0,
+        margeGlobale: 0,
         totalCommandes: orders.length,
         commandesTerminees: ordersTermines.length,
         livraisonsEnRetard: deliveries.filter(d => {
@@ -167,6 +172,13 @@ export default function DashboardFinancier() {
           orders.filter(o => o.created_at >= thirtyDaysAgo).map(o => o.id)
         )
       allRecentItems = recentItemsData || []
+
+      // Bénéfice total (CA HT - coûts)
+      const caHtTotal = items.reduce((sum, i) => sum + ((parseFloat(i.unit_price_ht) || 0) * (parseInt(i.quantity) || 0)), 0)
+      const coutsTotal = items.reduce((sum, i) => sum + ((parseFloat(i.cost_price_ht) || 0) * (parseInt(i.quantity) || 0)), 0)
+      const beneficeTotal = caHtTotal - coutsTotal
+      const margeGlobale = caHtTotal > 0 ? Math.round((beneficeTotal / caHtTotal) * 100) : 0
+      setStats(prev => ({ ...prev, beneficeTotal, margeGlobale }))
 
       // Products ranking by volume
       const prodMap = {}
@@ -404,17 +416,32 @@ export default function DashboardFinancier() {
 
       {/* 4 CARTES KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-[#040741] to-[#313ADF] rounded-2xl p-5 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+        {canViewMargins ? (
+          <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-5 text-white shadow-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <span className="text-white/80 text-sm font-medium">Benefice (commandes terminees)</span>
             </div>
-            <span className="text-white/70 text-sm font-medium">CA Total (terminees)</span>
+            <p className="text-2xl font-bold">{formatCurrency(stats.beneficeTotal)}</p>
+            <p className="text-white/60 text-xs mt-1">Marge {stats.margeGlobale}% · CA {formatCurrency(stats.caTotal)}</p>
           </div>
-          <p className="text-2xl font-bold">{formatCurrency(stats.caTotal)}</p>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-[#040741] to-[#313ADF] rounded-2xl p-5 text-white shadow-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-white/70 text-sm font-medium">CA Total (terminees)</span>
+            </div>
+            <p className="text-2xl font-bold">{formatCurrency(stats.caTotal)}</p>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-lg">
           <div className="flex items-center gap-3 mb-3">

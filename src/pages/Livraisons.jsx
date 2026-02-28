@@ -8,6 +8,12 @@ import PaymentModal from '../components/PaymentModal'
 
 // ─── Configs ────────────────────────────────────────────────────────────────
 
+const TIME_SLOTS = [
+  '8h-10h', '9h-12h', '10h-12h', '12h-14h',
+  '14h-16h', '14h-17h', '16h-18h', '17h-19h', '18h-20h',
+  'Matin (8h-12h)', 'Apres-midi (14h-18h)', 'Journee entiere'
+]
+
 const COLUMNS = [
   { key: 'a_planifier', label: 'A planifier',  color: 'gray',   bg: 'bg-gray-50',    header: 'bg-gray-100',    text: 'text-gray-700' },
   { key: 'planifiee',   label: 'Planifiee',     color: 'blue',   bg: 'bg-blue-50',    header: 'bg-blue-100',    text: 'text-blue-700' },
@@ -96,11 +102,28 @@ export default function Livraisons() {
 
   const loadWorkspaceMembers = async () => {
     try {
-      const { data } = await supabase
+      const { data: membersData } = await supabase
         .from('workspace_users')
-        .select('user_id, role, profiles:user_id(full_name)')
+        .select('user_id, role')
         .eq('workspace_id', workspace.id)
-      setWorkspaceMembers(data || [])
+
+      const members = membersData || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      let profilesMap = {}
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds)
+        if (profilesData) {
+          profilesData.forEach(p => { profilesMap[p.id] = p.full_name })
+        }
+      }
+
+      setWorkspaceMembers(members.map(m => ({
+        ...m,
+        full_name: profilesMap[m.user_id] || null
+      })))
     } catch (err) {
       console.error('[Livraisons] Erreur membres:', err)
     }
@@ -125,7 +148,7 @@ export default function Livraisons() {
   // ── Helpers ───────────────────────────────────────
   const getMemberName = (userId) => {
     const m = workspaceMembers.find(u => u.user_id === userId)
-    return m?.profiles?.full_name || 'Inconnu'
+    return m?.full_name || 'Membre'
   }
 
   const clientName = (delivery) => {
@@ -484,13 +507,23 @@ export default function Livraisons() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Creneau horaire (optionnel)</label>
-                <input
-                  type="text"
-                  value={planForm.time_slot}
-                  onChange={(e) => setPlanForm({ ...planForm, time_slot: e.target.value })}
-                  placeholder="ex: 9h-12h, apres-midi..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                />
+                <div className="relative">
+                  <select
+                    value={planForm.time_slot}
+                    onChange={(e) => setPlanForm({ ...planForm, time_slot: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  >
+                    <option value="">-- Aucun creneau --</option>
+                    {TIME_SLOTS.map(slot => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Assigner a</label>
@@ -503,7 +536,7 @@ export default function Livraisons() {
                     <option value="">Non assigne</option>
                     {workspaceMembers.map(m => (
                       <option key={m.user_id} value={m.user_id}>
-                        {m.profiles?.full_name || m.user_id} ({m.role})
+                        {m.full_name || 'Membre'} ({m.role})
                       </option>
                     ))}
                   </select>

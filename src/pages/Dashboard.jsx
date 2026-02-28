@@ -5,7 +5,7 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { workspace, loading: wsLoading, isLivreur, isEarlyAccess, role } = useWorkspace()
+  const { workspace, loading: wsLoading, isLivreur, role } = useWorkspace()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState({
     caMois: 0,
@@ -44,7 +44,7 @@ export default function Dashboard() {
         ordersThisMonthRes,
         ordersInProgressRes,
         deliveriesRes,
-        orderItemsMarginRes,
+        ,
         quotesRes,
         ordersFromQuoteRes,
         recentOrdersRes
@@ -72,19 +72,8 @@ export default function Dashboard() {
           .eq('workspace_id', workspace.id)
           .not('status', 'in', '("livree","annulee")'),
 
-        // Marges du mois (management only)
-        canViewMargins ? supabase
-          .from('order_items')
-          .select('quantity, unit_price_ht, cost_price_ht, order_id')
-          .in('order_id',
-            supabase
-              .from('orders')
-              .select('id')
-              .eq('workspace_id', workspace.id)
-              .eq('status', 'termine')
-              .gte('created_at', startOfMonth)
-              .lte('created_at', endOfMonth)
-          ) : Promise.resolve({ data: [] }),
+        // Marges du mois (management only) — placeholder, fetched after
+        Promise.resolve({ data: [] }),
 
         // Total devis (pour taux conversion)
         supabase
@@ -111,7 +100,17 @@ export default function Dashboard() {
       const ordersThisMonth = ordersThisMonthRes.data || []
       const ordersInProgress = ordersInProgressRes.data || []
       const deliveries = deliveriesRes.data || []
-      const orderItemsMargin = orderItemsMarginRes.data || []
+
+      // Fetch order_items for margins — must use array of IDs, not subquery
+      let orderItemsMargin = []
+      if (canViewMargins && ordersThisMonth.length > 0) {
+        const orderIds = ordersThisMonth.map(o => o.id)
+        const { data: itemsData } = await supabase
+          .from('order_items')
+          .select('quantity, unit_price_ht, cost_price_ht, order_id')
+          .in('order_id', orderIds)
+        orderItemsMargin = itemsData || []
+      }
 
       // CA du mois
       const caMois = ordersThisMonth.reduce((sum, o) => sum + (o.total_ttc || 0), 0)
@@ -215,18 +214,6 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 min-h-screen">
-      {/* Early access banner */}
-      {isEarlyAccess && (
-        <div className="mb-6 bg-gradient-to-r from-[#313ADF] to-purple-600 rounded-2xl p-4 flex items-center gap-3 text-white shadow-lg">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <p className="text-sm font-medium">
-            Bienvenue en acces anticipe ! Lancement officiel le 1er mars 2026.
-          </p>
-        </div>
-      )}
-
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-4xl font-bold text-[#040741] mb-2">

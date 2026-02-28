@@ -94,7 +94,6 @@ export function WorkspaceProvider({ children }) {
       isActive: currentWorkspace?.is_active ?? false,
       subscriptionStatus: currentWorkspace?.subscription_status ?? 'incomplete',
       planType: currentWorkspace?.plan_type ?? 'standard',
-      isEarlyAccess: currentWorkspace?.plan_type === 'early-access',
       loading,
       error,
       switchWorkspace,
