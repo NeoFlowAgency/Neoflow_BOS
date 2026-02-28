@@ -52,3 +52,85 @@ export async function invokeFunction(name, body = {}) {
 
   return data
 }
+
+/**
+ * Stream une réponse de l'Edge Function neo-chat via Server-Sent Events.
+ * @param {object} payload - { message, context, history }
+ * @param {(token: string) => void} onToken - appelé pour chaque token reçu
+ * @param {() => void} onDone - appelé quand le stream est terminé
+ * @param {(err: Error) => void} onError - appelé en cas d'erreur
+ * @param {AbortSignal} [signal] - pour annuler le stream
+ */
+export async function streamNeoChat(payload, onToken, onDone, onError, signal) {
+  let accessToken = null
+  try {
+    const { data } = await supabase.auth.refreshSession()
+    accessToken = data?.session?.access_token
+  } catch {
+    const { data: { session } } = await supabase.auth.getSession()
+    accessToken = session?.access_token
+  }
+
+  if (!accessToken) {
+    onError(new Error('Non authentifié. Veuillez vous reconnecter.'))
+    return
+  }
+
+  let response
+  try {
+    response = await fetch(
+      `${supabaseUrl}/functions/v1/neo-chat`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify(payload),
+        signal,
+      }
+    )
+  } catch (err) {
+    if (err?.name === 'AbortError') return
+    onError(err)
+    return
+  }
+
+  if (!response.ok) {
+    let msg = `Erreur HTTP ${response.status}`
+    try { const d = await response.json(); msg = d.error || d.message || msg } catch {}
+    onError(new Error(msg))
+    return
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6).trim()
+        if (data === '[DONE]') { onDone(); return }
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.error) { onError(new Error(parsed.error)); return }
+          if (parsed.t) onToken(parsed.t)
+        } catch { /* skip invalid JSON */ }
+      }
+    }
+    onDone()
+  } catch (err) {
+    if (err?.name === 'AbortError') return
+    onError(err)
+  }
+}
