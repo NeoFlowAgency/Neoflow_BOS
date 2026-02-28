@@ -1,11 +1,11 @@
 -- ============================================================
 -- NeoFlow BOS — Documentation Seed v6.002
 -- 18 articles couvrant tous les modules de l'application
--- À exécuter dans le SQL Editor Supabase après v6_001
+-- A executer dans le SQL Editor Supabase apres v6_001
 -- ============================================================
-
--- S'assurer que la table existe avant d'insérer
--- (la table documentation_articles est créée dans v6_001)
+-- Utilise le dollar-quoting ($doc$) pour eviter tout probleme
+-- d'echappement avec les apostrophes et accents francais.
+-- ============================================================
 
 INSERT INTO documentation_articles (title, slug, content, category, position, is_published) VALUES
 
@@ -16,16 +16,90 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Bienvenue sur NeoFlow BOS',
   'bienvenue',
-  E'# Bienvenue sur NeoFlow BOS\n\nNeoFlow BOS est votre **système de gestion complet** pour un magasin de literie. Il centralise vos ventes, votre stock, vos fournisseurs, vos livraisons et vos statistiques dans une seule application.\n\n## Ce que vous pouvez faire avec NeoFlow BOS\n\n- **Vendre** : vente rapide comptoir ou commande standard avec suivi de paiement\n- **Gérer le stock** : niveaux par emplacement, alertes de rupture, mouvements automatiques\n- **Suivre les fournisseurs** : fiches fournisseurs, bons de commande, réceptions\n- **Organiser les livraisons** : planification, assignation livreur, suivi en temps réel\n- **Analyser les performances** : CA, marges, taux de conversion, statistiques vendeurs\n- **Documenter** : base de connaissances accessible à toute l'équipe\n\n## Structure de l''application\n\nL''application est organisée autour de la **commande** comme élément central. Toute vente génère une commande, qu''elle soit rapide (comptoir) ou standard (avec devis préalable). Les factures, paiements et livraisons sont tous rattachés à une commande.\n\n## Prochaines étapes\n\n1. Configurez votre workspace dans **Paramètres → Workspace** (nom, logo, informations légales)\n2. Ajoutez vos produits dans **Produits** avec prix de vente, coût d''achat et stock initial\n3. Créez vos emplacements de stock dans **Stock → Emplacements**\n4. Invitez votre équipe dans **Paramètres → Workspace → Membres**\n\n> Besoin d''aide ? Consultez les autres articles de cette documentation ou contactez le support via **Paramètres → Support**.',
+  $doc$
+# Bienvenue sur NeoFlow BOS
+
+NeoFlow BOS est votre **systeme de gestion complet** pour un magasin de literie. Il centralise vos ventes, votre stock, vos fournisseurs, vos livraisons et vos statistiques dans une seule application.
+
+## Ce que vous pouvez faire avec NeoFlow BOS
+
+- **Vendre** : vente rapide comptoir ou commande standard avec suivi de paiement
+- **Gerer le stock** : niveaux par emplacement, alertes de rupture, mouvements automatiques
+- **Suivre les fournisseurs** : fiches fournisseurs, bons de commande, receptions
+- **Organiser les livraisons** : planification, assignation livreur, suivi en temps reel
+- **Analyser les performances** : CA, marges, taux de conversion, statistiques vendeurs
+- **Documenter** : base de connaissances accessible a toute l'equipe
+
+## Structure de l'application
+
+L'application est organisee autour de la **commande** comme element central. Toute vente genere une commande, qu'elle soit rapide (comptoir) ou standard (avec devis prealable). Les factures, paiements et livraisons sont tous rattaches a une commande.
+
+## Prochaines etapes
+
+1. Configurez votre workspace dans **Parametres > Workspace** (nom, logo, informations legales)
+2. Ajoutez vos produits dans **Produits** avec prix de vente, cout d'achat et stock initial
+3. Creez vos emplacements de stock dans **Stock > Emplacements**
+4. Invitez votre equipe dans **Parametres > Workspace > Membres**
+
+> Besoin d'aide ? Consultez les autres articles de cette documentation ou contactez le support via **Parametres > Support**.
+  $doc$,
   'prise-en-main',
   1,
   true
 ),
 
 (
-  'Rôles et permissions',
+  'Roles et permissions',
   'roles-permissions',
-  E'# Rôles et permissions\n\nNeoFlow BOS utilise un système de **4 rôles** pour contrôler l''accès aux fonctionnalités selon la responsabilité de chaque membre de l''équipe.\n\n## Les 4 rôles\n\n### Propriétaire\nAccès complet à toutes les fonctionnalités, y compris :\n- Gestion de l''abonnement Stripe\n- Suppression du workspace\n- Modification des rôles de tous les membres\n- Visualisation des marges et coûts d''achat\n- Administration de la documentation\n\n### Manager\nMêmes droits que le propriétaire sur les données métier, sauf :\n- Pas d''accès à la gestion de l''abonnement\n- Ne peut pas supprimer le workspace\n- Ne peut pas modifier le rôle du propriétaire\n\nLe manager voit les marges, coûts d''achat et statistiques complètes.\n\n### Vendeur\nAccès aux opérations de vente quotidiennes :\n- Vente rapide, commandes, devis, factures\n- Gestion des clients\n- Livraisons (toutes)\n- Stock en **lecture seule**\n- Pas d''accès aux marges ni aux statistiques avancées\n- Pas d''accès aux fournisseurs\n\n### Livreur\nAccès limité aux livraisons assignées :\n- Voir uniquement ses livraisons du jour\n- Enregistrer un paiement à la livraison\n- Consulter le stock en lecture seule (pour vérifier le chargement)\n- Pas d''accès aux ventes, clients, produits, statistiques\n\n## Règles importantes\n\n- Il ne peut y avoir qu''**un seul propriétaire** par workspace\n- Les coûts d''achat et les marges ne sont **jamais visibles** dans les documents clients (devis, factures)\n- Un livreur ne voit que les livraisons qui lui sont explicitement assignées\n\n## Modifier un rôle\n\nDans **Paramètres → Workspace → Membres**, cliquez sur un membre puis modifiez son rôle dans le menu déroulant. Seul le propriétaire peut modifier le rôle d''un manager ou se désigner un successeur.',
+  $doc$
+# Roles et permissions
+
+NeoFlow BOS utilise un systeme de **4 roles** pour controler l'acces aux fonctionnalites selon la responsabilite de chaque membre de l'equipe.
+
+## Les 4 roles
+
+### Proprietaire
+Acces complet a toutes les fonctionnalites, y compris :
+- Gestion de l'abonnement Stripe
+- Suppression du workspace
+- Modification des roles de tous les membres
+- Visualisation des marges et couts d'achat
+- Administration de la documentation
+
+### Manager
+Memes droits que le proprietaire sur les donnees metier, sauf :
+- Pas d'acces a la gestion de l'abonnement
+- Ne peut pas supprimer le workspace
+- Ne peut pas modifier le role du proprietaire
+
+Le manager voit les marges, couts d'achat et statistiques completes.
+
+### Vendeur
+Acces aux operations de vente quotidiennes :
+- Vente rapide, commandes, devis, factures
+- Gestion des clients
+- Livraisons (toutes)
+- Stock en **lecture seule**
+- Pas d'acces aux marges ni aux statistiques avancees
+- Pas d'acces aux fournisseurs
+
+### Livreur
+Acces limite aux livraisons assignees :
+- Voir uniquement ses livraisons du jour
+- Enregistrer un paiement a la livraison
+- Consulter le stock en lecture seule (pour verifier le chargement)
+- Pas d'acces aux ventes, clients, produits, statistiques
+
+## Regles importantes
+
+- Il ne peut y avoir qu'**un seul proprietaire** par workspace
+- Les couts d'achat et les marges ne sont **jamais visibles** dans les documents clients (devis, factures)
+- Un livreur ne voit que les livraisons qui lui sont explicitement assignees
+
+## Modifier un role
+
+Dans **Parametres > Workspace > Membres**, cliquez sur un membre puis modifiez son role dans le menu deroulant. Seul le proprietaire peut modifier le role d'un manager ou se designer un successeur.
+  $doc$,
   'prise-en-main',
   2,
   true
@@ -34,7 +108,47 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Configurer votre workspace',
   'configurer-workspace',
-  E'# Configurer votre workspace\n\nLe workspace représente votre magasin. Les informations saisies ici apparaissent sur vos devis, factures et bons de commande.\n\n## Informations générales\n\nDans **Paramètres → Workspace**, renseignez :\n\n- **Nom du magasin** : apparaît sur tous les documents\n- **Logo** : formats acceptés JPG, PNG, WebP — recommandé : carré, fond transparent\n- **Adresse complète** : rue, code postal, ville, pays\n- **Téléphone et email professionnel**\n- **Site web** (optionnel)\n\n## Informations légales\n\n- **Forme juridique** : SAS, SARL, Auto-entrepreneur, etc.\n- **SIRET** : obligatoire sur les factures en France\n- **Numéro TVA intracommunautaire** : si assujetti à la TVA\n\n## Coordonnées bancaires\n\nSi vous souhaitez faire apparaître votre RIB sur les factures pour les paiements par virement :\n\n- **IBAN**\n- **BIC/SWIFT**\n- **Titulaire du compte**\n\n## Pied de page des documents\n\nPersonnalisez le texte affiché en bas de vos factures et devis (conditions de paiement, mentions légales spécifiques, garanties, etc.).\n\n## Conditions de paiement\n\nIndiquez vos conditions standard, par exemple : *"Paiement à 30 jours fin de mois"* ou *"Acompte 30% à la commande, solde à la livraison"*. Ce texte apparaîtra sur chaque facture.\n\n## Inviter des membres\n\nDans l''onglet **Membres**, cliquez sur **Inviter** pour envoyer un lien d''invitation par email. Définissez le rôle avant d''envoyer. Les invitations expirent après 7 jours.',
+  $doc$
+# Configurer votre workspace
+
+Le workspace represente votre magasin. Les informations saisies ici apparaissent sur vos devis, factures et bons de commande.
+
+## Informations generales
+
+Dans **Parametres > Workspace**, renseignez :
+
+- **Nom du magasin** : apparait sur tous les documents
+- **Logo** : formats acceptes JPG, PNG, WebP — recommande : carre, fond transparent
+- **Adresse complete** : rue, code postal, ville, pays
+- **Telephone et email professionnel**
+- **Site web** (optionnel)
+
+## Informations legales
+
+- **Forme juridique** : SAS, SARL, Auto-entrepreneur, etc.
+- **SIRET** : obligatoire sur les factures en France
+- **Numero TVA intracommunautaire** : si assujetti a la TVA
+
+## Coordonnees bancaires
+
+Si vous souhaitez faire apparaitre votre RIB sur les factures pour les paiements par virement :
+
+- **IBAN**
+- **BIC/SWIFT**
+- **Titulaire du compte**
+
+## Pied de page des documents
+
+Personnalisez le texte affiche en bas de vos factures et devis (conditions de paiement, mentions legales specifiques, garanties, etc.).
+
+## Conditions de paiement
+
+Indiquez vos conditions standard, par exemple : *"Paiement a 30 jours fin de mois"* ou *"Acompte 30% a la commande, solde a la livraison"*. Ce texte apparaitra sur chaque facture.
+
+## Inviter des membres
+
+Dans l'onglet **Membres**, cliquez sur **Inviter** pour envoyer un lien d'invitation par email. Definissez le role avant d'envoyer. Les invitations expirent apres 7 jours.
+  $doc$,
   'prise-en-main',
   3,
   true
@@ -47,16 +161,100 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Vente rapide : encaisser en 3 clics',
   'vente-rapide',
-  E'# Vente rapide : encaisser en 3 clics\n\nLa vente rapide est conçue pour les **ventes comptoir** où la rapidité prime : client de passage, achat direct sans devis préalable, client inconnu.\n\n## Quand utiliser la vente rapide ?\n\n- Client qui achète sur place sans rendez-vous\n- Vente sans livraison (retrait immédiat)\n- Petits achats (oreillers, accessoires, etc.)\n- Tout cas où vous n''avez pas besoin de créer un dossier client complet\n\n## Le processus en 3 étapes\n\n### 1. Sélectionner les produits\n\nRecherchez vos produits par nom ou référence. Ajustez les quantités. Appliquez une remise sur une ligne si nécessaire (€ ou %). Vous pouvez aussi saisir une remise globale sur la commande.\n\n### 2. Choisir le mode de paiement\n\nSélectionnez le moyen de paiement :\n- **Espèces** — un calcul de rendu monnaie optionnel est disponible\n- **Carte bancaire**\n- **Chèque**\n- **Virement bancaire**\n\n### 3. Confirmer\n\nCliquez sur **Encaisser**. NeoFlow BOS crée automatiquement :\n- Une **commande** de type *Vente rapide* avec le statut *Terminé*\n- Un **paiement** intégral associé\n- Une **facture simplifiée** (obligation légale française pour les particuliers)\n\n## Client optionnel\n\nLe client est **facultatif** pour la vente rapide. Si vous connaissez le client, recherchez-le ou créez-le rapidement. La vente sera alors associée à sa fiche et apparaîtra dans son historique.\n\n## Après la vente\n\nLa vente apparaît dans la liste **Commandes** avec le tag *Vente rapide*. La facture simplifiée est disponible en PDF depuis la fiche commande.',
+  $doc$
+# Vente rapide : encaisser en 3 clics
+
+La vente rapide est concue pour les **ventes comptoir** ou la rapidite prime : client de passage, achat direct sans devis prealable, client inconnu.
+
+## Quand utiliser la vente rapide ?
+
+- Client qui achete sur place sans rendez-vous
+- Vente sans livraison (retrait immediat)
+- Petits achats (oreillers, accessoires, etc.)
+- Tout cas ou vous n'avez pas besoin de creer un dossier client complet
+
+## Le processus en 3 etapes
+
+### 1. Selectionner les produits
+
+Recherchez vos produits par nom ou reference. Ajustez les quantites. Appliquez une remise sur une ligne si necessaire (€ ou %). Vous pouvez aussi saisir une remise globale sur la commande.
+
+### 2. Choisir le mode de paiement
+
+Selectionnez le moyen de paiement :
+- **Especes** — un calcul de rendu monnaie optionnel est disponible
+- **Carte bancaire**
+- **Cheque**
+- **Virement bancaire**
+
+### 3. Confirmer
+
+Cliquez sur **Encaisser**. NeoFlow BOS cree automatiquement :
+- Une **commande** de type *Vente rapide* avec le statut *Termine*
+- Un **paiement** integral associe
+- Une **facture simplifiee** (obligation legale francaise pour les particuliers)
+
+## Client optionnel
+
+Le client est **facultatif** pour la vente rapide. Si vous connaissez le client, recherchez-le ou creez-le rapidement. La vente sera alors associee a sa fiche et apparaitra dans son historique.
+
+## Apres la vente
+
+La vente apparait dans la liste **Commandes** avec le tag *Vente rapide*. La facture simplifiee est disponible en PDF depuis la fiche commande.
+  $doc$,
   'ventes',
   1,
   true
 ),
 
 (
-  'Créer et suivre une commande standard',
+  'Creer et suivre une commande standard',
   'commande-standard',
-  E'# Créer et suivre une commande standard\n\nLa commande standard est le cœur de NeoFlow BOS. Elle convient aux ventes avec livraison, aux commandes de matelas avec acompte, et à tout achat nécessitant un suivi complet.\n\n## Créer une commande\n\nCliquez sur **Nouvelle commande** depuis le tableau de bord ou depuis le menu **Ventes → Commandes**.\n\n### 1. Client\nRecherchez un client existant ou créez-en un nouveau directement dans le formulaire. Le client est **obligatoire** si la commande nécessite une livraison à domicile.\n\n### 2. Produits\nAjoutez des lignes produits :\n- Recherche par nom ou référence\n- Quantité, prix unitaire HT (pré-rempli depuis le catalogue)\n- Remise par ligne (€ ou %)\n\n### 3. Options\n- **Remise globale** : appliquée sur le sous-total\n- **Type de livraison** : Livraison à domicile / Retrait en magasin / Sans livraison\n- **Notes** : instructions particulières, préférences client\n\n### 4. Confirmer\nCliquez sur **Créer la commande**. Elle est créée avec le statut **Confirmé**.\n\n## Statuts d''une commande\n\n| Statut | Signification |\n|--------|---------------|\n| Brouillon | En cours de création |\n| Confirmé | Commande validée, en attente de traitement |\n| En cours | Production / préparation |\n| Livré | Livraison effectuée, paiement potentiellement en attente |\n| Terminé | Commande entièrement soldée |\n| Annulé | Commande annulée |\n\n## Convertir un devis en commande\n\nDepuis la fiche d''un devis accepté, cliquez sur **Convertir en commande**. Les lignes produits et les informations client sont reprises automatiquement.\n\n## Modifier une commande\n\nLes commandes en statut **Brouillon** ou **Confirmé** peuvent être modifiées. Au-delà, seules les notes et le statut sont éditables.',
+  $doc$
+# Creer et suivre une commande standard
+
+La commande standard est le coeur de NeoFlow BOS. Elle convient aux ventes avec livraison, aux commandes de matelas avec acompte, et a tout achat necessitant un suivi complet.
+
+## Creer une commande
+
+Cliquez sur **Nouvelle commande** depuis le tableau de bord ou depuis le menu **Ventes > Commandes**.
+
+### 1. Client
+Recherchez un client existant ou creez-en un nouveau directement dans le formulaire. Le client est **obligatoire** si la commande necessite une livraison a domicile.
+
+### 2. Produits
+Ajoutez des lignes produits :
+- Recherche par nom ou reference
+- Quantite, prix unitaire HT (pre-rempli depuis le catalogue)
+- Remise par ligne (€ ou %)
+
+### 3. Options
+- **Remise globale** : appliquee sur le sous-total
+- **Type de livraison** : Livraison a domicile / Retrait en magasin / Sans livraison
+- **Notes** : instructions particulieres, preferences client
+
+### 4. Confirmer
+Cliquez sur **Creer la commande**. Elle est creee avec le statut **Confirme**.
+
+## Statuts d'une commande
+
+| Statut | Signification |
+|--------|---------------|
+| Brouillon | En cours de creation |
+| Confirme | Commande validee, en attente de traitement |
+| En cours | Production / preparation |
+| Livre | Livraison effectuee, paiement potentiellement en attente |
+| Termine | Commande entierement soldee |
+| Annule | Commande annulee |
+
+## Convertir un devis en commande
+
+Depuis la fiche d'un devis accepte, cliquez sur **Convertir en commande**. Les lignes produits et les informations client sont reprises automatiquement.
+
+## Modifier une commande
+
+Les commandes en statut **Brouillon** ou **Confirme** peuvent etre modifiees. Au-dela, seules les notes et le statut sont editables.
+  $doc$,
   'ventes',
   2,
   true
@@ -65,7 +263,46 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Enregistrer un paiement (acompte, solde)',
   'enregistrer-paiement',
-  E'# Enregistrer un paiement\n\nNeoFlow BOS gère les **paiements multiples** par commande : acompte à la commande, paiements intermédiaires, solde à la livraison.\n\n## Accéder aux paiements\n\nOuvrez la fiche d''une commande (depuis **Ventes → Commandes**). La section **Paiements** affiche tous les paiements enregistrés et la barre de progression.\n\n## Enregistrer un nouveau paiement\n\nCliquez sur **Enregistrer un paiement**. Renseignez :\n\n- **Type de paiement** :\n  - *Acompte* — premier versement partiel\n  - *Paiement partiel* — versement intermédiaire\n  - *Solde* — paiement du reste dû\n  - *Paiement complet* — règlement en une fois\n- **Moyen de paiement** : Espèces, Carte, Chèque, Virement, Autre\n- **Montant** : pré-rempli avec le reste dû, modifiable\n- **Date** : aujourd''hui par défaut\n- **Notes** : numéro de chèque, référence virement, etc.\n\n## Suivi automatique\n\nAprès chaque paiement, NeoFlow BOS met à jour automatiquement :\n- Le **montant payé** sur la commande\n- Le **reste dû**\n- La **barre de progression** sur la fiche et dans la liste des commandes\n\nQuand le reste dû atteint 0, la commande passe automatiquement au statut **Terminé**.\n\n## Paiement à la livraison\n\nLes livreurs peuvent enregistrer un paiement directement depuis leur vue Livraisons, au moment de la livraison. Cela met à jour la commande en temps réel.\n\n## Acomptes en attente\n\nLe tableau de bord affiche le **total des soldes à récupérer** (commandes livrées mais non entièrement payées). Cliquez sur ce chiffre pour filtrer les commandes concernées.',
+  $doc$
+# Enregistrer un paiement
+
+NeoFlow BOS gere les **paiements multiples** par commande : acompte a la commande, paiements intermediaires, solde a la livraison.
+
+## Acceder aux paiements
+
+Ouvrez la fiche d'une commande (depuis **Ventes > Commandes**). La section **Paiements** affiche tous les paiements enregistres et la barre de progression.
+
+## Enregistrer un nouveau paiement
+
+Cliquez sur **Enregistrer un paiement**. Renseignez :
+
+- **Type de paiement** :
+  - *Acompte* — premier versement partiel
+  - *Paiement partiel* — versement intermediaire
+  - *Solde* — paiement du reste du
+  - *Paiement complet* — reglement en une fois
+- **Moyen de paiement** : Especes, Carte, Cheque, Virement, Autre
+- **Montant** : pre-rempli avec le reste du, modifiable
+- **Date** : aujourd'hui par defaut
+- **Notes** : numero de cheque, reference virement, etc.
+
+## Suivi automatique
+
+Apres chaque paiement, NeoFlow BOS met a jour automatiquement :
+- Le **montant paye** sur la commande
+- Le **reste du**
+- La **barre de progression** sur la fiche et dans la liste des commandes
+
+Quand le reste du atteint 0, la commande passe automatiquement au statut **Termine**.
+
+## Paiement a la livraison
+
+Les livreurs peuvent enregistrer un paiement directement depuis leur vue Livraisons, au moment de la livraison. Cela met a jour la commande en temps reel.
+
+## Acomptes en attente
+
+Le tableau de bord affiche le **total des soldes a recuperer** (commandes livrees mais non entierement payees). Cliquez sur ce chiffre pour filtrer les commandes concernees.
+  $doc$,
   'ventes',
   3,
   true
@@ -74,7 +311,43 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Gestion des devis',
   'gestion-devis',
-  E'# Gestion des devis\n\nLes devis permettent de proposer un chiffrage à un client avant qu''il valide sa commande. Un devis accepté se convertit en commande en un clic.\n\n## Créer un devis\n\nDans **Ventes → Devis**, cliquez sur **Nouveau devis**. Le formulaire est similaire à la création de commande :\n\n1. **Client** (obligatoire pour un devis)\n2. **Produits** : lignes avec quantités et prix\n3. **Remises** par ligne ou globale\n4. **Date d''expiration** : par défaut +30 jours, modifiable\n5. **Notes client** : affiché sur le devis PDF\n\n> Les coûts d''achat et les marges n''apparaissent jamais sur le PDF du devis.\n\n## Statuts d''un devis\n\n| Statut | Signification |\n|--------|---------------|\n| Brouillon | En cours de rédaction |\n| Envoyé | Transmis au client, en attente de réponse |\n| Accepté | Client a validé |\n| Refusé | Client a refusé |\n| Expiré | Date d''expiration dépassée |\n\n## Convertir en commande\n\nDepuis la fiche du devis, cliquez sur **Convertir en commande**. Un formulaire pré-rempli s''ouvre avec les produits et le client du devis. Vous pouvez ajuster avant de confirmer.\n\nLe devis passe alors au statut **Accepté** et la commande est liée au devis (traçabilité complète).\n\n## Taux de conversion\n\nLe tableau de bord et les statistiques affichent le **taux de conversion devis → commande**, utile pour mesurer l''efficacité commerciale de l''équipe.',
+  $doc$
+# Gestion des devis
+
+Les devis permettent de proposer un chiffrage a un client avant qu'il valide sa commande. Un devis accepte se convertit en commande en un clic.
+
+## Creer un devis
+
+Dans **Ventes > Devis**, cliquez sur **Nouveau devis**. Le formulaire est similaire a la creation de commande :
+
+1. **Client** (obligatoire pour un devis)
+2. **Produits** : lignes avec quantites et prix
+3. **Remises** par ligne ou globale
+4. **Date d'expiration** : par defaut +30 jours, modifiable
+5. **Notes client** : affiche sur le devis PDF
+
+> Les couts d'achat et les marges n'apparaissent jamais sur le PDF du devis.
+
+## Statuts d'un devis
+
+| Statut | Signification |
+|--------|---------------|
+| Brouillon | En cours de redaction |
+| Envoye | Transmis au client, en attente de reponse |
+| Accepte | Client a valide |
+| Refuse | Client a refuse |
+| Expire | Date d'expiration depassee |
+
+## Convertir en commande
+
+Depuis la fiche du devis, cliquez sur **Convertir en commande**. Un formulaire pre-rempli s'ouvre avec les produits et le client du devis. Vous pouvez ajuster avant de confirmer.
+
+Le devis passe alors au statut **Accepte** et la commande est liee au devis (tracabilite complete).
+
+## Taux de conversion
+
+Le tableau de bord et les statistiques affichent le **taux de conversion devis > commande**, utile pour mesurer l'efficacite commerciale de l'equipe.
+  $doc$,
   'ventes',
   4,
   true
@@ -83,7 +356,41 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Gestion des factures',
   'gestion-factures',
-  E'# Gestion des factures\n\nDans NeoFlow BOS, les factures sont **générées depuis les commandes**, pas créées indépendamment. Cette approche garantit la cohérence entre ce qui a été vendu et ce qui est facturé.\n\n## Types de factures\n\n| Type | Utilisation |\n|------|-------------|\n| **Acompte** | Facture correspondant au premier versement |\n| **Solde** | Facture du montant restant dû |\n| **Complète** | Facture de la totalité (paiement en une fois) |\n| **Facture simplifiée** | Générée automatiquement pour les ventes rapides |\n\n## Générer une facture depuis une commande\n\nDepuis la fiche commande, section **Factures**, cliquez sur **Générer une facture**. Choisissez le type (acompte, solde, complète) selon l''état du paiement.\n\n## Télécharger le PDF\n\nCliquez sur l''icône PDF depuis la liste des factures ou depuis la fiche facture. Le PDF est généré avec toutes les mentions légales obligatoires :\n- Numéro de facture séquentiel\n- Date d''émission\n- Informations légales du workspace (SIRET, forme juridique, TVA)\n- Détail des lignes avec TVA\n- Coordonnées bancaires si renseignées\n\n## Mentions légales\n\n> Pour les ventes entre professionnels (B2B), les factures sont légalement obligatoires. Pour les particuliers, une facture simplifiée suffit pour les montants inférieurs à 150 €. NeoFlow BOS génère automatiquement le bon type.\n\n## Numérotation\n\nLes numéros de facture sont générés automatiquement de façon séquentielle par workspace et par année (ex: *SLUG-FAC-2026-001*). La séquence ne peut pas être modifiée manuellement pour garantir l''intégrité comptable.',
+  $doc$
+# Gestion des factures
+
+Dans NeoFlow BOS, les factures sont **generees depuis les commandes**, pas creees independamment. Cette approche garantit la coherence entre ce qui a ete vendu et ce qui est facture.
+
+## Types de factures
+
+| Type | Utilisation |
+|------|-------------|
+| **Acompte** | Facture correspondant au premier versement |
+| **Solde** | Facture du montant restant du |
+| **Complete** | Facture de la totalite (paiement en une fois) |
+| **Facture simplifiee** | Generee automatiquement pour les ventes rapides |
+
+## Generer une facture depuis une commande
+
+Depuis la fiche commande, section **Factures**, cliquez sur **Generer une facture**. Choisissez le type (acompte, solde, complete) selon l'etat du paiement.
+
+## Telecharger le PDF
+
+Cliquez sur l'icone PDF depuis la liste des factures ou depuis la fiche facture. Le PDF est genere avec toutes les mentions legales obligatoires :
+- Numero de facture sequentiel
+- Date d'emission
+- Informations legales du workspace (SIRET, forme juridique, TVA)
+- Detail des lignes avec TVA
+- Coordonnees bancaires si renseignees
+
+## Mentions legales
+
+> Pour les ventes entre professionnels (B2B), les factures sont legalement obligatoires. Pour les particuliers, une facture simplifiee suffit pour les montants inferieurs a 150 EUR. NeoFlow BOS genere automatiquement le bon type.
+
+## Numerotation
+
+Les numeros de facture sont generes automatiquement de facon sequentielle par workspace et par annee (ex: *SLUG-FAC-2026-001*). La sequence ne peut pas etre modifiee manuellement pour garantir l'integrite comptable.
+  $doc$,
   'ventes',
   5,
   true
@@ -96,7 +403,44 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Comprendre la gestion du stock',
   'gestion-stock',
-  E'# Comprendre la gestion du stock\n\nNeoFlow BOS gère un stock **multi-emplacement** avec des mouvements automatiques liés aux ventes et des mouvements manuels pour les ajustements.\n\n## Concepts clés\n\n### Quantité disponible\nNombre d''unités physiquement présentes dans un emplacement, disponibles à la vente.\n\n### Quantité réservée\nUnités réservées pour des commandes confirmées mais non encore expédiées. Ces articles ne peuvent pas être vendus à quelqu''un d''autre.\n\n### Stock disponible réel = Disponible - Réservé\n\n## Mouvements automatiques\n\n| Événement | Mouvement |\n|-----------|----------|\n| Commande confirmée | +Réservation |\n| Paiement enregistré | -Stock, -Réservation |\n| Commande annulée | -Réservation |\n| Réception fournisseur | +Stock |\n\n## Mouvements manuels\n\nDepuis la page **Stock**, cliquez sur un produit pour accéder aux options :\n- **Ajuster le stock** : corriger une erreur, inventaire physique\n- **Transférer** : déplacer des unités d''un emplacement à un autre\n\nChaque mouvement est historisé avec la date, l''utilisateur et la raison.\n\n## Vente sans stock suffisant\n\nNeoFlow BOS affiche un **avertissement** si vous tentez de vendre un produit dont le stock est insuffisant, mais ne bloque pas la vente. Le message indique le stock disponible par emplacement et les commandes fournisseur en attente.\n\n> Il est possible de vendre en négatif (stock = -1) pour honorer une commande urgente, mais cela génère une alerte visible dans le tableau de bord.',
+  $doc$
+# Comprendre la gestion du stock
+
+NeoFlow BOS gere un stock **multi-emplacement** avec des mouvements automatiques lies aux ventes et des mouvements manuels pour les ajustements.
+
+## Concepts cles
+
+### Quantite disponible
+Nombre d'unites physiquement presentes dans un emplacement, disponibles a la vente.
+
+### Quantite reservee
+Unites reservees pour des commandes confirmees mais non encore expediees. Ces articles ne peuvent pas etre vendus a quelqu'un d'autre.
+
+### Stock disponible reel = Disponible - Reserve
+
+## Mouvements automatiques
+
+| Evenement | Mouvement |
+|-----------|----------|
+| Commande confirmee | +Reservation |
+| Paiement enregistre | -Stock, -Reservation |
+| Commande annulee | -Reservation |
+| Reception fournisseur | +Stock |
+
+## Mouvements manuels
+
+Depuis la page **Stock**, cliquez sur un produit pour acceder aux options :
+- **Ajuster le stock** : corriger une erreur, inventaire physique
+- **Transferer** : deplacer des unites d'un emplacement a un autre
+
+Chaque mouvement est historise avec la date, l'utilisateur et la raison.
+
+## Vente sans stock suffisant
+
+NeoFlow BOS affiche un **avertissement** si vous tentez de vendre un produit dont le stock est insuffisant, mais ne bloque pas la vente. Le message indique le stock disponible par emplacement et les commandes fournisseur en attente.
+
+> Il est possible de vendre en negatif (stock = -1) pour honorer une commande urgente, mais cela genere une alerte visible dans le tableau de bord.
+  $doc$,
   'stock',
   1,
   true
@@ -105,7 +449,44 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Emplacements de stock',
   'emplacements-stock',
-  E'# Emplacements de stock\n\nLes emplacements permettent de suivre le stock dans différents endroits physiques : salle d''exposition, entrepôt, dépôt secondaire.\n\n## Types d''emplacements\n\n- **Magasin** : salle de vente, produits visibles par les clients\n- **Entrepôt** : stock de réserve, produits non exposés\n- **Exposition** : articles en démonstration (peuvent être vendus mais nécessitent un délai)\n\n## Emplacement par défaut\n\nLors de la création de votre workspace, un emplacement **Magasin** est créé automatiquement. C''est vers cet emplacement que pointent les ajustements de stock par défaut.\n\n## Créer un nouvel emplacement\n\nDans **Stock → Emplacements** (accessible aux propriétaires et managers), cliquez sur **Nouvel emplacement**. Renseignez :\n- **Nom** : ex. "Entrepôt Nord", "Dépôt Fournisseur"\n- **Type** : Magasin / Entrepôt / Exposition\n- **Adresse** (optionnel)\n\n## Vue multi-emplacement\n\nLa page principale **Stock** affiche un tableau croisé :\n- Lignes = produits\n- Colonnes = emplacements\n- Chaque cellule = stock disponible / réservé\n\nLes codes couleur indiquent l''état :\n- **Vert** : stock correct\n- **Orange** : stock faible (< seuil d''alerte)\n- **Rouge** : rupture (stock = 0)\n\n## Transfert entre emplacements\n\nPour déplacer du stock : dans la fiche produit ou depuis le tableau de stock, utilisez **Transférer**. Indiquez l''emplacement source, la destination et la quantité. Un mouvement est créé dans les deux emplacements.',
+  $doc$
+# Emplacements de stock
+
+Les emplacements permettent de suivre le stock dans differents endroits physiques : salle d'exposition, entrepot, depot secondaire.
+
+## Types d'emplacements
+
+- **Magasin** : salle de vente, produits visibles par les clients
+- **Entrepot** : stock de reserve, produits non exposes
+- **Exposition** : articles en demonstration (peuvent etre vendus mais necessitent un delai)
+
+## Emplacement par defaut
+
+Lors de la creation de votre workspace, un emplacement **Magasin** est cree automatiquement. C'est vers cet emplacement que pointent les ajustements de stock par defaut.
+
+## Creer un nouvel emplacement
+
+Dans **Stock > Emplacements** (accessible aux proprietaires et managers), cliquez sur **Nouvel emplacement**. Renseignez :
+- **Nom** : ex. "Entrepot Nord", "Depot Fournisseur"
+- **Type** : Magasin / Entrepot / Exposition
+- **Adresse** (optionnel)
+
+## Vue multi-emplacement
+
+La page principale **Stock** affiche un tableau croise :
+- Lignes = produits
+- Colonnes = emplacements
+- Chaque cellule = stock disponible / reserve
+
+Les codes couleur indiquent l'etat :
+- **Vert** : stock correct
+- **Orange** : stock faible (< seuil d'alerte)
+- **Rouge** : rupture (stock = 0)
+
+## Transfert entre emplacements
+
+Pour deplacer du stock : dans la fiche produit ou depuis le tableau de stock, utilisez **Transferer**. Indiquez l'emplacement source, la destination et la quantite. Un mouvement est cree dans les deux emplacements.
+  $doc$,
   'stock',
   2,
   true
@@ -114,7 +495,39 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Alertes de stock',
   'alertes-stock',
-  E'# Alertes de stock\n\nNeoFlow BOS surveille automatiquement vos niveaux de stock et vous alerte quand une action est nécessaire.\n\n## Types d''alertes\n\n### Rupture de stock\nProduit dont la quantité disponible est **égale à 0** dans tous les emplacements. Le produit apparaît en rouge dans la liste.\n\n### Stock faible\nProduit dont la quantité disponible est **inférieure au seuil d''alerte** (par défaut : 3 unités). Le produit apparaît en orange.\n\n### Commandes fournisseur en attente\nBons de commande passés auprès de fournisseurs mais non encore reçus. Ces informations sont visibles dans la section Fournisseurs.\n\n## Où voir les alertes ?\n\n- **Tableau de bord** : nombre de produits en alerte affiché dans le résumé stock\n- **Page Stock** : tableau avec codes couleurs et filtre "Alertes uniquement"\n- **Statistiques** : section "Résumé stock" avec valeur totale et nombre d''alertes\n\n## Configurer le seuil d''alerte\n\nLe seuil par défaut est **3 unités**. Pour modifier ce seuil pour un produit spécifique, ouvrez la fiche produit et ajustez le champ **Seuil d''alerte stock**.\n\n## Bonnes pratiques\n\n- Consultez les alertes stock chaque matin avant l''ouverture\n- Passez les bons de commande fournisseurs dès qu''un produit passe en stock faible\n- Utilisez le filtre "Ruptures" dans la page Stock pour prioriser les commandes urgentes\n- Le stock d''exposition (articles en démonstration) doit être comptabilisé séparément pour éviter les fausses ruptures',
+  $doc$
+# Alertes de stock
+
+NeoFlow BOS surveille automatiquement vos niveaux de stock et vous alerte quand une action est necessaire.
+
+## Types d'alertes
+
+### Rupture de stock
+Produit dont la quantite disponible est **egale a 0** dans tous les emplacements. Le produit apparait en rouge dans la liste.
+
+### Stock faible
+Produit dont la quantite disponible est **inferieure au seuil d'alerte** (par defaut : 3 unites). Le produit apparait en orange.
+
+### Commandes fournisseur en attente
+Bons de commande passes aupres de fournisseurs mais non encore recus. Ces informations sont visibles dans la section Fournisseurs.
+
+## Ou voir les alertes ?
+
+- **Tableau de bord** : nombre de produits en alerte affiche dans le resume stock
+- **Page Stock** : tableau avec codes couleurs et filtre "Alertes uniquement"
+- **Statistiques** : section "Resume stock" avec valeur totale et nombre d'alertes
+
+## Configurer le seuil d'alerte
+
+Le seuil par defaut est **3 unites**. Pour modifier ce seuil pour un produit specifique, ouvrez la fiche produit et ajustez le champ **Seuil d'alerte stock**.
+
+## Bonnes pratiques
+
+- Consultez les alertes stock chaque matin avant l'ouverture
+- Passez les bons de commande fournisseurs des qu'un produit passe en stock faible
+- Utilisez le filtre "Ruptures" dans la page Stock pour prioriser les commandes urgentes
+- Le stock d'exposition (articles en demonstration) doit etre comptabilise separement pour eviter les fausses ruptures
+  $doc$,
   'stock',
   3,
   true
@@ -125,9 +538,39 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 -- ─────────────────────────────────────────────────────────────
 
 (
-  'Gérer ses fournisseurs',
+  'Gerer ses fournisseurs',
   'gerer-fournisseurs',
-  E'# Gérer ses fournisseurs\n\nLa section Fournisseurs vous permet de centraliser les informations de vos partenaires et de lier chaque produit à son ou ses fournisseurs.\n\n## Accéder aux fournisseurs\n\n**Fournisseurs** est visible dans le menu uniquement pour les **propriétaires et managers**. Les vendeurs et livreurs n''ont pas accès à cette section.\n\n## Créer une fiche fournisseur\n\nCliquez sur **Nouveau fournisseur**. Renseignez :\n- **Nom de l''entreprise**\n- **Contact principal** : nom, email, téléphone\n- **Adresse** : utilisée sur les bons de commande\n- **Notes** : conditions commerciales, délais habituels, informations utiles\n\n## Lier un produit à un fournisseur\n\nDepuis la fiche produit (dans **Produits**), section **Fournisseurs** :\n- Associez un ou plusieurs fournisseurs\n- Indiquez la **référence fournisseur** (son code article)\n- Indiquez le **prix d''achat fournisseur** (peut différer du coût d''achat général)\n- Désignez le **fournisseur principal** (utilisé par défaut pour les réapprovisionnements)\n\nDepuis la fiche fournisseur, vous voyez également la liste des produits qu''il vous fournit.\n\n## Archiver un fournisseur\n\nSi vous ne travaillez plus avec un fournisseur, archivez-le plutôt que de le supprimer. Il reste visible dans l''historique des commandes mais n''apparaît plus dans les listes de sélection.',
+  $doc$
+# Gerer ses fournisseurs
+
+La section Fournisseurs vous permet de centraliser les informations de vos partenaires et de lier chaque produit a son ou ses fournisseurs.
+
+## Acceder aux fournisseurs
+
+**Fournisseurs** est visible dans le menu uniquement pour les **proprietaires et managers**. Les vendeurs et livreurs n'ont pas acces a cette section.
+
+## Creer une fiche fournisseur
+
+Cliquez sur **Nouveau fournisseur**. Renseignez :
+- **Nom de l'entreprise**
+- **Contact principal** : nom, email, telephone
+- **Adresse** : utilisee sur les bons de commande
+- **Notes** : conditions commerciales, delais habituels, informations utiles
+
+## Lier un produit a un fournisseur
+
+Depuis la fiche produit (dans **Produits**), section **Fournisseurs** :
+- Associez un ou plusieurs fournisseurs
+- Indiquez la **reference fournisseur** (son code article)
+- Indiquez le **prix d'achat fournisseur** (peut differer du cout d'achat general)
+- Designez le **fournisseur principal** (utilise par defaut pour les reapprovisionnements)
+
+Depuis la fiche fournisseur, vous voyez egalement la liste des produits qu'il vous fournit.
+
+## Archiver un fournisseur
+
+Si vous ne travaillez plus avec un fournisseur, archivez-le plutot que de le supprimer. Il reste visible dans l'historique des commandes mais n'apparait plus dans les listes de selection.
+  $doc$,
   'fournisseurs',
   1,
   true
@@ -136,7 +579,42 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Bons de commande fournisseur',
   'bons-commande-fournisseur',
-  E'# Bons de commande fournisseur\n\nLes bons de commande (BC) permettent de commander des marchandises auprès de vos fournisseurs et de suivre les réceptions pour mettre à jour le stock automatiquement.\n\n## Créer un bon de commande\n\nDans **Fournisseurs → Créer un bon de commande** :\n\n1. **Sélectionner le fournisseur**\n2. **Ajouter les produits** à commander avec les quantités et le coût HT par unité\n3. **Date de livraison prévue** : permet d''anticiper le réapprovisionnement\n4. **Notes** : instructions particulières, références spéciales\n\n## Workflow d''un bon de commande\n\n```\nBrouillon → Envoyé → Confirmé → Réception partielle → Reçu\n                                                     ↑\n                                              (ou directement)\n```\n\n- **Brouillon** : en cours de rédaction, modifiable\n- **Envoyé** : transmis au fournisseur (email ou impression)\n- **Confirmé** : fournisseur a confirmé la commande\n- **Réception partielle** : une partie des articles est arrivée\n- **Reçu** : toute la marchandise est arrivée\n\n## Recevoir la marchandise\n\nQuand la livraison arrive, ouvrez le bon de commande et cliquez sur **Recevoir la marchandise**. Pour chaque ligne, indiquez la quantité réellement reçue (peut différer de la quantité commandée).\n\nNeoFlow BOS crée automatiquement un **mouvement de stock entrant** pour chaque produit reçu. Le stock est mis à jour immédiatement.\n\n## Réception partielle\n\nSi seulement une partie de la commande est livrée, enregistrez les quantités reçues. Le bon passe au statut *Réception partielle*. Vous pouvez enregistrer les livraisons suivantes jusqu''à réception complète.',
+  $doc$
+# Bons de commande fournisseur
+
+Les bons de commande (BC) permettent de commander des marchandises aupres de vos fournisseurs et de suivre les receptions pour mettre a jour le stock automatiquement.
+
+## Creer un bon de commande
+
+Dans **Fournisseurs > Creer un bon de commande** :
+
+1. **Selectionner le fournisseur**
+2. **Ajouter les produits** a commander avec les quantites et le cout HT par unite
+3. **Date de livraison prevue** : permet d'anticiper le reapprovisionnement
+4. **Notes** : instructions particulieres, references speciales
+
+## Workflow d'un bon de commande
+
+```
+Brouillon -> Envoye -> Confirme -> Reception partielle -> Recu
+```
+
+- **Brouillon** : en cours de redaction, modifiable
+- **Envoye** : transmis au fournisseur (email ou impression)
+- **Confirme** : fournisseur a confirme la commande
+- **Reception partielle** : une partie des articles est arrivee
+- **Recu** : toute la marchandise est arrivee
+
+## Recevoir la marchandise
+
+Quand la livraison arrive, ouvrez le bon de commande et cliquez sur **Recevoir la marchandise**. Pour chaque ligne, indiquez la quantite reellement recue (peut differer de la quantite commandee).
+
+NeoFlow BOS cree automatiquement un **mouvement de stock entrant** pour chaque produit recu. Le stock est mis a jour immediatement.
+
+## Reception partielle
+
+Si seulement une partie de la commande est livree, enregistrez les quantites recues. Le bon passe au statut *Reception partielle*. Vous pouvez enregistrer les livraisons suivantes jusqu'a reception complete.
+  $doc$,
   'fournisseurs',
   2,
   true
@@ -149,7 +627,51 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Planifier et suivre une livraison',
   'planifier-livraison',
-  E'# Planifier et suivre une livraison\n\nNeoFlow BOS gère les livraisons à domicile et les retraits en magasin depuis une vue kanban intuitive.\n\n## Créer une livraison\n\nUne livraison est créée depuis la **fiche commande**, section **Livraison**. Cliquez sur **Planifier la livraison**. Renseignez :\n\n- **Type** : Livraison à domicile / Retrait en magasin\n- **Date prévue** et **créneau horaire** (ex: 14h-16h)\n- **Adresse** : pré-remplie depuis la fiche client, modifiable\n- **Livreur assigné** : sélectionnez un membre de l''équipe avec le rôle Livreur\n- **Frais de livraison** (optionnel)\n- **Notes** : code d''accès, étage, instructions particulières\n\n## Workflow des livraisons\n\n```\nÀ planifier → Planifiée → En cours → Livrée\n                                   ↑\n                           (peut aussi être annulée)\n```\n\n- **À planifier** : commande qui nécessite une livraison, date non encore fixée\n- **Planifiée** : date, créneau et livreur assignés\n- **En cours** : livreur en route\n- **Livrée** : livraison confirmée par le livreur\n\nQuand une livraison passe à **Livrée**, la commande associée passe automatiquement au statut **Livré**.\n\n## Vue Kanban\n\nLa page **Livraisons** affiche un tableau kanban avec 4 colonnes. Glissez les cartes pour changer leur statut. Chaque carte affiche :\n- Nom du client\n- Numéro de commande\n- Type (badge Livraison / Retrait)\n- Créneau horaire\n- Livreur assigné\n- Montant restant à encaisser\n\n## Filtres disponibles\n\n- Filtrer par date\n- Filtrer par livreur\n- Filtrer par type (livraison / retrait)',
+  $doc$
+# Planifier et suivre une livraison
+
+NeoFlow BOS gere les livraisons a domicile et les retraits en magasin depuis une vue kanban intuitive.
+
+## Creer une livraison
+
+Une livraison est creee depuis la **fiche commande**, section **Livraison**. Cliquez sur **Planifier la livraison**. Renseignez :
+
+- **Type** : Livraison a domicile / Retrait en magasin
+- **Date prevue** et **creneau horaire** (ex: 14h-16h)
+- **Adresse** : pre-remplie depuis la fiche client, modifiable
+- **Livreur assigne** : selectionnez un membre de l'equipe avec le role Livreur
+- **Frais de livraison** (optionnel)
+- **Notes** : code d'acces, etage, instructions particulieres
+
+## Workflow des livraisons
+
+```
+A planifier -> Planifiee -> En cours -> Livree
+```
+
+- **A planifier** : commande qui necessite une livraison, date non encore fixee
+- **Planifiee** : date, creneau et livreur assignes
+- **En cours** : livreur en route
+- **Livree** : livraison confirmee par le livreur
+
+Quand une livraison passe a **Livree**, la commande associee passe automatiquement au statut **Livre**.
+
+## Vue Kanban
+
+La page **Livraisons** affiche un tableau kanban avec 4 colonnes. Chaque carte affiche :
+- Nom du client
+- Numero de commande
+- Type (badge Livraison / Retrait)
+- Creneau horaire
+- Livreur assigne
+- Montant restant a encaisser
+
+## Filtres disponibles
+
+- Filtrer par date
+- Filtrer par livreur
+- Filtrer par type (livraison / retrait)
+  $doc$,
   'livraisons',
   1,
   true
@@ -158,7 +680,45 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Guide du livreur',
   'guide-livreur',
-  E'# Guide du livreur\n\nCe guide est destiné aux membres de l''équipe ayant le rôle **Livreur** dans NeoFlow BOS.\n\n## Ce que vous voyez\n\nEn tant que livreur, votre accès est limité à l''essentiel pour votre travail :\n- **Tableau de bord** : nombre de livraisons à effectuer\n- **Livraisons** : uniquement les livraisons qui vous sont assignées\n- **Stock** : en lecture seule (pour vérifier la disponibilité avant le chargement)\n\n## Vos livraisons du jour\n\nConnectez-vous à NeoFlow BOS depuis votre téléphone ou tablette. La page **Livraisons** affiche uniquement vos livraisons, triées par date et créneau horaire.\n\nChaque livraison indique :\n- L''adresse de livraison\n- Le créneau horaire\n- Les articles à livrer (liste des produits de la commande)\n- Le montant à encaisser (s''il reste un solde)\n\n## Démarrer une livraison\n\nQuand vous partez en livraison, passez la livraison au statut **En cours**. Cela avertit le manager que vous êtes en route.\n\n## Confirmer une livraison\n\nUne fois la livraison effectuée, passez au statut **Livrée**. Si le client vous règle un solde à ce moment :\n1. Cliquez sur **Enregistrer un paiement**\n2. Indiquez le moyen de paiement (espèces, carte, chèque)\n3. Confirmez le montant reçu\n\nLa commande est automatiquement mise à jour.\n\n## En cas de problème\n\nSi vous ne pouvez pas effectuer une livraison (client absent, accès impossible), passez-la en **Annulée** et ajoutez une note explicative. Prévenez votre manager pour replanifier.',
+  $doc$
+# Guide du livreur
+
+Ce guide est destine aux membres de l'equipe ayant le role **Livreur** dans NeoFlow BOS.
+
+## Ce que vous voyez
+
+En tant que livreur, votre acces est limite a l'essentiel pour votre travail :
+- **Tableau de bord** : nombre de livraisons a effectuer
+- **Livraisons** : uniquement les livraisons qui vous sont assignees
+- **Stock** : en lecture seule (pour verifier la disponibilite avant le chargement)
+
+## Vos livraisons du jour
+
+Connectez-vous a NeoFlow BOS depuis votre telephone ou tablette. La page **Livraisons** affiche uniquement vos livraisons, triees par date et creneau horaire.
+
+Chaque livraison indique :
+- L'adresse de livraison
+- Le creneau horaire
+- Les articles a livrer (liste des produits de la commande)
+- Le montant a encaisser (s'il reste un solde)
+
+## Demarrer une livraison
+
+Quand vous partez en livraison, passez la livraison au statut **En cours**. Cela avertit le manager que vous etes en route.
+
+## Confirmer une livraison
+
+Une fois la livraison effectuee, passez au statut **Livree**. Si le client vous regle un solde a ce moment :
+1. Cliquez sur **Enregistrer un paiement**
+2. Indiquez le moyen de paiement (especes, carte, cheque)
+3. Confirmez le montant recu
+
+La commande est automatiquement mise a jour.
+
+## En cas de probleme
+
+Si vous ne pouvez pas effectuer une livraison (client absent, acces impossible), passez-la en **Annulee** et ajoutez une note explicative. Prevenez votre manager pour replanifier.
+  $doc$,
   'livraisons',
   2,
   true
@@ -171,16 +731,95 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 (
   'Comprendre le tableau de bord',
   'tableau-de-bord',
-  E'# Comprendre le tableau de bord\n\nLe tableau de bord est votre **centre de pilotage quotidien**. Il affiche les indicateurs les plus importants de votre activité du jour.\n\n## KPIs principaux (tous les rôles sauf livreur)\n\n### CA du mois\nSomme des totaux TTC de toutes les commandes avec le statut **Terminé** créées dans le mois en cours. Cliquez pour accéder aux statistiques détaillées.\n\n### Bénéfice du mois *(managers et propriétaires)*\nCA HT du mois moins la somme des coûts d''achat des articles vendus. Indique votre marge brute réelle.\n\n### Taux de conversion *(vendeurs)*\nPourcentage de devis qui ont abouti à une commande. Cliquez pour accéder à la liste des devis.\n\n### Commandes en cours\nNombre de commandes avec les statuts *Confirmé* ou *En cours*. Cliquez pour les voir.\n\n### Livraisons à faire\nNombre de livraisons non encore livrées ni annulées. Cliquez pour accéder au kanban des livraisons.\n\n## KPIs de gestion *(managers et propriétaires uniquement)*\n\n### Acomptes en attente\nTotal des montants restants à encaisser sur les commandes en cours qui ont déjà reçu un acompte.\n\n### Soldes à récupérer\nTotal des montants restants sur les commandes au statut **Livré** (livrées mais pas entièrement payées).\n\n### Marge moyenne\nMarge brute moyenne de toutes les ventes terminées ce mois, exprimée en pourcentage.\n\n## Actions rapides\n\nLes 4 boutons d''action rapide vous permettent de démarrer les tâches les plus fréquentes en un clic : Vente rapide, Nouvelle commande, Clients, Livraisons.\n\n## Dernières commandes\n\nLes 5 commandes les plus récentes avec leur statut et leur progression de paiement (barre bleue).',
+  $doc$
+# Comprendre le tableau de bord
+
+Le tableau de bord est votre **centre de pilotage quotidien**. Il affiche les indicateurs les plus importants de votre activite du jour.
+
+## KPIs principaux (tous les roles sauf livreur)
+
+### CA du mois
+Somme des totaux TTC de toutes les commandes avec le statut **Termine** creees dans le mois en cours. Cliquez pour acceder aux statistiques detaillees.
+
+### Benefice du mois *(managers et proprietaires)*
+CA HT du mois moins la somme des couts d'achat des articles vendus. Indique votre marge brute reelle.
+
+### Taux de conversion *(vendeurs)*
+Pourcentage de devis qui ont abouti a une commande. Cliquez pour acceder a la liste des devis.
+
+### Commandes en cours
+Nombre de commandes avec les statuts *Confirme* ou *En cours*. Cliquez pour les voir.
+
+### Livraisons a faire
+Nombre de livraisons non encore livrees ni annulees. Cliquez pour acceder au kanban des livraisons.
+
+## KPIs de gestion *(managers et proprietaires uniquement)*
+
+### Acomptes en attente
+Total des montants restants a encaisser sur les commandes en cours qui ont deja recu un acompte.
+
+### Soldes a recuperer
+Total des montants restants sur les commandes au statut **Livre** (livrees mais pas entierement payees).
+
+### Marge moyenne
+Marge brute moyenne de toutes les ventes terminees ce mois, exprimee en pourcentage.
+
+## Actions rapides
+
+Les 4 boutons d'action rapide vous permettent de demarrer les taches les plus frequentes en un clic : Vente rapide, Nouvelle commande, Clients, Livraisons.
+
+## Dernieres commandes
+
+Les 5 commandes les plus recentes avec leur statut et leur progression de paiement (barre bleue).
+  $doc$,
   'statistiques',
   1,
   true
 ),
 
 (
-  'Statistiques avancées et marges',
+  'Statistiques avancees et marges',
   'statistiques-avancees',
-  E'# Statistiques avancées et marges\n\nLa page **Statistiques** (anciennement Dashboard financier) est accessible aux **propriétaires et managers**. Elle offre une analyse approfondie de la performance commerciale.\n\n## Évolution du chiffre d''affaires\n\nGraphique en barres affichant le CA mensuel sur les 12 derniers mois. Basé sur les commandes terminées.\n\n## Répartition des commandes\n\nCamembert montrant la répartition des commandes par statut (Confirmé, En cours, Livré, Terminé, Annulé). Permet de visualiser d''un coup d''œil l''état du carnet de commandes.\n\n## Marge par produit\n\nHistogramme horizontal des 10 produits les plus vendus avec leur **marge brute unitaire** (prix de vente HT - coût d''achat HT). Identifiez vos produits les plus et moins rentables.\n\n> Cette section est strictement réservée aux managers et propriétaires. Les marges et coûts n''apparaissent jamais sur les documents clients.\n\n## Performance vendeurs\n\nTableau récapitulatif par vendeur :\n- Nombre de commandes\n- CA généré\n- Marge totale\n- Taux de conversion devis → commande\n\n## Produits faible rotation\n\nListe des produits qui n''ont pas été vendus depuis plus de 30 jours. Signal d''alerte pour adapter les promotions ou le réassort.\n\n## Résumé stock\n\n- **Valeur totale du stock** : somme (quantité × coût d''achat) pour tous les emplacements\n- **Nombre d''alertes** : produits en rupture ou stock faible\n\n## Livraisons en retard\n\nListe des livraisons dont la date prévue est dépassée et qui ne sont pas encore livrées ni annulées. À traiter en priorité.',
+  $doc$
+# Statistiques avancees et marges
+
+La page **Statistiques** est accessible aux **proprietaires et managers**. Elle offre une analyse approfondie de la performance commerciale.
+
+## Evolution du chiffre d'affaires
+
+Graphique en barres affichant le CA mensuel sur les 12 derniers mois. Base sur les commandes terminees.
+
+## Repartition des commandes
+
+Camembert montrant la repartition des commandes par statut (Confirme, En cours, Livre, Termine, Annule). Permet de visualiser d'un coup d'oeil l'etat du carnet de commandes.
+
+## Marge par produit
+
+Histogramme horizontal des 10 produits les plus vendus avec leur **marge brute unitaire** (prix de vente HT - cout d'achat HT). Identifiez vos produits les plus et moins rentables.
+
+> Cette section est strictement reservee aux managers et proprietaires. Les marges et couts n'apparaissent jamais sur les documents clients.
+
+## Performance vendeurs
+
+Tableau recapitulatif par vendeur :
+- Nombre de commandes
+- CA genere
+- Marge totale
+- Taux de conversion devis > commande
+
+## Produits faible rotation
+
+Liste des produits qui n'ont pas ete vendus depuis plus de 30 jours. Signal d'alerte pour adapter les promotions ou le reassort.
+
+## Resume stock
+
+- **Valeur totale du stock** : somme (quantite x cout d'achat) pour tous les emplacements
+- **Nombre d'alertes** : produits en rupture ou stock faible
+
+## Livraisons en retard
+
+Liste des livraisons dont la date prevue est depassee et qui ne sont pas encore livrees ni annulees. A traiter en priorite.
+  $doc$,
   'statistiques',
   2,
   true
@@ -191,18 +830,74 @@ INSERT INTO documentation_articles (title, slug, content, category, position, is
 -- ─────────────────────────────────────────────────────────────
 
 (
-  'Questions fréquentes (FAQ)',
+  'Questions frequentes (FAQ)',
   'faq',
-  E'# Questions fréquentes\n\n## Général\n\n### Puis-je utiliser NeoFlow BOS depuis mon téléphone ?\nOui. L''application est responsive et fonctionne sur mobile. Les livreurs utilisent généralement leur téléphone pour gérer leurs livraisons du jour.\n\n### Comment changer ma devise ?\nDans **Paramètres → Workspace**, sélectionnez votre devise dans le champ prévu. La devise est appliquée sur tous les documents (factures, devis, bons de commande).\n\n### Puis-je avoir plusieurs magasins dans un même workspace ?\nNon, un workspace représente un seul magasin. Pour gérer plusieurs points de vente, créez plusieurs workspaces. Une fonctionnalité de gestion multi-magasins sous la même organisation est prévue dans une prochaine version.\n\n---\n\n## Ventes\n\n### Quelle différence entre vente rapide et commande standard ?\nLa **vente rapide** est pour les achats comptoir immédiats — sans livraison, règlement complet sur place, client optionnel. La **commande standard** est pour les ventes avec livraison, paiements multiples (acompte + solde), ou nécessitant un suivi complet.\n\n### Peut-on modifier une facture déjà générée ?\nNon. Pour des raisons légales, une facture émise ne peut pas être modifiée. En cas d''erreur, générez un avoir (fonctionnalité à venir) ou annulez la commande et recommencez.\n\n### Comment annuler une commande ?\nOuvrez la fiche commande, cliquez sur **Changer le statut** et sélectionnez **Annulé**. Si des paiements ont été enregistrés, un remboursement manuel sera nécessaire (NeoFlow BOS ne gère pas les remboursements automatiques).\n\n---\n\n## Stock\n\n### Le stock se met-il à jour automatiquement lors d''une vente ?\nOui. Lors de la confirmation d''une commande, le stock est **réservé**. Lors de l''enregistrement du premier paiement, le stock est **débité**. Si la commande est annulée, la réservation est libérée.\n\n### Peut-on vendre un produit en rupture de stock ?\nOui, NeoFlow BOS affiche un avertissement mais ne bloque pas la vente. Il est possible de vendre avec un stock négatif (commande urgente, livraison fournisseur imminente). Régularisez dès que la marchandise arrive.\n\n---\n\n## Abonnement\n\n### Comment modifier ma carte de paiement ?\nDans **Paramètres → Abonnement**, cliquez sur **Gérer l''abonnement**. Vous accédez au portail Stripe où vous pouvez modifier votre moyen de paiement.\n\n### Mon workspace est suspendu, que faire ?\nUn workspace est suspendu après 3 jours de grâce suivant un échec de paiement. Mettez à jour votre moyen de paiement dans le portail Stripe pour réactiver immédiatement votre accès.\n\n---\n\n## Support\n\n### Comment signaler un bug ?\nUtilisez le formulaire dans **Paramètres → Support → Signaler un bug**. Décrivez le problème, les étapes pour le reproduire et joignez une capture d''écran si possible.\n\n### Comment contacter l''équipe NeoFlow ?\nEmail : **contacte.neoflowagency@gmail.com** — réponse sous 24h ouvrées.',
+  $doc$
+# Questions frequentes
+
+## General
+
+### Puis-je utiliser NeoFlow BOS depuis mon telephone ?
+Oui. L'application est responsive et fonctionne sur mobile. Les livreurs utilisent generalement leur telephone pour gerer leurs livraisons du jour.
+
+### Comment changer ma devise ?
+Dans **Parametres > Workspace**, selectionnez votre devise dans le champ prevu. La devise est appliquee sur tous les documents (factures, devis, bons de commande).
+
+### Puis-je avoir plusieurs magasins dans un meme workspace ?
+Non, un workspace represente un seul magasin. Pour gerer plusieurs points de vente, creez plusieurs workspaces. Une fonctionnalite de gestion multi-magasins est prevue dans une prochaine version.
+
+---
+
+## Ventes
+
+### Quelle difference entre vente rapide et commande standard ?
+La **vente rapide** est pour les achats comptoir immediats — sans livraison, reglement complet sur place, client optionnel. La **commande standard** est pour les ventes avec livraison, paiements multiples (acompte + solde), ou necessitant un suivi complet.
+
+### Peut-on modifier une facture deja generee ?
+Non. Pour des raisons legales, une facture emise ne peut pas etre modifiee. En cas d'erreur, annulez la commande et recreez-en une nouvelle.
+
+### Comment annuler une commande ?
+Ouvrez la fiche commande, cliquez sur **Changer le statut** et selectionnez **Annule**. Si des paiements ont ete enregistres, un remboursement manuel sera necessaire.
+
+---
+
+## Stock
+
+### Le stock se met-il a jour automatiquement lors d'une vente ?
+Oui. Lors de la confirmation d'une commande, le stock est **reserve**. Lors de l'enregistrement du premier paiement, le stock est **debite**. Si la commande est annulee, la reservation est liberee.
+
+### Peut-on vendre un produit en rupture de stock ?
+Oui, NeoFlow BOS affiche un avertissement mais ne bloque pas la vente. Il est possible de vendre avec un stock negatif pour une commande urgente. Regularisez des que la marchandise arrive.
+
+---
+
+## Abonnement
+
+### Comment modifier ma carte de paiement ?
+Dans **Parametres > Abonnement**, cliquez sur **Gerer l'abonnement**. Vous accedez au portail Stripe ou vous pouvez modifier votre moyen de paiement.
+
+### Mon workspace est suspendu, que faire ?
+Un workspace est suspendu apres 3 jours de grace suivant un echec de paiement. Mettez a jour votre moyen de paiement dans le portail Stripe pour reactiver immediatement votre acces.
+
+---
+
+## Support
+
+### Comment signaler un bug ?
+Utilisez le formulaire dans **Parametres > Support > Signaler un bug**. Decrivez le probleme, les etapes pour le reproduire et joignez une capture d'ecran si possible.
+
+### Comment contacter l'equipe NeoFlow ?
+Email : **contacte.neoflowagency@gmail.com** — reponse sous 24h ouvrees.
+  $doc$,
   'faq',
   1,
   true
 )
 
 ON CONFLICT (slug) DO UPDATE SET
-  title      = EXCLUDED.title,
-  content    = EXCLUDED.content,
-  category   = EXCLUDED.category,
-  position   = EXCLUDED.position,
+  title        = EXCLUDED.title,
+  content      = EXCLUDED.content,
+  category     = EXCLUDED.category,
+  position     = EXCLUDED.position,
   is_published = EXCLUDED.is_published,
-  updated_at = now();
+  updated_at   = now();

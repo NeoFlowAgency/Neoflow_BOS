@@ -24,40 +24,28 @@ export async function invokeFunction(name, body = {}) {
 
   if (!accessToken) throw new Error('Non authentifié. Veuillez vous reconnecter.')
 
-  // Call the Edge Function with explicit auth header
-  const { data, error } = await supabase.functions.invoke(name, {
-    body,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  })
-
-  // Case 1: SDK-level error (non-2xx response)
-  if (error) {
-    let message = null
-
-    // Try to extract the actual error from error.context (response body)
-    const ctx = error.context
-    if (ctx) {
-      try {
-        // ctx can be a Response object, a string, or already parsed
-        let parsed = ctx
-        if (ctx instanceof Response) {
-          try { parsed = await ctx.json() } catch { parsed = null }
-        } else if (typeof ctx === 'string') {
-          parsed = JSON.parse(ctx)
-        }
-        if (parsed?.error) message = parsed.error
-        if (parsed?.message) message = message || parsed.message
-      } catch {
-        if (typeof ctx === 'string' && ctx.length < 200) message = ctx
-      }
+  // Use raw fetch for reliable header control (avoids SDK header conflicts)
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/${name}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify(body),
     }
+  )
 
-    throw new Error(message || error.message || `Erreur appel ${name}`)
+  let data
+  try { data = await response.json() } catch { data = {} }
+
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || `Erreur HTTP ${response.status}`)
   }
 
-  // Case 2: HTTP 200 but application-level error
+  // Application-level error (HTTP 200 but { success: false })
   if (data?.success === false || data?.error) {
     throw new Error(data.error || `Erreur dans ${name}`)
   }
