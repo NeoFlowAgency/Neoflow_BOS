@@ -352,6 +352,7 @@ export default function NeoChat() {
           page: location.pathname,
           role: role || 'unknown',
           workspace_name: currentWorkspace?.name || 'NeoFlow BOS',
+          workspace_id: currentWorkspace?.id,
         },
         history: historySnapshot,
       })
