@@ -23,15 +23,16 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
   const now = new Date()
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
+  // Limites volontairement basses : llama3.2:3b a 8k de contexte, on garde les données compactes
   const [commandes, factures, factures_payees, devis, livraisons, clients, produits, payments] =
     await Promise.all([
-      safe(supabase.from('orders').select('order_number,status,total_ttc,amount_paid,remaining_amount,created_at,customers(name,phone)').eq('workspace_id', workspaceId).not('status','in','(termine,annule)').order('created_at',{ascending:false}).limit(20)),
-      safe(supabase.from('invoices').select('invoice_number,status,total_ttc,issue_date,customers(name)').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(15)),
+      safe(supabase.from('orders').select('order_number,status,total_ttc,remaining_amount,customers(name)').eq('workspace_id', workspaceId).not('status','in','(termine,annule)').order('created_at',{ascending:false}).limit(8)),
+      safe(supabase.from('invoices').select('invoice_number,status,total_ttc,issue_date,customers(name)').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(6)),
       safe(supabase.from('invoices').select('total_ttc').eq('workspace_id', workspaceId).in('status',['payee','payée','paid']).gte('issue_date', firstOfMonth)),
-      safe(supabase.from('quotes').select('quote_number,status,total_ttc,issue_date,customers(name)').eq('workspace_id', workspaceId).not('status','in','(accepte,refuse,expire)').order('created_at',{ascending:false}).limit(10)),
-      safe(supabase.from('deliveries').select('delivery_date,status,time_slot,customers(name,phone)').eq('workspace_id', workspaceId).not('status','in','(livree,annulee)').order('delivery_date',{ascending:true}).limit(10)),
-      safe(supabase.from('customers').select('name,phone,city,is_priority').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(20)),
-      safe(supabase.from('products').select('name,reference,price,cost_price_ht,category').eq('workspace_id', workspaceId).eq('is_archived',false).order('name',{ascending:true}).limit(60)),
+      safe(supabase.from('quotes').select('quote_number,status,total_ttc,customers(name)').eq('workspace_id', workspaceId).not('status','in','(accepte,refuse,expire)').order('created_at',{ascending:false}).limit(5)),
+      safe(supabase.from('deliveries').select('delivery_date,status,time_slot,customers(name)').eq('workspace_id', workspaceId).not('status','in','(livree,annulee)').order('delivery_date',{ascending:true}).limit(6)),
+      safe(supabase.from('customers').select('name,phone,city').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(10)),
+      safe(supabase.from('products').select('name,price,category').eq('workspace_id', workspaceId).eq('is_archived',false).order('name',{ascending:true}).limit(20)),
       safe(supabase.from('payments').select('amount').eq('workspace_id', workspaceId).gte('payment_date', firstOfMonth)),
     ])
 
@@ -101,61 +102,44 @@ function buildSystemPrompt(context: any, wd: any): string {
   Catalogue produits : ${k.produits_catalogue ?? 0} produit(s)`
 
   // deno-lint-ignore no-explicit-any
-  const commandesBlock = fmt(wd?.commandes || [], 'Commandes en cours', (c: any) =>
-    `  • ${c.order_number || '?'} | ${c.customers?.name || 'Sans client'} | ${c.status} | ${c.total_ttc}€${c.remaining_amount > 0 ? ' (reste ' + c.remaining_amount + '€)' : ''}`)
+  const commandesBlock = fmt(wd?.commandes || [], 'COMMANDES EN COURS', (c: any) =>
+    `${c.order_number||'?'}|${c.customers?.name||'?'}|${c.status}|${c.total_ttc}€${c.remaining_amount>0?'|reste:'+c.remaining_amount+'€':''}`)
   // deno-lint-ignore no-explicit-any
-  const facturesBlock = fmt(wd?.factures || [], 'Factures récentes', (f: any) =>
-    `  • ${f.invoice_number || '?'} | ${f.customers?.name || '?'} | ${f.status} | ${f.total_ttc}€ | ${f.issue_date || ''}`)
+  const facturesBlock = fmt(wd?.factures || [], 'FACTURES', (f: any) =>
+    `${f.invoice_number||'?'}|${f.customers?.name||'?'}|${f.status}|${f.total_ttc}€|${f.issue_date||''}`)
   // deno-lint-ignore no-explicit-any
-  const devisBlock = fmt(wd?.devis || [], 'Devis ouverts', (d: any) =>
-    `  • ${d.quote_number || '?'} | ${d.customers?.name || '?'} | ${d.status} | ${d.total_ttc}€ | ${d.issue_date || ''}`)
+  const devisBlock = fmt(wd?.devis || [], 'DEVIS OUVERTS', (d: any) =>
+    `${d.quote_number||'?'}|${d.customers?.name||'?'}|${d.status}|${d.total_ttc}€`)
   // deno-lint-ignore no-explicit-any
-  const livraisonsBlock = fmt(wd?.livraisons || [], 'Livraisons à venir', (l: any) =>
-    `  • ${l.customers?.name || '?'} | ${l.delivery_date || '?'}${l.time_slot ? ' ' + l.time_slot : ''} | ${l.status}`)
+  const livraisonsBlock = fmt(wd?.livraisons || [], 'LIVRAISONS À VENIR', (l: any) =>
+    `${l.customers?.name||'?'}|${l.delivery_date||'?'}${l.time_slot?' '+l.time_slot:''}|${l.status}`)
   // deno-lint-ignore no-explicit-any
-  const clientsBlock = fmt(wd?.clients || [], 'Clients récents', (c: any) =>
-    `  • ${c.name}${c.city ? ' (' + c.city + ')' : ''}${c.is_priority ? ' ★' : ''} | ${c.phone || ''}`)
+  const clientsBlock = fmt(wd?.clients || [], 'CLIENTS RÉCENTS', (c: any) =>
+    `${c.name}${c.city?' ('+c.city+')':''}|${c.phone||''}`)
   // deno-lint-ignore no-explicit-any
-  const produitsBlock = fmt(wd?.produits || [], 'Catalogue produits', (p: any) =>
-    `  • ${p.name}${p.reference ? ' [' + p.reference + ']' : ''}${p.category ? ' — ' + p.category : ''} | ${p.price}€`)
+  const produitsBlock = fmt(wd?.produits || [], 'PRODUITS', (p: any) =>
+    `${p.name}${p.category?' ['+p.category+']':''}|${p.price}€`)
 
-  return `Tu es Neo, l'assistant IA intégré dans NeoFlow BOS, un logiciel de gestion pour magasins de literie.
-Tu as accès aux données RÉELLES du magasin « ${shop} » en temps réel.
+  return `Tu es Neo, assistant IA de NeoFlow BOS (gestion magasin literie) pour « ${shop} ».
+Page: ${page} | Rôle: ${role}
 
-═══════════════════════════════════════
-DONNÉES RÉELLES DU MAGASIN (maintenant)
-═══════════════════════════════════════
+--- DONNÉES RÉELLES (ne pas inventer) ---
 ${kpiBlock}
-
 ${commandesBlock}
-
 ${facturesBlock}
-
 ${devisBlock}
-
 ${livraisonsBlock}
-
 ${clientsBlock}
-
 ${produitsBlock}
+--- FIN DONNÉES ---
 
-═══════════════════════════════════════
-CONTEXTE
-═══════════════════════════════════════
-Page ouverte : ${page}
-Rôle : ${role}
-
-═══════════════════════════════════════
-RÈGLES
-═══════════════════════════════════════
-1. DONNÉES UNIQUEMENT : N'invente jamais. Si « aucun », dis-le clairement.
-2. FRANÇAIS toujours, naturel et professionnel.
-3. CONCIS : max 180 mots, direct, utile. Pas de remplissage.
-4. CALCULS : Fais les calculs toi-même, donne la conclusion (pas juste les chiffres bruts).
-5. GUIDAGE : Pour « comment faire », donne les étapes précises dans l'interface.
-6. RÔLES : Livreur → livraisons seulement. Vendeur → pas les marges ni stats globales.
-
-Tu connais NeoFlow BOS : vente rapide (POS), commandes avec acompte/solde, factures, devis, clients CRM, produits/stock, fournisseurs, livraisons kanban, statistiques.`
+RÈGLES STRICTES:
+- Si une section dit "aucun" → réponds qu'il n'y en a pas, point.
+- Réponds UNIQUEMENT en français.
+- Réponse courte et directe (max 150 mots).
+- Pour les calculs: fais-les et donne la conclusion.
+- Pour "comment faire": donne les étapes numérotées précises.
+- N'invente AUCUNE donnée qui n'est pas dans les sections ci-dessus.`
 }
 
 // ── Handler principal ─────────────────────────────────────────────────────────

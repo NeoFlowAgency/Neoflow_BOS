@@ -48,6 +48,35 @@ function inlineFormat(text) {
     .replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono text-gray-700">$1</code>')
 }
 
+// ─── Bouton copier ─────────────────────────────────────────────────────────────
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+  return (
+    <button
+      onClick={copy}
+      title={copied ? 'Copié !' : 'Copier'}
+      className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+    >
+      {copied ? (
+        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 // ─── Bulle de message ──────────────────────────────────────────────────────────
 
 function Message({ msg, isStreaming }) {
@@ -68,14 +97,19 @@ function Message({ msg, isStreaming }) {
   }
 
   return (
-    <div className="flex gap-3 items-start">
+    <div className="flex gap-3 items-start group">
       <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#313ADF] to-[#040741] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
         <span className="text-white text-[11px] font-bold">N</span>
       </div>
       <div className="flex-1 min-w-0">
         <MarkdownText content={msg.content || ''} streaming={isStreaming} />
         {!isStreaming && msg.content && (
-          <p className="text-[11px] text-gray-400 mt-1.5">{time}</p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <p className="text-[11px] text-gray-400">{time}</p>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <CopyButton text={msg.content} />
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -509,16 +543,30 @@ export default function NeoChat() {
 
           {/* ── Zone de saisie ── */}
           <div className="flex-shrink-0 border-t border-gray-100 bg-white px-4 py-3">
+            {/* Bouton Stop (visible uniquement pendant le streaming) */}
+            {isStreaming && (
+              <div className="flex justify-center mb-2">
+                <button
+                  onClick={() => { abortRef.current?.abort(); setIsStreaming(false); setStreamingMsgId(null) }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-red-500 rounded-lg text-xs font-medium transition-colors border border-gray-200 hover:border-red-200"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                  Arrêter la génération
+                </button>
+              </div>
+            )}
             <div className="flex gap-2 items-end bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5 focus-within:border-[#313ADF]/50 focus-within:bg-white transition-all">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Posez votre question à Neo…"
+                placeholder={isStreaming ? 'Neo rédige une réponse…' : 'Posez votre question à Neo…'}
                 rows={1}
                 disabled={isStreaming}
-                className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none max-h-32 overflow-y-auto disabled:opacity-60"
+                className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none max-h-32 overflow-y-auto disabled:opacity-50"
                 style={{ minHeight: '22px' }}
                 onInput={(e) => {
                   e.target.style.height = 'auto'
@@ -530,13 +578,9 @@ export default function NeoChat() {
                 disabled={!input.trim() || isStreaming}
                 className="flex-shrink-0 w-8 h-8 bg-[#313ADF] text-white rounded-xl flex items-center justify-center hover:bg-[#2730c4] disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105"
               >
-                {isStreaming ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                )}
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
             <p className="text-[11px] text-gray-400 text-center mt-2">
