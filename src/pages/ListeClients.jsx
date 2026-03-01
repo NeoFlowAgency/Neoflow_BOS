@@ -41,6 +41,7 @@ export default function ListeClients() {
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '', address: ''
   })
+  const [duplicateWarning, setDuplicateWarning] = useState(null)
 
   useEffect(() => {
     if (wsLoading) return
@@ -96,7 +97,7 @@ export default function ListeClients() {
     )
   })
 
-  const handleCreate = async () => {
+  const handleCreate = async (force = false) => {
     if (!form.first_name || !form.last_name) {
       toast.error('Nom et prénom sont requis')
       return
@@ -104,6 +105,28 @@ export default function ListeClients() {
 
     setCreateLoading(true)
     try {
+      // Vérifier les doublons (email ou téléphone) avant insertion
+      if (!force && (form.email || form.phone)) {
+        const conditions = []
+        if (form.email) conditions.push(`email.eq.${form.email}`)
+        if (form.phone) conditions.push(`phone.eq.${form.phone}`)
+
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id, first_name, last_name, email, phone')
+          .eq('workspace_id', workspace.id)
+          .or(conditions.join(','))
+          .limit(1)
+
+        if (existing && existing.length > 0) {
+          const dup = existing[0]
+          const matchField = dup.email === form.email ? `email "${dup.email}"` : `téléphone "${dup.phone}"`
+          setDuplicateWarning({ name: `${dup.first_name} ${dup.last_name}`, field: matchField })
+          setCreateLoading(false)
+          return
+        }
+      }
+
       const { error } = await supabase
         .from('customers')
         .insert({
@@ -120,6 +143,7 @@ export default function ListeClients() {
       toast.success('Client créé avec succès !')
       setShowModal(false)
       setForm({ first_name: '', last_name: '', email: '', phone: '', address: '' })
+      setDuplicateWarning(null)
       loadClients()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la création')
@@ -272,7 +296,7 @@ export default function ListeClients() {
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[#040741]">Nouveau client</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={() => { setShowModal(false); setDuplicateWarning(null) }} className="text-gray-400 hover:text-gray-600 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -302,6 +326,28 @@ export default function ListeClients() {
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Adresse</label>
                 <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="15 rue des Lilas, 75001 Paris" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
               </div>
+              {duplicateWarning && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-orange-700 mb-1">Client potentiellement en double</p>
+                  <p className="text-sm text-orange-600 mb-3">
+                    <span className="font-medium">{duplicateWarning.name}</span> a déjà le même {duplicateWarning.field}.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDuplicateWarning(null)}
+                      className="flex-1 px-3 py-2 bg-white border border-orange-300 text-orange-600 rounded-lg text-sm font-medium hover:bg-orange-50"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => { setDuplicateWarning(null); handleCreate(true) }}
+                      className="flex-1 px-3 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600"
+                    >
+                      Créer quand même
+                    </button>
+                  </div>
+                </div>
+              )}
               <button onClick={handleCreate} disabled={createLoading} className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
                 {createLoading ? (
                   <>
