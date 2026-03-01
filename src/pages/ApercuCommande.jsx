@@ -11,6 +11,8 @@ import PaymentModal from '../components/PaymentModal'
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
   confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirme' },
+  en_preparation: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'En preparation' },
+  en_livraison: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En livraison' },
   en_cours: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En cours' },
   livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livre' },
   termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Termine' },
@@ -19,7 +21,9 @@ const STATUS_BADGES = {
 
 const STATUS_FLOW = {
   brouillon: ['confirme', 'annule'],
-  confirme: ['en_cours', 'annule'],
+  confirme: ['en_preparation', 'annule'],
+  en_preparation: ['en_livraison', 'annule'],
+  en_livraison: ['termine', 'annule'],
   en_cours: ['livre', 'annule'],
   livre: ['termine', 'annule'],
   termine: [],
