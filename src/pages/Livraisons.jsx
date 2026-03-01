@@ -258,6 +258,14 @@ export default function Livraisons() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await createPayment(workspace.id, paymentOrderId, user.id, paymentData)
+
+      // Auto-terminer la commande si entierement payee
+      const newAmountPaid = (paymentAmountPaid || 0) + (paymentData.amount || 0)
+      const isFullyPaid = newAmountPaid >= (paymentOrderTotal || 0) - 0.01
+      if (isFullyPaid) {
+        await supabase.from('orders').update({ status: 'termine' }).eq('id', paymentOrderId)
+      }
+
       toast.success('Paiement enregistre !')
       setShowPaymentModal(false)
       setPaymentOrderId(null)
@@ -313,14 +321,26 @@ export default function Livraisons() {
               {isOverdue && ' ⚠'}
             </span>
           )}
-          {delivery.time_slot && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {delivery.time_slot}
-            </span>
-          )}
+          {delivery.time_slot && (() => {
+            // Support time_slot as string or JSON array
+            let slots = []
+            try {
+              const parsed = JSON.parse(delivery.time_slot)
+              slots = Array.isArray(parsed) ? parsed : [delivery.time_slot]
+            } catch {
+              slots = delivery.time_slot.includes(',')
+                ? delivery.time_slot.split(',').map(s => s.trim())
+                : [delivery.time_slot]
+            }
+            return slots.map((slot, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {slot}
+              </span>
+            ))
+          })()}
           {assigneeName && (
             <span className="flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
