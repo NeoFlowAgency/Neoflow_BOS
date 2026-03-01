@@ -32,6 +32,7 @@ export default function VenteRapide() {
   // Stock
   const [stockMap, setStockMap] = useState({}) // productId -> totalAvailable
   const [defaultLocationId, setDefaultLocationId] = useState(null)
+  const [stockWarning, setStockWarning] = useState(null) // { produit } pending confirmation
 
   useEffect(() => {
     if (workspace?.id) loadProduits()
@@ -96,7 +97,7 @@ export default function VenteRapide() {
     p.reference?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const ajouterAuPanier = (produit) => {
+  const doAddToCart = (produit) => {
     setPanier(prev => {
       const existing = prev.find(item => item.product_id === produit.id)
       if (existing) {
@@ -112,11 +113,22 @@ export default function VenteRapide() {
         quantity: 1,
         unit_price_ht: produit.unit_price_ht || 0,
         cost_price_ht: produit.cost_price_ht || null,
-        tax_rate: produit.tax_rate || 20
+        tax_rate: produit.tax_rate || 20,
+        discount_item: 0,
+        discount_item_type: 'percent',
       }]
     })
     setSearchTerm('')
     searchRef.current?.focus()
+  }
+
+  const ajouterAuPanier = (produit) => {
+    const stock = stockMap[produit.id]
+    if (stock !== undefined && stock <= 0) {
+      setStockWarning(produit)
+      return
+    }
+    doAddToCart(produit)
   }
 
   const modifierQuantite = (productId, delta) => {
@@ -133,25 +145,42 @@ export default function VenteRapide() {
     setPanier(prev => prev.filter(item => item.product_id !== productId))
   }
 
+  const updateLineDiscount = (productId, field, value) => {
+    setPanier(prev => prev.map(item =>
+      item.product_id === productId ? { ...item, [field]: value } : item
+    ))
+  }
+
   const round = (num) => Math.round(num * 100) / 100
 
-  const calculerTotaux = () => {
-    const subtotal = panier.reduce((sum, item) => sum + item.unit_price_ht * item.quantity, 0)
+  const lineTotal = (item) => {
+    const gross = item.unit_price_ht * item.quantity
+    const disc = item.discount_item_type === 'percent'
+      ? gross * ((item.discount_item || 0) / 100)
+      : Math.min(item.discount_item || 0, gross)
+    return round(gross - disc)
+  }
 
-    let montantRemise = 0
+  const calculerTotaux = () => {
+    const subtotalBrut = panier.reduce((sum, item) => sum + item.unit_price_ht * item.quantity, 0)
+    const subtotalApresLigne = panier.reduce((sum, item) => sum + lineTotal(item), 0)
+    const remiseLigne = subtotalBrut - subtotalApresLigne
+
+    let montantRemiseGlobale = 0
     if (remiseType === 'percent') {
-      montantRemise = subtotal * (remiseValeur / 100)
+      montantRemiseGlobale = subtotalApresLigne * (remiseValeur / 100)
     } else {
-      montantRemise = Math.min(remiseValeur, subtotal)
+      montantRemiseGlobale = Math.min(remiseValeur, subtotalApresLigne)
     }
 
-    const totalHt = subtotal - montantRemise
+    const totalHt = subtotalApresLigne - montantRemiseGlobale
     const totalTva = totalHt * 0.20
     const totalTtc = totalHt + totalTva
 
     return {
-      subtotal: round(subtotal),
-      montantRemise: round(montantRemise),
+      subtotal: round(subtotalBrut),
+      remiseLigne: round(remiseLigne),
+      montantRemise: round(montantRemiseGlobale),
       totalHt: round(totalHt),
       totalTva: round(totalTva),
       totalTtc: round(totalTtc)
@@ -178,7 +207,9 @@ export default function VenteRapide() {
         unit_price_ht: item.unit_price_ht,
         cost_price_ht: item.cost_price_ht,
         tax_rate: item.tax_rate,
-        total_ht: round(item.unit_price_ht * item.quantity),
+        discount_item: item.discount_item || 0,
+        discount_item_type: item.discount_item_type || 'percent',
+        total_ht: lineTotal(item),
         position: i + 1
       }))
 
@@ -441,37 +472,46 @@ export default function VenteRapide() {
             ) : (
               <div className="space-y-2 max-h-[30vh] overflow-y-auto">
                 {panier.map(item => (
-                  <div key={item.product_id} className="flex items-center justify-between bg-gray-50 rounded-xl p-2.5">
-                    <div className="flex-1 min-w-0 mr-2">
-                      <p className="font-medium text-[#040741] text-sm truncate">{item.description}</p>
-                      <p className="text-xs text-gray-400">{item.unit_price_ht.toFixed(2)} EUR x {item.quantity}</p>
+                  <div key={item.product_id} className="bg-gray-50 rounded-xl p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0 mr-2">
+                        <p className="font-medium text-[#040741] text-sm truncate">{item.description}</p>
+                        <p className="text-xs text-gray-400">{item.unit_price_ht.toFixed(2)} EUR HT x {item.quantity}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => modifierQuantite(item.product_id, -1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">-</button>
+                        <span className="w-8 text-center font-semibold text-sm text-[#040741]">{item.quantity}</span>
+                        <button onClick={() => modifierQuantite(item.product_id, 1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">+</button>
+                        <button onClick={() => supprimerDuPanier(item.product_id)} className="w-7 h-7 ml-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                      <p className="font-bold text-[#313ADF] text-sm ml-2 w-20 text-right">{lineTotal(item).toFixed(2)} EUR</p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    {/* Per-line discount */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400">Remise ligne</span>
                       <button
-                        onClick={() => modifierQuantite(item.product_id, -1)}
-                        className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100"
+                        onClick={() => updateLineDiscount(item.product_id, 'discount_item_type', item.discount_item_type === 'percent' ? 'euro' : 'percent')}
+                        className="text-xs bg-white border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium hover:bg-gray-100"
                       >
-                        -
+                        {item.discount_item_type === 'percent' ? '%' : '€'}
                       </button>
-                      <span className="w-8 text-center font-semibold text-sm text-[#040741]">{item.quantity}</span>
-                      <button
-                        onClick={() => modifierQuantite(item.product_id, 1)}
-                        className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100"
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={() => supprimerDuPanier(item.product_id)}
-                        className="w-7 h-7 ml-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <input
+                        type="number" min={0} max={item.discount_item_type === 'percent' ? 100 : item.unit_price_ht * item.quantity}
+                        value={item.discount_item || ''}
+                        onChange={e => updateLineDiscount(item.product_id, 'discount_item', parseFloat(e.target.value) || 0)}
+                        className="w-14 bg-white border border-gray-200 rounded px-2 py-0.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-[#313ADF]/30"
+                        placeholder="0"
+                      />
+                      {(item.discount_item || 0) > 0 && (
+                        <span className="text-xs text-green-600">
+                          -{item.discount_item_type === 'percent'
+                            ? `${item.discount_item}%`
+                            : `${(item.discount_item || 0).toFixed(2)} €`}
+                        </span>
+                      )}
                     </div>
-                    <p className="font-bold text-[#313ADF] text-sm ml-2 w-20 text-right">
-                      {(item.unit_price_ht * item.quantity).toFixed(2)} EUR
-                    </p>
                   </div>
                 ))}
               </div>
@@ -535,9 +575,15 @@ export default function VenteRapide() {
                 <span>Sous-total HT</span>
                 <span>{totaux.subtotal.toFixed(2)} EUR</span>
               </div>
+              {totaux.remiseLigne > 0 && (
+                <div className="flex justify-between text-green-400 text-sm">
+                  <span>Remises lignes</span>
+                  <span>-{totaux.remiseLigne.toFixed(2)} EUR</span>
+                </div>
+              )}
               {totaux.montantRemise > 0 && (
                 <div className="flex justify-between text-green-400 text-sm">
-                  <span>Remise</span>
+                  <span>Remise globale</span>
                   <span>-{totaux.montantRemise.toFixed(2)} EUR</span>
                 </div>
               )}
@@ -578,6 +624,38 @@ export default function VenteRapide() {
           </div>
         </div>
       </div>
+
+      {/* Modal: stock = 0 */}
+      {stockWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[#040741] text-center mb-2">Stock insuffisant</h3>
+            <p className="text-gray-500 text-sm text-center mb-1">
+              <span className="font-semibold text-[#040741]">{stockWarning.name}</span> est en rupture de stock.
+            </p>
+            <p className="text-gray-400 text-xs text-center mb-6">Voulez-vous quand même ajouter ce produit au panier ?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStockWarning(null)}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => { doAddToCart(stockWarning); setStockWarning(null) }}
+                className="flex-1 bg-red-500 text-white py-2.5 rounded-xl font-semibold hover:bg-red-600 transition-colors"
+              >
+                Ajouter quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loader plein ecran */}
       {loading && (
