@@ -60,7 +60,7 @@ export default function Signup() {
       // If session returned directly (email confirmation disabled), redirect
       if (data.session) {
         const redirect = searchParams.get('redirect')
-        navigate(redirect && redirect.startsWith('/') ? redirect : '/onboarding/choice')
+        navigate(redirect && redirect.startsWith('/') ? redirect : '/onboarding/survey')
       } else {
         // Email confirmation enabled - show confirmation screen
         setEmailSent(true)

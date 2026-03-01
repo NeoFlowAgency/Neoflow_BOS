@@ -37,6 +37,7 @@ import JoinWorkspace from './pages/JoinWorkspace'
 import WorkspaceChoice from './pages/WorkspaceChoice'
 import MentionsLegales from './pages/MentionsLegales'
 import AdminDashboard from './pages/AdminDashboard'
+import OnboardingSurvey from './pages/OnboardingSurvey'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
@@ -207,6 +208,14 @@ function App() {
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
+            <Route
+              path="/onboarding/survey"
+              element={
+                <ProtectedRoute requireWorkspace={false}>
+                  <OnboardingSurvey />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/onboarding/choice"
               element={
