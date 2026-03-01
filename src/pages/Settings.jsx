@@ -56,6 +56,18 @@ export default function Settings() {
   // Member info
   const [selectedMember, setSelectedMember] = useState(null)
 
+  // Preferences
+  const [prefForm, setPrefForm] = useState({
+    frais_livraison_defaut: 0,
+    mode_paiement_defaut: 'especes',
+    prefixe_facture: 'FAC',
+    prefixe_devis: 'DEV',
+    prefixe_commande: 'CMD',
+    seuil_stock_alerte: 3,
+    taux_tva_defaut: 20,
+  })
+  const [prefSaving, setPrefSaving] = useState(false)
+
   // Delete account
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteAction, setDeleteAction] = useState('delete_workspace')
@@ -95,6 +107,16 @@ export default function Settings() {
         quote_footer: currentWorkspace.quote_footer || '',
       })
       setLogoPreview(currentWorkspace.logo_url || null)
+      const ws = currentWorkspace.workspace_settings || {}
+      setPrefForm({
+        frais_livraison_defaut: ws.frais_livraison_defaut ?? 0,
+        mode_paiement_defaut: ws.mode_paiement_defaut || 'especes',
+        prefixe_facture: ws.prefixe_facture || 'FAC',
+        prefixe_devis: ws.prefixe_devis || 'DEV',
+        prefixe_commande: ws.prefixe_commande || 'CMD',
+        seuil_stock_alerte: ws.seuil_stock_alerte ?? 3,
+        taux_tva_defaut: ws.taux_tva_defaut ?? 20,
+      })
       loadMembers()
       loadInvitations()
     }
@@ -328,6 +350,23 @@ export default function Settings() {
     }
   }
 
+  const handleSavePreferences = async () => {
+    setPrefSaving(true)
+    try {
+      const { error } = await supabase
+        .from('workspaces')
+        .update({ workspace_settings: prefForm })
+        .eq('id', currentWorkspace.id)
+      if (error) throw error
+      toast.success('Préférences enregistrées')
+      refreshWorkspaces()
+    } catch (err) {
+      toast.error(translateError(err))
+    } finally {
+      setPrefSaving(false)
+    }
+  }
+
   const handleChangeRole = async (userId, newRole) => {
     try {
       const { error } = await supabase
@@ -474,6 +513,11 @@ export default function Settings() {
       key: 'abonnement', label: 'Abonnement',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />,
       desc: 'Plan et facturation Stripe'
+    }] : []),
+    ...(isAdmin || isOwner ? [{
+      key: 'preferences', label: 'Préférences',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />,
+      desc: 'TVA, numérotation, stock'
     }] : []),
     {
       key: 'support', label: 'Support',
@@ -1402,6 +1446,130 @@ export default function Settings() {
               <p className="text-xs text-gray-400 mt-2">
                 Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
               </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Préférences */}
+      {activeTab === 'preferences' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-xl font-bold text-[#040741] mb-1">Préférences métier</h2>
+            <p className="text-sm text-gray-400 mb-6">Valeurs par défaut utilisées lors de la création de documents et commandes.</p>
+
+            <div className="space-y-6">
+              {/* TVA et paiement */}
+              <div>
+                <h3 className="text-sm font-semibold text-[#040741] uppercase tracking-wide mb-3">Facturation</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">TVA par défaut (%)</label>
+                    <input
+                      type="number" min="0" max="100" step="0.1"
+                      value={prefForm.taux_tva_defaut}
+                      onChange={e => setPrefForm(f => ({ ...f, taux_tva_defaut: parseFloat(e.target.value) || 0 }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mode de paiement par défaut</label>
+                    <select
+                      value={prefForm.mode_paiement_defaut}
+                      onChange={e => setPrefForm(f => ({ ...f, mode_paiement_defaut: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                    >
+                      <option value="especes">Espèces</option>
+                      <option value="cb">Carte bancaire</option>
+                      <option value="cheque">Chèque</option>
+                      <option value="virement">Virement</option>
+                      <option value="autre">Autre</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frais de livraison par défaut (€)</label>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={prefForm.frais_livraison_defaut}
+                      onChange={e => setPrefForm(f => ({ ...f, frais_livraison_defaut: parseFloat(e.target.value) || 0 }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Numérotation */}
+              <div>
+                <h3 className="text-sm font-semibold text-[#040741] uppercase tracking-wide mb-3">Numérotation</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe factures</label>
+                    <input
+                      type="text" maxLength={6}
+                      value={prefForm.prefixe_facture}
+                      onChange={e => setPrefForm(f => ({ ...f, prefixe_facture: e.target.value.toUpperCase() }))}
+                      placeholder="FAC"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Ex: {prefForm.prefixe_facture || 'FAC'}-2026-001</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe devis</label>
+                    <input
+                      type="text" maxLength={6}
+                      value={prefForm.prefixe_devis}
+                      onChange={e => setPrefForm(f => ({ ...f, prefixe_devis: e.target.value.toUpperCase() }))}
+                      placeholder="DEV"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Ex: {prefForm.prefixe_devis || 'DEV'}-2026-001</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe commandes</label>
+                    <input
+                      type="text" maxLength={6}
+                      value={prefForm.prefixe_commande}
+                      onChange={e => setPrefForm(f => ({ ...f, prefixe_commande: e.target.value.toUpperCase() }))}
+                      placeholder="CMD"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Ex: {prefForm.prefixe_commande || 'CMD'}-2026-001</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock */}
+              <div>
+                <h3 className="text-sm font-semibold text-[#040741] uppercase tracking-wide mb-3">Stock</h3>
+                <div className="md:w-1/2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Seuil d'alerte stock (unités)</label>
+                  <input
+                    type="number" min="0"
+                    value={prefForm.seuil_stock_alerte}
+                    onChange={e => setPrefForm(f => ({ ...f, seuil_stock_alerte: parseInt(e.target.value) || 0 }))}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Alerte orange quand le stock passe sous ce seuil.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-6 border-t border-gray-100">
+              <button
+                onClick={handleSavePreferences}
+                disabled={prefSaving}
+                className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              >
+                {prefSaving ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Enregistrement...
+                  </>
+                ) : 'Enregistrer les préférences'}
+              </button>
+            </div>
           </div>
         </div>
       )}
