@@ -407,20 +407,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                     <span className="truncate">{ws.name}</span>
                   </button>
                 ))}
-                <button
-                  onClick={() => {
-                    setWsDropdownOpen(false)
-                    navigate('/onboarding/workspace')
-                  }}
-                  className="w-full px-3 py-2.5 text-left text-sm text-white/50 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2 border-t border-white/10"
-                >
-                  <span className="w-6 h-6 border border-dashed border-white/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </span>
-                  <span>Nouveau workspace</span>
-                </button>
+                {/* Création workspace déplacée dans Settings > Workspace */}
               </div>
             )}
           </div>

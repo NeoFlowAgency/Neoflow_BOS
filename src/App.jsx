@@ -111,6 +111,8 @@ function Layout({ children }) {
   const [neoWidth, setNeoWidth] = useState(() =>
     parseInt(localStorage.getItem('neoflow_neo_width') || '380', 10)
   )
+  const [showTutorialModal, setShowTutorialModal] = useState(false)
+  const { currentWorkspace } = useWorkspace()
 
   useEffect(() => {
     const checkMobile = () => {
@@ -138,6 +140,40 @@ function Layout({ children }) {
     localStorage.setItem('neoflow_neo_width', String(neoWidth))
   }, [neoWidth])
 
+  useEffect(() => {
+    if (!currentWorkspace) return
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('profiles').select('tutorial_shown_at').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data && !data.tutorial_shown_at) {
+            setShowTutorialModal(true)
+          } else if (data && data.tutorial_shown_at) {
+            // Already seen on another device — suppress OnboardingTour locally
+            localStorage.setItem('neoflow_onboarding_done', 'true')
+          }
+        })
+    })
+  }, [currentWorkspace?.id])
+
+  const handleStartTutorial = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ tutorial_shown_at: new Date().toISOString() }).eq('id', user.id)
+    }
+    setShowTutorialModal(false)
+    // OnboardingTour will auto-launch since neoflow_onboarding_done is not set
+  }
+
+  const handleSkipTutorial = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ tutorial_shown_at: new Date().toISOString() }).eq('id', user.id)
+    }
+    localStorage.setItem('neoflow_onboarding_done', 'true')
+    setShowTutorialModal(false)
+  }
+
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -160,6 +196,37 @@ function Layout({ children }) {
         setNeoWidth={setNeoWidth}
         isMobile={isMobile}
       />
+      {showTutorialModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative animate-[fadeInUp_0.3s_ease]">
+            <div className="text-center mb-6">
+              <img src="/logo-neoflow.png" alt="NeoFlow" className="h-14 object-contain mx-auto mb-5" />
+              <h2 className="text-2xl font-bold text-[#040741] mb-2">Bienvenue sur NeoFlow BOS !</h2>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Votre espace de travail est prêt. Voulez-vous suivre un tutoriel interactif pour découvrir toutes les fonctionnalités ?
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={handleStartTutorial}
+                className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3.5 rounded-xl font-semibold text-base hover:opacity-90 transition-opacity shadow-lg flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Lancer le tutoriel
+              </button>
+              <button
+                onClick={handleSkipTutorial}
+                className="w-full bg-gray-100 text-gray-600 py-3.5 rounded-xl font-medium text-base hover:bg-gray-200 transition-colors"
+              >
+                Pas maintenant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
