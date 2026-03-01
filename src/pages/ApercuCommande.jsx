@@ -90,22 +90,44 @@ export default function ApercuCommande() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const isFirstPayment = payments.length === 0
+      const orderItems = order?.items || []
       await createPayment(workspace.id, commandeId, user.id, paymentData)
 
       // Debiter le stock au premier paiement
-      if (isFirstPayment && items.length > 0) {
+      if (isFirstPayment && orderItems.length > 0) {
         try {
           const locData = await listStockLocations(workspace.id)
           const defaultLoc = locData.find(l => l.is_default) || locData[0]
           if (defaultLoc) {
-            await debitStock(workspace.id, commandeId, items, defaultLoc.id, user.id)
+            await debitStock(workspace.id, commandeId, orderItems, defaultLoc.id, user.id)
           }
         } catch (stockErr) {
           console.warn('Debit stock non effectue:', stockErr.message)
         }
       }
 
-      toast.success('Paiement enregistre !')
+      // Auto-transition statut selon le paiement
+      const newAmountPaid = (order.amount_paid || 0) + (paymentData.amount || 0)
+      const isFullyPaid = newAmountPaid >= (order.total_ttc || 0) - 0.01
+
+      if (isFullyPaid && ['confirme', 'en_preparation', 'en_livraison', 'livre'].includes(order.status)) {
+        try {
+          await updateOrderStatus(commandeId, 'termine')
+          toast.success('Paiement enregistre ! Commande marquee comme terminee.')
+        } catch {
+          toast.success('Paiement enregistre !')
+        }
+      } else if (isFirstPayment && order.requires_delivery && order.status === 'confirme') {
+        try {
+          await updateOrderStatus(commandeId, 'en_preparation')
+          toast.success('Paiement enregistre ! Commande passee en preparation.')
+        } catch {
+          toast.success('Paiement enregistre !')
+        }
+      } else {
+        toast.success('Paiement enregistre !')
+      }
+
       setShowPaymentModal(false)
       loadOrder()
     } catch (err) {
