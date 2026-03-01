@@ -216,11 +216,13 @@ function ConversationList({ chats, activeChatId, onSelect, onNew, onDelete, onCl
 
 // ─── Composant principal ───────────────────────────────────────────────────────
 
-export default function NeoChat() {
+export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, isMobile }) {
   const location = useLocation()
   const { role, currentWorkspace } = useWorkspace()
 
-  const [isOpen, setIsOpen] = useState(false)
+  const isOpen = neoOpen
+  const setIsOpen = setNeoOpen
+
   const [showConvList, setShowConvList] = useState(false)
   const [userId, setUserId] = useState(null)
   const [chats, setChats] = useState([])
@@ -276,12 +278,7 @@ export default function NeoChat() {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100)
   }, [isOpen])
 
-  // ── Écoute event ouverture depuis sidebar ──
-  useEffect(() => {
-    const h = () => { setIsOpen(true) }
-    window.addEventListener('neoflow:open-neo', h)
-    return () => window.removeEventListener('neoflow:open-neo', h)
-  }, [])
+  // neoflow:open-neo / close-neo sont gérés par Layout dans App.jsx
 
   // ── Gestion des chats ──
   const activeChat = chats.find((c) => c.id === activeChatId)
@@ -432,7 +429,7 @@ export default function NeoChat() {
   if (!isOpen) {
     return (
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => setNeoOpen(true)}
         className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[55] flex items-center gap-2.5 bg-gradient-to-r from-[#313ADF] to-[#040741] text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
         title="Ouvrir Neo"
       >
@@ -447,15 +444,33 @@ export default function NeoChat() {
 
   // ── Panel principal ──
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-[55] transition-opacity"
-        onClick={() => setIsOpen(false)}
-      />
-
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-screen w-full max-w-[460px] z-[60] flex flex-col bg-white shadow-2xl">
+    <div
+      className="fixed right-0 top-0 h-screen z-[60] flex flex-col bg-white shadow-2xl"
+      style={{ width: isMobile ? '100%' : `${neoWidth}px` }}
+    >
+        {/* Resize handle (desktop uniquement) */}
+        {!isMobile && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#313ADF]/40 transition-colors z-10 group"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              const startX = e.clientX
+              const startWidth = neoWidth
+              const onMove = (ev) => {
+                const delta = startX - ev.clientX
+                setNeoWidth(Math.min(640, Math.max(280, startWidth + delta)))
+              }
+              const onUp = () => {
+                document.removeEventListener('mousemove', onMove)
+                document.removeEventListener('mouseup', onUp)
+              }
+              document.addEventListener('mousemove', onMove)
+              document.addEventListener('mouseup', onUp)
+            }}
+          >
+            <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-12 bg-gray-300 group-hover:bg-[#313ADF]/60 rounded-full" />
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div className="flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#313ADF] to-[#040741] flex-shrink-0">
@@ -589,6 +604,5 @@ export default function NeoChat() {
           </div>
         </div>
       </div>
-    </>
   )
 }

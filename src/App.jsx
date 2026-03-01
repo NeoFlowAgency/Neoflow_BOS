@@ -106,6 +106,10 @@ const MANAGEMENT_ROLES = ['proprietaire', 'manager']
 function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  const [neoOpen, setNeoOpen] = useState(false)
+  const [neoWidth, setNeoWidth] = useState(() =>
+    parseInt(localStorage.getItem('neoflow_neo_width') || '380', 10)
+  )
 
   useEffect(() => {
     const checkMobile = () => {
@@ -118,21 +122,43 @@ function Layout({ children }) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  useEffect(() => {
+    const open = () => setNeoOpen(true)
+    const close = () => setNeoOpen(false)
+    window.addEventListener('neoflow:open-neo', open)
+    window.addEventListener('neoflow:close-neo', close)
+    return () => {
+      window.removeEventListener('neoflow:open-neo', open)
+      window.removeEventListener('neoflow:close-neo', close)
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('neoflow_neo_width', String(neoWidth))
+  }, [neoWidth])
+
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <BackgroundPattern />
       <main
-        className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-300 ${
+        className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-200 ${
           isMobile
             ? 'ml-0 pb-16'
             : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
         }`}
+        style={!isMobile && neoOpen ? { paddingRight: `${neoWidth}px` } : {}}
       >
         {children}
       </main>
       <OnboardingTour />
-      <NeoChat />
+      <NeoChat
+        neoOpen={neoOpen}
+        setNeoOpen={setNeoOpen}
+        neoWidth={neoWidth}
+        setNeoWidth={setNeoWidth}
+        isMobile={isMobile}
+      />
     </div>
   )
 }
