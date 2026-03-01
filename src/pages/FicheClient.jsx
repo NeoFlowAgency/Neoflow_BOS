@@ -111,7 +111,9 @@ export default function FicheClient() {
           email: editForm.email,
           phone: editForm.phone,
           address: editForm.address,
-          company_name: editForm.company_name
+          company_name: editForm.company_name || null,
+          customer_type: editForm.customer_type || 'particulier',
+          siret: editForm.siret || null
         })
         .eq('id', clientId)
         .eq('workspace_id', workspace.id)
@@ -252,13 +254,18 @@ export default function FicheClient() {
             </span>
           </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
                 {client.first_name} {client.last_name}
               </h1>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusCfg.bg} ${statusCfg.text}`}>
                 {statusCfg.label}
               </span>
+              {client.customer_type === 'pro' ? (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Pro</span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Particulier</span>
+              )}
               <button
                 onClick={async (e) => {
                   e.stopPropagation()
@@ -290,6 +297,9 @@ export default function FicheClient() {
             </div>
             {client.company_name && (
               <p className="text-[#313ADF] font-medium">{client.company_name}</p>
+            )}
+            {client.siret && (
+              <p className="text-xs text-gray-400">SIRET : {client.siret}</p>
             )}
             <p className="text-gray-500">{client.email || 'Pas d\'email'}</p>
           </div>
@@ -332,6 +342,27 @@ export default function FicheClient() {
       {editing && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-8">
           <h2 className="text-xl font-bold text-[#040741] mb-4">Informations client</h2>
+          {/* Type client */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-[#040741] mb-2">Type de client</label>
+            <div className="flex gap-2">
+              {['particulier', 'pro'].map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setEditForm({ ...editForm, customer_type: type })}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    (editForm.customer_type || 'particulier') === type
+                      ? 'bg-[#313ADF] text-white shadow-md'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {type === 'pro' ? 'Professionnel' : 'Particulier'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-[#040741] mb-2">Prénom</label>
@@ -349,10 +380,18 @@ export default function FicheClient() {
               <label className="block text-sm font-semibold text-[#040741] mb-2">Téléphone</label>
               <input type="tel" value={editForm.phone || ''} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-[#040741] mb-2">Entreprise</label>
-              <input type="text" value={editForm.company_name || ''} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
-            </div>
+            {(editForm.customer_type || 'particulier') === 'pro' && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">Entreprise</label>
+                  <input type="text" value={editForm.company_name || ''} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-[#040741] mb-2">SIRET</label>
+                  <input type="text" value={editForm.siret || ''} onChange={(e) => setEditForm({ ...editForm, siret: e.target.value })} placeholder="12345678901234" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+              </>
+            )}
             <div>
               <label className="block text-sm font-semibold text-[#040741] mb-2">Adresse</label>
               <input type="text" value={editForm.address || ''} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
