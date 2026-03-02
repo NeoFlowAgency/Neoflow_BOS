@@ -189,7 +189,7 @@ serve(async (req) => {
 
     // Appel Ollama (direct, sans n8n)
     const ollamaUrl = Deno.env.get('OLLAMA_URL') || 'http://172.17.0.1:11434'
-    const ollamaModel = Deno.env.get('OLLAMA_MODEL') || 'llama3.2:3b'
+    const ollamaModel = Deno.env.get('OLLAMA_MODEL') || 'qwen2.5:7b'
 
     const ollamaRes = await fetch(`${ollamaUrl}/api/chat`, {
       method: 'POST',
