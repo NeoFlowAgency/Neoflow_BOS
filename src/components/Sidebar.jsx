@@ -68,21 +68,34 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     setBottomSheet(null)
   }, [location.pathname])
 
+  // Fullscreen support (not available on iOS Safari)
+  const fullscreenSupported = !!(
+    document.fullscreenEnabled ||
+    document.webkitFullscreenEnabled
+  )
+
   // Track fullscreen state
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    const handler = () => setIsFullscreen(
+      !!(document.fullscreenElement || document.webkitFullscreenElement)
+    )
     document.addEventListener('fullscreenchange', handler)
-    return () => document.removeEventListener('fullscreenchange', handler)
+    document.addEventListener('webkitfullscreenchange', handler)
+    return () => {
+      document.removeEventListener('fullscreenchange', handler)
+      document.removeEventListener('webkitfullscreenchange', handler)
+    }
   }, [])
 
   const toggleFullscreen = () => {
     try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen()
+      const el = document.documentElement
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        ;(document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
       } else {
-        document.documentElement.requestFullscreen()
+        ;(el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)
       }
-    } catch { /* not supported on iOS */ }
+    } catch { /* not supported */ }
   }
 
   const NavItem = ({ to, icon, label, end, indent }) => (
@@ -305,22 +318,24 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       {/* Boutons flottants mobile (haut-droit) : plein écran + accès sidebar complet */}
       {isMobile && !isOpen && (
         <div className="md:hidden fixed top-3 right-3 z-[45] flex gap-1.5">
-          {/* Plein écran */}
-          <button
-            onClick={toggleFullscreen}
-            className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-gray-500 rounded-xl shadow-sm border border-gray-200/60 hover:bg-white transition-colors"
-            title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
-          >
-            {isFullscreen ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v5m0-5h5M15 9l5-5m0 0v5m0-5h-5M9 15l-5 5m0 0h5m-5 0v-5M15 15l5 5m0 0h-5m5 0v-5" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-            )}
-          </button>
+          {/* Plein écran (masqué sur iOS qui ne supporte pas l'API Fullscreen) */}
+          {fullscreenSupported && (
+            <button
+              onClick={toggleFullscreen}
+              className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-gray-500 rounded-xl shadow-sm border border-gray-200/60 hover:bg-white transition-colors"
+              title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+            >
+              {isFullscreen ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v5m0-5h5M15 9l5-5m0 0v5m0-5h-5M9 15l-5 5m0 0h5m-5 0v-5M15 15l5 5m0 0h-5m5 0v-5" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              )}
+            </button>
+          )}
           {/* Menu complet (Dashboard, Paramètres, Stats) */}
           <button
             onClick={() => setIsOpen(true)}
