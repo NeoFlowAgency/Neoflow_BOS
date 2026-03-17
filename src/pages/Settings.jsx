@@ -553,9 +553,40 @@ export default function Settings() {
         <p className="text-gray-500">Gérez votre compte et votre workspace</p>
       </div>
 
+      {/* Mobile: horizontal scrollable tabs */}
+      <div className="md:hidden mb-6 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap snap-start transition-all ${
+                activeTab === tab.key
+                  ? 'bg-[#313ADF] text-white shadow-md'
+                  : 'bg-white border border-gray-200 text-gray-600 active:bg-gray-50'
+              }`}
+            >
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {tab.icon}
+              </svg>
+              {tab.label}
+            </button>
+          ))}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap snap-start bg-white border border-red-200 text-red-500 active:bg-red-50"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Déconnexion
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-6 items-start">
-        {/* Sidebar nav */}
-        <div className="w-full md:w-64 flex-shrink-0">
+        {/* Desktop: Sidebar nav */}
+        <div className="hidden md:block w-64 flex-shrink-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
             {/* User info */}
             <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-[#040741] to-[#313ADF]">

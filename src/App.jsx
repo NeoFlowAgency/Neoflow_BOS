@@ -42,11 +42,10 @@ import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
 import NeoChat from './components/NeoChat'
+import ErrorBoundary from './components/ErrorBoundary'
 
-// Internal admin email — bypass Stripe/active check
-const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
-const DEV_EMAIL = 'gnoakim05@gmail.com'
-const isInternalUser = (email) => email === ADMIN_EMAIL || email === DEV_EMAIL
+// Internal admin bypass — flag set via app_metadata (server-side only)
+const isInternalUser = (user) => user?.app_metadata?.is_internal_admin === true
 
 function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = false }) {
   const [authLoading, setAuthLoading] = useState(true)
@@ -85,7 +84,7 @@ function ProtectedRoute({ children, requireWorkspace = true, allowSuspended = fa
     return <Navigate to="/onboarding/choice" replace />
   }
 
-  if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended && !isInternalUser(user?.email)) {
+  if (requireWorkspace && currentWorkspace && !currentWorkspace.is_active && !allowSuspended && !isInternalUser(user)) {
     return <Navigate to="/workspace/suspended" replace />
   }
 
@@ -242,6 +241,7 @@ function ProtectedLayout({ children }) {
 function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <WorkspaceProvider>
         <ToastProvider>
           <Routes>
@@ -313,6 +313,7 @@ function App() {
           </Routes>
         </ToastProvider>
       </WorkspaceProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

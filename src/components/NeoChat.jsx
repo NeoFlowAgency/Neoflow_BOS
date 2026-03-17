@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
+import DOMPurify from 'dompurify'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase, streamNeoChat } from '../lib/supabase'
 
@@ -42,10 +43,11 @@ function MarkdownText({ content, streaming }) {
 }
 
 function inlineFormat(text) {
-  return text
+  const html = text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono text-gray-700">$1</code>')
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['strong', 'em', 'code'], ALLOWED_ATTR: ['class'] })
 }
 
 // ─── Bouton copier ─────────────────────────────────────────────────────────────

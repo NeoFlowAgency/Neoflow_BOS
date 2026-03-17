@@ -153,23 +153,28 @@ export default function ListeDevis() {
               <div
                 key={d.id}
                 onClick={() => navigate(`/devis/${d.id}`)}
-                className="px-4 md:px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors"
+                className="px-4 md:px-6 py-4 hover:bg-[#313ADF]/5 active:bg-[#313ADF]/10 cursor-pointer transition-colors"
               >
                 {/* Mobile layout */}
-                <div className="md:hidden">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-bold text-[#040741] text-sm">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
-                    {getStatutBadge(d.status)}
-                  </div>
-                  <p className="font-medium text-[#040741] text-sm">
-                    {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-500">
-                      {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                <div className="md:hidden flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-bold text-[#040741] text-sm">{d.quote_ref || `DEV-${d.id?.slice(0, 6)}`}</p>
+                      {getStatutBadge(d.status)}
+                    </div>
+                    <p className="font-medium text-[#040741] text-sm truncate">
+                      {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
                     </p>
-                    <p className="font-bold text-[#313ADF]">{(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €</p>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-xs text-gray-500">
+                        {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                      <p className="font-bold text-[#313ADF]">{(d.total_ttc ?? d.total_amount)?.toFixed(2) || '0.00'} €</p>
+                    </div>
                   </div>
+                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
 
                 {/* Desktop layout */}

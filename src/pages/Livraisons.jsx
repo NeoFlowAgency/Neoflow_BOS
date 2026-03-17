@@ -459,11 +459,11 @@ export default function Livraisons() {
       )}
 
       {/* Kanban */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+      <div className="flex lg:grid lg:grid-cols-4 gap-4 lg:gap-5 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 lg:mx-0 lg:px-0 lg:overflow-visible">
         {COLUMNS.map(col => {
           const colDeliveries = grouped[col.key] || []
           return (
-            <div key={col.key}>
+            <div key={col.key} className="min-w-[280px] lg:min-w-0 snap-start flex-shrink-0 lg:flex-shrink">
               {/* Header colonne */}
               <div className={`${col.header} rounded-xl py-3 px-4 mb-4 flex items-center justify-between`}>
                 <h3 className={`font-bold ${col.text} flex items-center gap-2`}>

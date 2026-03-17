@@ -406,19 +406,19 @@ export default function CreerFacture() {
         {/* Lignes de produits */}
         <div className="space-y-3">
           {lignes.map((ligne) => (
-            <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
-              <div className="md:col-span-5 relative">
+            <div key={ligne.id} className="grid grid-cols-6 md:grid-cols-12 gap-2 md:gap-4 items-center bg-gray-50 rounded-xl p-3">
+              <div className="col-span-5 relative">
                 <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
                 <select
                   value={ligne.produit_id || ''}
                   onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
                   disabled={produitsLoading}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50 text-sm md:text-base"
                 >
                   {produitsLoading ? (
-                    <option value="">Chargement des produits...</option>
+                    <option value="">Chargement...</option>
                   ) : produits.length === 0 ? (
-                    <option value="">Aucun produit disponible</option>
+                    <option value="">Aucun produit</option>
                   ) : (
                     <>
                       <option value="">Sélectionner un produit</option>
@@ -426,39 +426,56 @@ export default function CreerFacture() {
                     </>
                   )}
                 </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none md:top-1/2">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Quantité</span>
+              <div className="col-span-1 flex justify-center md:hidden">
+                <button
+                  type="button"
+                  onClick={() => supprimerLigne(ligne.id)}
+                  disabled={lignes.length <= 1}
+                  className={`p-2 rounded-lg transition-colors ${
+                    lignes.length <= 1
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Qté</span>
                 <input
                   type="number"
                   min={1}
                   value={ligne.quantity}
                   onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-2 md:px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Prix unit. HT</span>
-                <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600">
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
+                <div className="bg-white border border-gray-200 rounded-xl px-2 md:px-3 py-3 text-center text-gray-600 text-sm md:text-base">
                   {ligne.unit_price.toFixed(2)} €
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total HT</span>
-                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total</span>
+                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 md:px-3 py-3 text-center font-bold text-[#313ADF] text-sm md:text-base">
                   {ligne.total.toFixed(2)} €
                 </div>
               </div>
 
-              <div className="md:col-span-1 flex justify-center">
+              <div className="hidden md:flex col-span-1 justify-center">
                 <button
                   type="button"
                   onClick={() => supprimerLigne(ligne.id)}
@@ -658,13 +675,40 @@ export default function CreerFacture() {
       {/* Bouton Retour */}
       <button
         onClick={() => navigate('/factures')}
-        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
+        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors mb-24 md:mb-0"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Retour à la liste
       </button>
+
+      {/* Barre sticky mobile - Total + Submit */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-[#040741] to-[#0a0b52] border-t border-white/10 px-4 py-3 z-40 safe-area-bottom">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-white">
+            <span className="text-xs text-white/60">Total TTC</span>
+            <p className="text-xl font-bold">{totaux.total_ttc.toFixed(2)} €</p>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#4149e8] transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+          >
+            {loading ? (
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            Générer
+          </button>
+        </div>
+      </div>
 
       {/* Loader plein écran pendant la création */}
       {loading && (

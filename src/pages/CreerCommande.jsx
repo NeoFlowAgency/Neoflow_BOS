@@ -460,99 +460,90 @@ export default function CreerCommande() {
 
         <div className="space-y-3">
           {lignes.map(ligne => (
-            <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-gray-50 rounded-xl p-3">
-              <div className="md:col-span-4 relative">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
-                <select
-                  value={ligne.produit_id || ''}
-                  onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
-                  disabled={produitsLoading}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 disabled:opacity-50"
-                >
-                  {produitsLoading ? (
-                    <option value="">Chargement...</option>
-                  ) : (
-                    <>
-                      <option value="">Selectionner un produit</option>
-                      {produits.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.reference ? `${p.reference} - ` : ''}{p.name}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none md:top-1/2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                {ligne.produit_id && stockMap[ligne.produit_id] !== undefined && stockMap[ligne.produit_id] < ligne.quantity && (
-                  <p className={`text-xs mt-1 font-medium ${stockMap[ligne.produit_id] <= 0 ? 'text-red-500' : 'text-orange-500'}`}>
-                    {stockMap[ligne.produit_id] <= 0 ? 'Rupture de stock' : `Stock faible: ${stockMap[ligne.produit_id]} dispo.`}
-                  </p>
-                )}
-              </div>
-
-              <div className="md:col-span-1">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Qté</span>
-                <input
-                  type="number" min={1}
-                  value={ligne.quantity}
-                  onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
-                <input
-                  type="number" step="0.01" min={0}
-                  value={ligne.unit_price || ''}
-                  onChange={(e) => handlePriceChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="md:col-span-3">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Remise ligne</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleLineDiscount(ligne.id, 'discount_item_type', ligne.discount_item_type === 'percent' ? 'euro' : 'percent')}
-                    className="bg-white border border-gray-200 text-gray-500 px-2 py-3 rounded-xl text-xs font-medium hover:bg-gray-100 flex-shrink-0"
+            <div key={ligne.id} className="bg-gray-50 rounded-xl p-3">
+              {/* Row 1: Produit + Delete */}
+              <div className="flex gap-2 items-start mb-2 md:mb-0 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+                <div className="flex-1 md:col-span-4 relative">
+                  <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
+                  <select
+                    value={ligne.produit_id || ''}
+                    onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
+                    disabled={produitsLoading}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] text-sm md:text-base appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 disabled:opacity-50"
                   >
-                    {ligne.discount_item_type === 'percent' ? '%' : '€'}
-                  </button>
-                  <input
-                    type="number" min={0} max={ligne.discount_item_type === 'percent' ? 100 : ligne.unit_price * ligne.quantity}
-                    value={ligne.discount_item || ''}
-                    onChange={e => handleLineDiscount(ligne.id, 'discount_item', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center text-sm text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                    placeholder="0"
-                  />
+                    {produitsLoading ? (
+                      <option value="">Chargement...</option>
+                    ) : (
+                      <>
+                        <option value="">Selectionner un produit</option>
+                        {produits.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.reference ? `${p.reference} - ` : ''}{p.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  {ligne.produit_id && stockMap[ligne.produit_id] !== undefined && stockMap[ligne.produit_id] < ligne.quantity && (
+                    <p className={`text-xs mt-1 font-medium ${stockMap[ligne.produit_id] <= 0 ? 'text-red-500' : 'text-orange-500'}`}>
+                      {stockMap[ligne.produit_id] <= 0 ? 'Rupture de stock' : `Stock faible: ${stockMap[ligne.produit_id]} dispo.`}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              <div className="md:col-span-1">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total HT</span>
-                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 py-3 text-center font-bold text-[#313ADF] text-sm">
-                  {lineTotal(ligne).toFixed(2)}
-                </div>
-              </div>
-
-              <div className="md:col-span-1 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => supprimerLigne(ligne.id)}
-                  disabled={lignes.length <= 1}
-                  className={`p-2 rounded-lg transition-colors ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`md:hidden p-2 rounded-lg transition-colors mt-5 ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
+
+                {/* Desktop-only remaining columns */}
+                <div className="hidden md:block md:col-span-1">
+                  <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div className="hidden md:block md:col-span-2">
+                  <input type="number" step="0.01" min={0} value={ligne.unit_price || ''} onChange={(e) => handlePriceChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" placeholder="0.00" />
+                </div>
+                <div className="hidden md:block md:col-span-3">
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => handleLineDiscount(ligne.id, 'discount_item_type', ligne.discount_item_type === 'percent' ? 'euro' : 'percent')} className="bg-white border border-gray-200 text-gray-500 px-2 py-3 rounded-xl text-xs font-medium hover:bg-gray-100 flex-shrink-0">{ligne.discount_item_type === 'percent' ? '%' : '€'}</button>
+                    <input type="number" min={0} max={ligne.discount_item_type === 'percent' ? 100 : ligne.unit_price * ligne.quantity} value={ligne.discount_item || ''} onChange={e => handleLineDiscount(ligne.id, 'discount_item', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center text-sm text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" placeholder="0" />
+                  </div>
+                </div>
+                <div className="hidden md:block md:col-span-1">
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 py-3 text-center font-bold text-[#313ADF] text-sm">{lineTotal(ligne).toFixed(2)}</div>
+                </div>
+                <div className="hidden md:flex md:col-span-1 justify-center">
+                  <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`p-2 rounded-lg transition-colors ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2 mobile: Qté, Prix, Remise, Total */}
+              <div className="md:hidden grid grid-cols-4 gap-2">
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Qté</span>
+                  <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center font-semibold text-[#040741] text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
+                  <input type="number" step="0.01" min={0} value={ligne.unit_price || ''} onChange={(e) => handlePriceChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center text-[#040741] text-xs focus:outline-none" placeholder="0.00" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Remise</span>
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" onClick={() => handleLineDiscount(ligne.id, 'discount_item_type', ligne.discount_item_type === 'percent' ? 'euro' : 'percent')} className="bg-white border border-gray-200 text-gray-500 px-1.5 py-2.5 rounded-l-xl text-xs font-medium">{ligne.discount_item_type === 'percent' ? '%' : '€'}</button>
+                    <input type="number" min={0} value={ligne.discount_item || ''} onChange={e => handleLineDiscount(ligne.id, 'discount_item', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-r-xl px-1 py-2.5 text-center text-xs text-[#040741] focus:outline-none" placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Total</span>
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-1 py-2.5 text-center font-bold text-[#313ADF] text-xs">{lineTotal(ligne).toFixed(2)} €</div>
+                </div>
               </div>
             </div>
           ))}
@@ -740,13 +731,35 @@ export default function CreerCommande() {
       {/* Retour */}
       <button
         onClick={() => navigate('/commandes')}
-        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
+        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors mb-24 md:mb-0"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Retour a la liste
       </button>
+
+      {/* Barre sticky mobile */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-[#040741] to-[#0a0b52] border-t border-white/10 px-4 py-3 z-40 safe-area-bottom">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-white">
+            <span className="text-xs text-white/60">Total TTC</span>
+            <p className="text-xl font-bold">{totaux.totalTtc.toFixed(2)} €</p>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#4149e8] transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+          >
+            {loading ? (
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            )}
+            Créer
+          </button>
+        </div>
+      </div>
 
       {/* Loader plein ecran */}
       {loading && (
