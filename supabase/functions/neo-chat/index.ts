@@ -160,8 +160,22 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifié')
 
-    const { message, context, history } = await req.json()
+    const { message, context, history: rawHistory } = await req.json()
     if (!message?.trim()) throw new Error('Message vide')
+
+    // Sanitize history: only allow user/assistant roles to prevent prompt injection
+    const history = Array.isArray(rawHistory)
+      ? rawHistory
+          .filter((m: unknown) => {
+            if (typeof m !== 'object' || m === null) return false
+            const msg = m as Record<string, unknown>
+            return msg.role === 'user' || msg.role === 'assistant'
+          })
+          .map((m: unknown) => {
+            const msg = m as Record<string, unknown>
+            return { role: msg.role, content: String(msg.content ?? '').slice(0, 2000) }
+          })
+      : []
 
     // Résoudre workspace_id
     let workspaceId = context?.workspace_id as string | undefined
@@ -181,7 +195,7 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(context, wd)
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...(Array.isArray(history) ? history.slice(-6) : []),
+      ...history.slice(-6),
       { role: 'user', content: message },
     ]
 

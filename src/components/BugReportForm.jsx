@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, invokeFunction } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -101,44 +101,37 @@ export default function BugReportForm() {
 
       if (error) throw error
 
-      // Send screenshot directly to Telegram (non-blocking)
+      // Convert screenshot to base64 once (reused by n8n webhook + Telegram Edge Function)
+      let screenshotBase64 = null
+      let screenshotMime = null
+      let screenshotFileName = null
       if (screenshot) {
-        const tgToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN
-        const tgChatId = import.meta.env.VITE_TELEGRAM_CHAT_ID
-        if (tgToken && tgChatId) {
-          const prioLabel = PRIORITIES.find(p => p.value === priority)?.label || priority
-          const caption = `📎 Capture — ${title.trim()}\nPriorité: ${prioLabel}\nWorkspace: ${currentWorkspace.name}`
-          const formData = new FormData()
-          formData.append('chat_id', tgChatId)
-          formData.append('photo', screenshot, screenshot.name)
-          formData.append('caption', caption)
-          fetch(`https://api.telegram.org/bot${tgToken}/sendPhoto`, {
-            method: 'POST',
-            body: formData
-          }).catch(err => console.error('[BugReport] Telegram photo error:', err))
-        }
+        try {
+          screenshotBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve((reader.result).split(',')[1])
+            reader.onerror = reject
+            reader.readAsDataURL(screenshot)
+          })
+          screenshotMime = screenshot.type
+          screenshotFileName = screenshot.name
+        } catch { /* ignore */ }
+      }
+
+      // Send screenshot via Edge Function → Telegram (non-blocking, token stays server-side)
+      if (screenshotBase64) {
+        const prioLabel = PRIORITIES.find(p => p.value === priority)?.label || priority
+        invokeFunction('send-telegram', {
+          file_base64: screenshotBase64,
+          file_mime: screenshotMime,
+          file_name: screenshotFileName,
+          caption: `Capture — ${title.trim()}\nPriorité: ${prioLabel}\nWorkspace: ${currentWorkspace.name}`,
+        }).catch(err => console.error('[BugReport] send-telegram error:', err))
       }
 
       // Send webhook to n8n (non-blocking)
       const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
       if (webhookUrl) {
-        // Convertir le fichier en base64 pour que n8n puisse l'envoyer à Telegram
-        let screenshotBase64 = null
-        let screenshotMime = null
-        let screenshotFileName = null
-        if (screenshot) {
-          try {
-            screenshotBase64 = await new Promise((resolve, reject) => {
-              const reader = new FileReader()
-              reader.onload = () => resolve((reader.result).split(',')[1])
-              reader.onerror = reject
-              reader.readAsDataURL(screenshot)
-            })
-            screenshotMime = screenshot.type
-            screenshotFileName = screenshot.name
-          } catch { /* ignore, screenshot_url reste utilisé en fallback */ }
-        }
-
         fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

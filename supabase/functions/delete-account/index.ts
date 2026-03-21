@@ -92,6 +92,21 @@ serve(async (req) => {
 
       for (const ws of owned) {
         if (action === 'transfer' && transfer_to && workspace_id === ws.id) {
+          // Validate that transfer_to is actually a member of this workspace
+          const { data: targetMember } = await supabase
+            .from('workspace_users')
+            .select('id, role')
+            .eq('workspace_id', ws.id)
+            .eq('user_id', transfer_to)
+            .single()
+
+          if (!targetMember) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Le destinataire du transfert n\'est pas membre de ce workspace' }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
           // Transfer ownership
           await supabase
             .from('workspace_users')
