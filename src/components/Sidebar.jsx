@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase } from '../lib/supabase'
 import { canManageSuppliers, canViewStatistics } from '../lib/permissions'
+import { getStockAlerts } from '../services/stockService'
 
 const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
 const isAdminUser = (email) => email === ADMIN_EMAIL
@@ -17,6 +18,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [catalogueOpen, setCatalogueOpen] = useState(false)
   const [bottomSheet, setBottomSheet] = useState(null) // 'ventes' | 'boutique' | null
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [stockAlertCount, setStockAlertCount] = useState(0)
   const wsDropdownRef = useRef(null)
   const { currentWorkspace, workspaces, switchWorkspace, role } = useWorkspace()
 
@@ -68,6 +70,14 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     setBottomSheet(null)
   }, [location.pathname])
 
+  // Load stock alerts count
+  useEffect(() => {
+    if (!currentWorkspace?.id) return
+    getStockAlerts(currentWorkspace.id).then(({ outOfStock, lowStock }) => {
+      setStockAlertCount(outOfStock.length + lowStock.length)
+    }).catch(() => {})
+  }, [currentWorkspace?.id])
+
   // Fullscreen support (not available on iOS Safari)
   const fullscreenSupported = !!(
     document.fullscreenEnabled ||
@@ -98,7 +108,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     } catch { /* not supported */ }
   }
 
-  const NavItem = ({ to, icon, label, end, indent }) => (
+  const NavItem = ({ to, icon, label, end, indent, badge }) => (
     <NavLink
       to={to}
       end={end}
@@ -111,8 +121,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       }
       title={!isOpen ? label : ''}
     >
-      <span className="flex-shrink-0">{icon}</span>
-      {(isOpen || isMobile) && <span className="text-sm">{label}</span>}
+      <span className="flex-shrink-0 relative">
+        {icon}
+        {badge > 0 && !isOpen && !isMobile && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+        )}
+      </span>
+      {(isOpen || isMobile) && <span className="text-sm flex-1">{label}</span>}
+      {(isOpen || isMobile) && badge > 0 && (
+        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </NavLink>
   )
 
@@ -261,9 +281,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              {bottomSheet === 'boutique' && (
+              {bottomSheet === 'boutique' ? (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
-              )}
+              ) : stockAlertCount > 0 ? (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                  {stockAlertCount > 99 ? '99+' : stockAlertCount}
+                </span>
+              ) : null}
             </span>
             <span className="text-[10px] font-medium">Boutique</span>
           </button>
@@ -544,6 +568,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             <NavItem
               to="/stock"
               indent
+              badge={stockAlertCount}
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { listOrders } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { downloadCSV } from '../lib/csvExport'
 
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
@@ -92,15 +93,33 @@ export default function ListeCommandes() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">Commandes</h1>
           <p className="text-gray-500">{filteredOrders.length} commande{filteredOrders.length !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={() => navigate('/commandes/nouvelle')}
-          className="flex items-center gap-2 bg-[#313ADF] text-white px-5 py-3 rounded-xl font-semibold hover:bg-[#4149e8] transition-colors shadow-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouvelle commande
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('commandes', ['N° Commande', 'Client', 'Statut', 'Total TTC', 'Paiement', 'Date'], filteredOrders.map(o => [
+              o.order_number || '',
+              [o.customer?.first_name, o.customer?.last_name].filter(Boolean).join(' ') || '',
+              STATUS_BADGES[o.status]?.label || o.status || '',
+              o.total_ttc != null ? Number(o.total_ttc).toFixed(2) : '',
+              o.amount_paid != null ? Number(o.amount_paid).toFixed(2) : '',
+              o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : ''
+            ]))}
+            className="border border-gray-200 bg-white text-gray-600 px-4 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
+          <button
+            onClick={() => navigate('/commandes/nouvelle')}
+            className="flex items-center gap-2 bg-[#313ADF] text-white px-5 py-3 rounded-xl font-semibold hover:bg-[#4149e8] transition-colors shadow-lg"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvelle commande
+          </button>
+        </div>
       </div>
 
       {/* Filtres */}
