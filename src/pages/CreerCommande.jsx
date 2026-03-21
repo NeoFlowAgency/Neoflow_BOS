@@ -182,8 +182,13 @@ export default function CreerCommande() {
     }
 
     const totalHt = subtotalApresLigne - montantRemise
-    const totalTva = totalHt * 0.20
-    const totalTtcAvantFrais = totalHt + totalTva
+    // TVA calculée par ligne selon le taux de chaque produit
+    const discountRatio = subtotalApresLigne > 0 ? montantRemise / subtotalApresLigne : 0
+    const totalTva = round(lignes.reduce((sum, l) => {
+      const lineHt = lineTotal(l) * (1 - discountRatio)
+      return sum + lineHt * ((l.tax_rate || 20) / 100)
+    }, 0))
+    const totalTtcAvantFrais = round(totalHt + totalTva)
     const totalTtc = totalTtcAvantFrais + (deliveryType === 'delivery' ? (deliveryFees || 0) : 0)
 
     return {
@@ -686,7 +691,7 @@ export default function CreerCommande() {
               <span>{totaux.totalHt.toFixed(2)} EUR</span>
             </div>
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.totalTva.toFixed(2)} EUR</span>
             </div>
             {totaux.fraisLivraison > 0 && (
