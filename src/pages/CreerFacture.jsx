@@ -23,8 +23,8 @@ export default function CreerFacture() {
 
   // Products state
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 },
-    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 },
+    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 }
   ])
 
   // Discount & options
@@ -105,6 +105,7 @@ export default function CreerFacture() {
         produit_id: produitSelected.id,
         product_name: produitSelected.name,
         unit_price: produitSelected.unit_price_ht,
+        tax_rate: produitSelected.tax_rate || 20,
         total: produitSelected.unit_price_ht * l.quantity
       } : l
     ))
@@ -119,7 +120,7 @@ export default function CreerFacture() {
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id)) + 1
-    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 }])
   }
 
   const supprimerLigne = (ligneId) => {
@@ -140,8 +141,13 @@ export default function CreerFacture() {
     }
 
     const total_ht = subtotal - montantRemise
-    const montant_tva = total_ht * 0.20
-    const total_ttc = total_ht + montant_tva
+    // TVA calculée par ligne selon le taux de chaque produit
+    const discountRatio = subtotal > 0 ? montantRemise / subtotal : 0
+    const montant_tva = round(lignes.filter(l => l.produit_id).reduce((sum, l) => {
+      const lineHt = (l.quantity * l.unit_price) * (1 - discountRatio)
+      return sum + lineHt * ((l.tax_rate || 20) / 100)
+    }, 0))
+    const total_ttc = round(total_ht + montant_tva)
 
     return {
       subtotal: round(subtotal),
@@ -635,7 +641,7 @@ export default function CreerFacture() {
             </div>
 
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.montant_tva.toFixed(2)} €</span>
             </div>
 
