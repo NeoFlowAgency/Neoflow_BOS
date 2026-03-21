@@ -29,6 +29,7 @@ export default function BugReportForm() {
 
   const [reports, setReports] = useState([])
   const [loadingReports, setLoadingReports] = useState(true)
+  const [selectedReport, setSelectedReport] = useState(null)
 
   useEffect(() => {
     loadReports()
@@ -40,7 +41,7 @@ export default function BugReportForm() {
     try {
       const { data, error } = await supabase
         .from('bug_reports')
-        .select('id, title, priority, status, created_at')
+        .select('id, title, description, priority, status, created_at, screenshot_url')
         .eq('workspace_id', currentWorkspace.id)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -103,6 +104,23 @@ export default function BugReportForm() {
       // Send webhook to n8n (non-blocking)
       const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
       if (webhookUrl) {
+        // Convertir le fichier en base64 pour que n8n puisse l'envoyer à Telegram
+        let screenshotBase64 = null
+        let screenshotMime = null
+        let screenshotFileName = null
+        if (screenshot) {
+          try {
+            screenshotBase64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader()
+              reader.onload = () => resolve((reader.result).split(',')[1])
+              reader.onerror = reject
+              reader.readAsDataURL(screenshot)
+            })
+            screenshotMime = screenshot.type
+            screenshotFileName = screenshot.name
+          } catch { /* ignore, screenshot_url reste utilisé en fallback */ }
+        }
+
         fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,6 +135,9 @@ export default function BugReportForm() {
             user_id: user.id,
             user_email: user.email,
             screenshot_url: screenshotUrl,
+            screenshot_base64: screenshotBase64,
+            screenshot_mime: screenshotMime,
+            screenshot_filename: screenshotFileName,
             created_at: new Date().toISOString()
           })
         }).catch(err => console.error('[BugReport] Webhook error:', err))
@@ -258,7 +279,7 @@ export default function BugReportForm() {
               const status = STATUS_LABELS[r.status] || STATUS_LABELS.open
               const prio = PRIORITIES.find(p => p.value === r.priority) || PRIORITIES[1]
               return (
-                <div key={r.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+                <div key={r.id} onClick={() => setSelectedReport(r)} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                   <div className="flex-1 min-w-0 mr-4">
                     <p className="text-sm font-medium text-[#040741] truncate">{r.title}</p>
                     <p className="text-xs text-gray-400">
@@ -281,6 +302,69 @@ export default function BugReportForm() {
           </div>
         )}
       </div>
+      {/* Report detail modal */}
+      {selectedReport && (() => {
+        const status = STATUS_LABELS[selectedReport.status] || STATUS_LABELS.open
+        const prio = PRIORITIES.find(p => p.value === selectedReport.priority) || PRIORITIES[1]
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-[#040741]">Détail du rapport</h3>
+                <button
+                  onClick={() => setSelectedReport(null)}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Titre</p>
+                  <p className="text-[#040741] font-medium">{selectedReport.title}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Description</p>
+                  <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedReport.description}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Priorité</p>
+                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${prio.color}`}>{prio.label}</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Statut</p>
+                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${status.color}`}>{status.label}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date</p>
+                  <p className="text-gray-500 text-sm">
+                    {new Date(selectedReport.created_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric', month: 'long', year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                {selectedReport.screenshot_url && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Capture d'écran</p>
+                    <a href={selectedReport.screenshot_url} target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src={selectedReport.screenshot_url}
+                        alt="Capture d'écran"
+                        className="rounded-xl border border-gray-200 max-h-64 w-full object-contain bg-gray-50 hover:opacity-90 transition-opacity"
+                      />
+                      <p className="text-xs text-[#313ADF] mt-1">Cliquer pour agrandir</p>
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
