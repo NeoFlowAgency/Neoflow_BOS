@@ -25,8 +25,8 @@ export default function CreerDevis() {
 
   // Products state
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent' },
-    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent' }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 },
+    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 }
   ])
 
   // Options
@@ -112,6 +112,7 @@ export default function CreerDevis() {
         produit_id: produitSelected.id,
         product_name: produitSelected.name,
         unit_price: produitSelected.unit_price_ht,
+        tax_rate: produitSelected.tax_rate || 20,
       } : l
     ))
   }
@@ -131,7 +132,7 @@ export default function CreerDevis() {
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id)) + 1
-    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent' }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 }])
   }
 
   const supprimerLigne = (ligneId) => {
@@ -160,8 +161,13 @@ export default function CreerDevis() {
       montantRemise = Math.min(remiseValeur, subtotalApresLigne)
     }
     const total_ht = subtotalApresLigne - montantRemise
-    const montant_tva = total_ht * 0.20
-    const total_ttc = total_ht + montant_tva
+    // TVA calculée par ligne selon le taux de chaque produit
+    const discountRatio = subtotalApresLigne > 0 ? montantRemise / subtotalApresLigne : 0
+    const montant_tva = round(lignes.reduce((sum, l) => {
+      const lineHt = lineTotal(l) * (1 - discountRatio)
+      return sum + lineHt * ((l.tax_rate || 20) / 100)
+    }, 0))
+    const total_ttc = round(total_ht + montant_tva)
 
     // Deposit
     const depositMontant = depositType === 'percent'
@@ -653,7 +659,7 @@ export default function CreerDevis() {
               <span>{totaux.total_ht.toFixed(2)} €</span>
             </div>
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.montant_tva.toFixed(2)} €</span>
             </div>
             <div className="border-t border-white/20 pt-4 mt-4">
