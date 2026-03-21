@@ -65,14 +65,14 @@ export default function StockLocations() {
           type: formData.type,
           address: formData.address.trim() || null
         })
-        toast.success('Emplacement mis a jour')
+        toast.success('Emplacement mis à jour')
       } else {
         await createStockLocation(workspace.id, {
           name: formData.name.trim(),
           type: formData.type,
           address: formData.address.trim() || null
         })
-        toast.success('Emplacement cree')
+        toast.success('Emplacement créé')
       }
       setShowModal(false)
       loadLocations()
@@ -86,7 +86,7 @@ export default function StockLocations() {
   const handleDelete = async (locId) => {
     try {
       await deleteStockLocation(locId)
-      toast.success('Emplacement supprime')
+      toast.success('Emplacement supprimé')
       setDeleteConfirm(null)
       loadLocations()
     } catch (err) {

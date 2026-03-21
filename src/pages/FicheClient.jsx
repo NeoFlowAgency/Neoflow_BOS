@@ -411,7 +411,7 @@ export default function FicheClient() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === tab.key
                 ? 'border-[#313ADF] text-[#313ADF]'
                 : 'border-transparent text-gray-500 hover:text-[#040741]'

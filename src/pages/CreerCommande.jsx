@@ -475,7 +475,7 @@ export default function CreerCommande() {
                       <option value="">Chargement...</option>
                     ) : (
                       <>
-                        <option value="">Selectionner un produit</option>
+                        <option value="">Sélectionner un produit</option>
                         {produits.map(p => (
                           <option key={p.id} value={p.id}>
                             {p.reference ? `${p.reference} - ` : ''}{p.name}

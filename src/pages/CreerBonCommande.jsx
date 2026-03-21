@@ -199,7 +199,7 @@ export default function CreerBonCommande() {
               <option value="">Chargement...</option>
             ) : (
               <>
-                <option value="">Selectionner un fournisseur</option>
+                <option value="">Sélectionner un fournisseur</option>
                 {suppliers.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -220,14 +220,14 @@ export default function CreerBonCommande() {
           <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
-          Produits a commander
+          Produits à commander
         </h2>
 
         {/* En-tetes desktop */}
         <div className="hidden md:grid grid-cols-12 gap-4 mb-3 px-2">
           <div className="col-span-5 text-sm font-medium text-gray-500">Produit</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Quantite</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Cout unit. HT</div>
+          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Quantité</div>
+          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Coût unit. HT</div>
           <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Total HT</div>
           <div className="col-span-1"></div>
         </div>
@@ -247,7 +247,7 @@ export default function CreerBonCommande() {
                     <option value="">Chargement...</option>
                   ) : (
                     <>
-                      <option value="">Selectionner un produit</option>
+                      <option value="">Sélectionner un produit</option>
                       {produits.map(p => (
                         <option key={p.id} value={p.id}>
                           {p.reference ? `${p.reference} - ` : ''}{p.name}
@@ -264,7 +264,7 @@ export default function CreerBonCommande() {
               </div>
 
               <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Quantite</span>
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Quantité</span>
                 <input
                   type="number"
                   min={1}
@@ -275,7 +275,7 @@ export default function CreerBonCommande() {
               </div>
 
               <div className="md:col-span-2">
-                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Cout unit. HT</span>
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Coût unit. HT</span>
                 <input
                   type="number"
                   step="0.01"
