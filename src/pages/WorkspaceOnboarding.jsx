@@ -25,7 +25,7 @@ export default function WorkspaceOnboarding() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const plan = 'standard'
+  const [billing, setBilling] = useState('monthly')
 
   const [form, setForm] = useState({
     // Step 1
@@ -172,7 +172,7 @@ export default function WorkspaceOnboarding() {
       localStorage.setItem('current_workspace_id', workspace.id)
 
       if (isStripeEnabled()) {
-        const { url } = await createCheckoutSession(workspace.id, undefined, undefined, plan)
+        const { url } = await createCheckoutSession(workspace.id, undefined, undefined, billing)
         window.location.href = url
       } else {
         window.location.href = '/dashboard'
@@ -440,6 +440,25 @@ export default function WorkspaceOnboarding() {
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-[#040741] mb-4">Finaliser et s'abonner</h2>
 
+              {/* Billing toggle */}
+              <div className="flex bg-gray-100 rounded-2xl p-1">
+                <button
+                  type="button"
+                  onClick={() => setBilling('monthly')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${billing === 'monthly' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}
+                >
+                  Mensuel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBilling('annual')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${billing === 'annual' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}
+                >
+                  Annuel
+                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${billing === 'annual' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-300 text-gray-500'}`}>-2 mois</span>
+                </button>
+              </div>
+
               <div className="bg-gradient-to-br from-[#040741] to-[#313ADF] rounded-2xl p-6 text-white">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
@@ -450,8 +469,17 @@ export default function WorkspaceOnboarding() {
                     <p className="text-white/70 text-sm">Système de gestion complet</p>
                   </div>
                 </div>
-                <div className="text-3xl font-bold mb-1">49,99 €<span className="text-lg font-normal text-white/70">/mois</span></div>
-                <p className="text-white/70 text-sm">7 jours d'essai gratuit · Sans engagement · CB requise</p>
+                {billing === 'monthly' ? (
+                  <>
+                    <div className="text-3xl font-bold mb-1">49,99 €<span className="text-lg font-normal text-white/70">/mois</span></div>
+                    <p className="text-white/70 text-sm">7 jours d'essai gratuit · Sans engagement · CB requise</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold mb-1">499,90 €<span className="text-lg font-normal text-white/70">/an</span></div>
+                    <p className="text-white/70 text-sm">Soit 41,66 €/mois · 2 mois offerts · 7 jours d'essai gratuit</p>
+                  </>
+                )}
                 <ul className="mt-4 space-y-2">
                   {['Commandes & factures illimitées', 'Gestion des stocks', 'Livraisons & clients', 'Neo IA assistant', 'Statistiques avancées'].map(f => (
                     <li key={f} className="flex items-center gap-2 text-sm">
