@@ -6,7 +6,7 @@ export const ROLES = {
 }
 
 export const ROLE_LABELS = {
-  proprietaire: 'Proprietaire',
+  proprietaire: 'Propriétaire',
   manager: 'Manager',
   vendeur: 'Vendeur',
   livreur: 'Livreur',
