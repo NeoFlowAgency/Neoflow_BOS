@@ -3,8 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 
-const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
-
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
@@ -24,8 +22,8 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    // Only admin can access this endpoint
-    if (user.email !== ADMIN_EMAIL) {
+    // Only internal admin can access this endpoint
+    if (user.app_metadata?.is_internal_admin !== true) {
       return new Response(
         JSON.stringify({ error: 'Acces refuse' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
