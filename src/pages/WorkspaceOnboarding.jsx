@@ -60,12 +60,14 @@ export default function WorkspaceOnboarding() {
   const [logoPreview, setLogoPreview] = useState(null)
 
   const checkoutCanceled = searchParams.get('checkout') === 'canceled'
+  const fromSettings = searchParams.get('from') === 'settings'
 
   useEffect(() => {
-    if (currentWorkspace?.is_active) {
+    // Don't redirect if the user explicitly chose to create a new workspace from the app
+    if (!fromSettings && currentWorkspace?.is_active) {
       navigate('/dashboard', { replace: true })
     }
-  }, [currentWorkspace, navigate])
+  }, [currentWorkspace, navigate, fromSettings])
 
   const updateForm = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -166,6 +168,9 @@ export default function WorkspaceOnboarding() {
         specialite: form.specialite.trim() || null,
       })
 
+      // Save new workspace ID so the context auto-selects it after Stripe redirect
+      localStorage.setItem('current_workspace_id', workspace.id)
+
       if (isStripeEnabled()) {
         const { url } = await createCheckoutSession(workspace.id, undefined, undefined, plan)
         window.location.href = url
@@ -186,8 +191,19 @@ export default function WorkspaceOnboarding() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <BackgroundPattern />
 
-      <div className="mb-6 relative z-10">
+      <div className="mb-6 relative z-10 flex flex-col items-center gap-3">
         <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-16 object-contain" />
+        {fromSettings && (
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#040741] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour aux paramètres
+          </button>
+        )}
       </div>
 
       <div className="w-full max-w-2xl bg-white border-2 border-[#040741] rounded-3xl shadow-xl relative z-10 overflow-hidden">
