@@ -101,6 +101,24 @@ export default function BugReportForm() {
 
       if (error) throw error
 
+      // Send screenshot directly to Telegram (non-blocking)
+      if (screenshot) {
+        const tgToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN
+        const tgChatId = import.meta.env.VITE_TELEGRAM_CHAT_ID
+        if (tgToken && tgChatId) {
+          const prioLabel = PRIORITIES.find(p => p.value === priority)?.label || priority
+          const caption = `📎 Capture — ${title.trim()}\nPriorité: ${prioLabel}\nWorkspace: ${currentWorkspace.name}`
+          const formData = new FormData()
+          formData.append('chat_id', tgChatId)
+          formData.append('photo', screenshot, screenshot.name)
+          formData.append('caption', caption)
+          fetch(`https://api.telegram.org/bot${tgToken}/sendPhoto`, {
+            method: 'POST',
+            body: formData
+          }).catch(err => console.error('[BugReport] Telegram photo error:', err))
+        }
+      }
+
       // Send webhook to n8n (non-blocking)
       const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
       if (webhookUrl) {
