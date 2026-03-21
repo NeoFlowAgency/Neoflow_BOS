@@ -295,8 +295,14 @@ export default function ApercuDevis() {
                 <span>Sous-total HT</span>
                 <span>{(devis.subtotal_ht ?? devis.subtotal ?? 0).toFixed(2)} €</span>
               </div>
+              {(devis.discount_global || 0) > 0 && (
+                <div className="flex justify-between py-2 text-green-600">
+                  <span>Remise</span>
+                  <span>-{(devis.discount_global ?? 0).toFixed(2)} €</span>
+                </div>
+              )}
               <div className="flex justify-between py-2 text-gray-600">
-                <span>TVA (20%)</span>
+                <span>TVA</span>
                 <span>{(devis.total_tva ?? devis.tax_amount ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
