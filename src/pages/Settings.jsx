@@ -151,17 +151,18 @@ export default function Settings() {
       if (userIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, email')
           .in('id', userIds)
 
         if (profileData) {
-          profileData.forEach(p => { profiles[p.id] = p.full_name })
+          profileData.forEach(p => { profiles[p.id] = { full_name: p.full_name, email: p.email } })
         }
       }
 
       setMembers((data || []).map(m => ({
         ...m,
-        full_name: profiles[m.user_id] || null
+        full_name: profiles[m.user_id]?.full_name || null,
+        email: profiles[m.user_id]?.email || null
       })))
     } catch (err) {
       console.error('Erreur chargement membres:', err)
@@ -783,7 +784,7 @@ export default function Settings() {
                             <option value="">Choisir un membre...</option>
                             {members.filter(m => m.user_id !== user?.id).map(m => (
                               <option key={m.user_id} value={m.user_id}>
-                                {m.full_name || 'Membre'} ({m.role})
+                                {m.full_name || m.email || 'Membre'} ({m.role})
                               </option>
                             ))}
                           </select>
@@ -995,8 +996,11 @@ export default function Settings() {
                       </div>
                       <div>
                         <span className="text-sm text-[#040741] font-medium">
-                          {m.user_id === user?.id ? 'Vous' : (m.full_name || 'Membre')}
+                          {m.user_id === user?.id ? 'Vous' : (m.full_name || m.email || 'Membre')}
                         </span>
+                        {!m.full_name && m.email && m.user_id !== user?.id && (
+                          <p className="text-xs text-gray-400">{m.email}</p>
+                        )}
                         {m.created_at && (
                           <p className="text-xs text-gray-400">
                             Depuis le {new Date(m.created_at).toLocaleDateString('fr-FR')}
