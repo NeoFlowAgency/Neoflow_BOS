@@ -282,8 +282,8 @@ export default function ApercuBonCommande() {
                     <td className="px-6 py-3 text-right font-bold text-[#040741]">{(po.total_ht || 0).toFixed(2)} EUR</td>
                   </tr>
                   <tr>
-                    <td colSpan={4} className="px-6 py-2 text-right text-sm text-gray-400">TVA (20%)</td>
-                    <td className="px-6 py-2 text-right text-gray-500">{((po.total_ht || 0) * 0.20).toFixed(2)} EUR</td>
+                    <td colSpan={4} className="px-6 py-2 text-right text-sm text-gray-400">TVA</td>
+                    <td className="px-6 py-2 text-right text-gray-500">{((po.total_ttc || 0) - (po.total_ht || 0)).toFixed(2)} EUR</td>
                   </tr>
                   <tr>
                     <td colSpan={4} className="px-6 py-3 text-right text-sm font-bold text-[#040741]">Total TTC</td>
