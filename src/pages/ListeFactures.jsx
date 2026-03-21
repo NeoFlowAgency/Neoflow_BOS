@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { downloadCSV } from '../lib/csvExport'
 
 export default function ListeFactures() {
   const navigate = useNavigate()
@@ -71,33 +72,50 @@ export default function ListeFactures() {
   }
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes factures</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Mes factures</h1>
           <p className="text-gray-500">{factures.length} factures au total</p>
         </div>
-        <button
-          onClick={() => navigate('/factures/nouvelle')}
-          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouvelle facture
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('factures', ['N° Facture', 'Client', 'Statut', 'Total TTC', 'Date'], filteredFactures.map(f => [
+              f.invoice_number || '',
+              [f.customers?.first_name, f.customers?.last_name].filter(Boolean).join(' ') || '',
+              f.status || '',
+              f.total_ttc != null ? Number(f.total_ttc).toFixed(2) : '',
+              f.created_at ? new Date(f.created_at).toLocaleDateString('fr-FR') : ''
+            ]))}
+            className="border border-gray-200 bg-white text-gray-600 px-4 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
+          <button
+            onClick={() => navigate('/factures/nouvelle')}
+            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvelle facture
+          </button>
+        </div>
       </div>
 
       {/* Filtres et Recherche */}
       <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex-1 min-w-[250px] relative">
+        <div className="flex-1 min-w-0 relative">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
             type="text"
-            placeholder="Rechercher par nom, numéro..."
+            placeholder="Rechercher..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
@@ -151,45 +169,55 @@ export default function ListeFactures() {
               <div
                 key={d.id}
                 onClick={() => navigate(`/factures/${d.id}`)}
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-[#313ADF]/5 cursor-pointer transition-colors items-center"
+                className="px-4 md:px-6 py-4 hover:bg-[#313ADF]/5 active:bg-[#313ADF]/10 cursor-pointer transition-colors"
               >
-                <div className="md:col-span-2">
-                  <p className="font-bold text-[#040741]">{d.invoice_number || `FAC-${d.id?.slice(0, 6)}`}</p>
-                </div>
-
-                <div className="md:col-span-3">
-                  <p className="font-medium text-[#040741]">
-                    {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
-                  </p>
-                  {d.customers?.email && (
-                    <p className="text-sm text-gray-500">{d.customers.email}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <p className="text-gray-600">
-                    {new Date(d.created_at).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
-
-                <div className="md:col-span-2 text-right">
-                  <p className="font-bold text-[#313ADF] text-lg">
-                    {d.total_ttc?.toFixed(2) || '0.00'} €
-                  </p>
-                </div>
-
-                <div className="md:col-span-2 text-center">
-                  {getStatutBadge(d.status)}
-                </div>
-
-                <div className="md:col-span-1 text-right">
-                  <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* Mobile layout */}
+                <div className="md:hidden flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-bold text-[#040741] text-sm">{d.invoice_number || `FAC-${d.id?.slice(0, 6)}`}</p>
+                      {getStatutBadge(d.status)}
+                    </div>
+                    <p className="font-medium text-[#040741] text-sm truncate">
+                      {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
+                    </p>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-xs text-gray-500">
+                        {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                      <p className="font-bold text-[#313ADF]">{d.total_ttc?.toFixed(2) || '0.00'} €</p>
+                    </div>
+                  </div>
+                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
+                </div>
+
+                {/* Desktop layout */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-2">
+                    <p className="font-bold text-[#040741]">{d.invoice_number || `FAC-${d.id?.slice(0, 6)}`}</p>
+                  </div>
+                  <div className="col-span-3">
+                    <p className="font-medium text-[#040741]">
+                      {d.customers ? `${d.customers.first_name} ${d.customers.last_name}` : 'Client'}
+                    </p>
+                    {d.customers?.email && <p className="text-sm text-gray-500">{d.customers.email}</p>}
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-600">
+                      {new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <p className="font-bold text-[#313ADF] text-lg">{d.total_ttc?.toFixed(2) || '0.00'} €</p>
+                  </div>
+                  <div className="col-span-2 text-center">{getStatutBadge(d.status)}</div>
+                  <div className="col-span-1 text-right">
+                    <svg className="w-5 h-5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             ))}

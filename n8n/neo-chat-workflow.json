@@ -1,0 +1,113 @@
+{
+  "name": "Neo IA - NeoFlow BOS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "neo-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "neoflow-neo-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fix n8n v2: body at .body, not root\nconst raw = $input.first().json;\nconst body = raw.body || raw;\nconst { message, context, history, workspaceData: wd } = body;\n\n// ── Labels UI ────────────────────────────────────────────────────────────────\nconst pageLabels = {\n  '/dashboard':          'Tableau de bord',\n  '/vente-rapide':       'Vente rapide (POS)',\n  '/commandes':          'Liste des commandes',\n  '/commandes/nouvelle': 'Créer une commande',\n  '/factures':           'Factures',\n  '/devis':              'Devis',\n  '/clients':            'Clients',\n  '/produits':           'Produits',\n  '/stock':              'Stock',\n  '/livraisons':         'Livraisons',\n  '/fournisseurs':       'Fournisseurs',\n  '/statistiques':       'Statistiques',\n  '/settings':           'Paramètres',\n  '/documentation':      'Documentation',\n};\n\nconst roleFr = {\n  'proprietaire': 'Propriétaire',\n  'owner':        'Propriétaire',\n  'manager':      'Manager',\n  'admin':        'Manager',\n  'vendeur':      'Vendeur',\n  'member':       'Vendeur',\n  'livreur':      'Livreur',\n};\n\nconst pageName = pageLabels[context?.page] || context?.page || 'Application';\nconst roleDesc = roleFr[context?.role] || context?.role || 'Utilisateur';\nconst shopName = context?.workspace_name || 'le magasin';\n\n// ── Formatage données workspace ───────────────────────────────────────────────\nfunction fmtArr(arr, label, mapFn) {\n  if (!Array.isArray(arr) || arr.length === 0) return `${label} : aucun`;\n  return `${label} (${arr.length}) :\\n` + arr.map(mapFn).join('\\n');\n}\n\nconst sections = [];\n\n// KPIs\nif (wd?.kpis) {\n  const k = wd.kpis;\n  sections.push(`KPIs du mois :\n  CA encaissé : ${k.ca_mois ? k.ca_mois + ' €' : 'inconnu'}\n  Soldes en attente : ${k.paiements_en_attente ? k.paiements_en_attente + ' €' : '0 €'}\n  Commandes actives : ${k.commandes_actives ?? 0}\n  Devis ouverts : ${k.devis_ouverts ?? 0}${k.devis_urgents_7j > 0 ? ' (' + k.devis_urgents_7j + ' expirent dans 7j !)' : ''}\n  Livraisons prévues : ${k.livraisons_prevues ?? 0}`);\n}\n\n// Commandes\nsections.push(fmtArr(wd?.commandes, 'Commandes en cours', c =>\n  `  • ${c.order_number || '?'} | ${c.customers?.name || 'Sans client'} | statut: ${c.status} | TTC: ${c.total_ttc}€${c.remaining_amount > 0 ? ' | reste: ' + c.remaining_amount + '€' : ''}`))\n\n// Factures\nsections.push(fmtArr(wd?.factures, 'Factures récentes', f =>\n  `  • ${f.invoice_number || '?'} | ${f.customers?.name || '?'} | ${f.status} | ${f.total_ttc}€ | ${f.issue_date || ''}`))\n\n// Devis\nsections.push(fmtArr(wd?.devis, 'Devis ouverts', d =>\n  `  • ${d.quote_number || '?'} | ${d.customers?.name || '?'} | ${d.status} | ${d.total_ttc}€ | émis: ${d.issue_date || ''}`))\n\n// Livraisons\nsections.push(fmtArr(wd?.livraisons, 'Livraisons à venir', l =>\n  `  • ${l.customers?.name || '?'} | ${l.delivery_date || '?'}${l.time_slot ? ' ' + l.time_slot : ''} | ${l.status}`))\n\n// Clients\nsections.push(fmtArr(wd?.clients, 'Clients récents', c =>\n  `  • ${c.name}${c.city ? ' (' + c.city + ')' : ''}${c.is_priority ? ' ★ prioritaire' : ''} | ${c.phone || ''}`))\n\n// Produits\nsections.push(fmtArr(wd?.produits, 'Catalogue produits', p =>\n  `  • ${p.name}${p.reference ? ' [' + p.reference + ']' : ''}${p.category ? ' | ' + p.category : ''} | ${p.price}€`))\n\nconst dataBlock = sections.join('\\n\\n');\n\n// ── Prompt système expert ────────────────────────────────────────────────────\nconst systemPrompt = `Tu es Neo, l'assistant IA intégré à NeoFlow BOS — un logiciel de gestion pour magasins de literie.\nTu as accès aux données RÉELLES du magasin « ${shopName} » en temps réel.\n\n────────────────────────────────────────────\nDONNÉES RÉELLES DU MAGASIN (aujourd'hui)\n────────────────────────────────────────────\n${dataBlock}\n\n────────────────────────────────────────────\nCONTEXTE UTILISATEUR\n────────────────────────────────────────────\nPage ouverte : ${pageName}\nRôle : ${roleDesc}\n\n────────────────────────────────────────────\nCOMPÉTENCES MÉTIER — LITERIE\n────────────────────────────────────────────\nTu connais parfaitement le cycle de vente d'un magasin de literie :\n1. Accueil client → devis → commande avec acompte\n2. Livraison programmée → encaissement du solde à la livraison\n3. Suivi stock (matelas, sommiers, oreillers, têtes de lit…)\n4. Gestion fournisseurs (bons de commande, réception)\n5. Statistiques : CA, marges, performance vendeurs\n\nFONCTIONNALITÉS NEOFLOW BOS que tu maîtrises :\n- Vente rapide (/vente-rapide) : POS comptoir, facture simplifiée auto\n- Commandes (/commandes) : acompte + solde, statuts, livraison liée\n- Factures (/factures) : factures d'acompte, de solde, complètes\n- Devis (/devis) : création, envoi, conversion en commande\n- Clients (/clients) : CRM, historique, statut prospect/actif/prioritaire\n- Produits (/produits) : catalogue, prix, marges (visible propriétaire/manager)\n- Stock (/stock) : niveaux par emplacement, alertes, mouvements\n- Fournisseurs (/fournisseurs) : bons commande, réception marchandise\n- Livraisons (/livraisons) : planning kanban, assignation livreur\n- Statistiques (/statistiques) : CA, marges, conversions\n\n────────────────────────────────────────────\nRÈGLES ABSOLUES\n────────────────────────────────────────────\n1. DONNÉES : Cite uniquement ce qui est listé ci-dessus. Si une section dit « aucun », réponds qu'il n'y en a pas. Ne JAMAIS inventer.\n2. LANGUE : Toujours en français, naturel et professionnel.\n3. CONCISION : Réponse directe et utile. Maximum 200 mots. Pas de formules creuses.\n4. ANALYSE : Pour les questions de chiffres, fais les calculs et donne la conclusion (ne pas lister brut).\n5. GUIDAGE : Pour les questions « comment faire », donne les étapes précises dans l'interface.\n6. RÔLES : Livreur → uniquement livraisons et paiements. Vendeur → pas les marges ni les stats globales.`;\n\nconst messages = [\n  { role: 'system', content: systemPrompt },\n  ...(Array.isArray(history) ? history.slice(-6) : []),\n  { role: 'user', content: message || '' }\n];\n\nreturn {\n  ollamaRequest: {\n    model: 'qwen2.5:7b',\n    messages,\n    stream: false,\n    options: {\n      temperature: 0.2,\n      num_predict: 600,\n      stop: ['<|im_end|>', '<|endoftext|>']\n    }\n  }\n};"
+      },
+      "id": "b2c3d4e5-0002-0002-0002-000000000002",
+      "name": "Build Ollama Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:11434/api/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ollamaRequest) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000003",
+      "name": "Ollama API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst reply = response?.message?.content\n  || response?.response\n  || response?.choices?.[0]?.message?.content\n  || null;\n\nif (!reply) {\n  console.error('Ollama response format unexpected:', JSON.stringify(response).slice(0, 300));\n  return { reply: 'Je rencontre un problème technique. Réessayez dans un instant.' };\n}\n\nreturn { reply: reply.trim() };"
+      },
+      "id": "d4e5f6a7-0004-0004-0004-000000000004",
+      "name": "Extract Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e5f6a7b8-0005-0005-0005-000000000005",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1280, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Build Ollama Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Ollama Request": {
+      "main": [
+        [{ "node": "Ollama API", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ollama API": {
+      "main": [
+        [{ "node": "Extract Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Reply": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "neo-chat-v3.0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "neoflow-bos"
+  },
+  "id": "neoflow-neo-chat-workflow",
+  "tags": ["neoflow", "ia", "neo"]
+}

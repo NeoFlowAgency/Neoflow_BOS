@@ -45,12 +45,19 @@ export function WorkspaceProvider({ children }) {
       }
     })
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadedRef.current = true
-        loadWorkspaces(session.user.id)
-      } else {
+    // Listen for auth changes - only reload on meaningful events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        // Token refresh should NOT trigger a full reload - this preserves page state
+        // when the user switches tabs or the token auto-refreshes
+        return
+      }
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (session?.user && !loadedRef.current) {
+          loadedRef.current = true
+          loadWorkspaces(session.user.id)
+        }
+      } else if (event === 'SIGNED_OUT') {
         loadedRef.current = false
         setWorkspaces([])
         setCurrentWorkspace(null)
@@ -79,6 +86,14 @@ export function WorkspaceProvider({ children }) {
       workspaces,
       currentWorkspace,
       workspace: currentWorkspace,
+      role: currentWorkspace?.role,
+      isOwner: currentWorkspace?.role === 'proprietaire',
+      isAdmin: currentWorkspace?.role === 'manager' || currentWorkspace?.role === 'proprietaire',
+      isVendeur: currentWorkspace?.role === 'vendeur',
+      isLivreur: currentWorkspace?.role === 'livreur',
+      isActive: currentWorkspace?.is_active ?? false,
+      subscriptionStatus: currentWorkspace?.subscription_status ?? 'incomplete',
+      planType: currentWorkspace?.plan_type ?? 'standard',
       loading,
       error,
       switchWorkspace,

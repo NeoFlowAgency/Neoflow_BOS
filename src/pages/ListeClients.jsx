@@ -3,19 +3,46 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { downloadCSV } from '../lib/csvExport'
+
+const SIX_MONTHS = 6 * 30 * 24 * 60 * 60 * 1000
+const VIP_THRESHOLD = 5000
+
+function getClientStatus(invoices, isPriority) {
+  if (isPriority) return 'prioritaire'
+  if (!invoices || invoices.length === 0) return 'prospect'
+  const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || ''
+  const paid = invoices.filter(i => normalize(i.status) === 'payee')
+  const totalCA = paid.reduce((sum, i) => sum + (parseFloat(i.total_ttc) || 0), 0)
+  if (totalCA >= VIP_THRESHOLD) return 'prioritaire'
+  const recentPaid = paid.some(i => i.paid_at && (Date.now() - new Date(i.paid_at).getTime()) < SIX_MONTHS)
+  if (recentPaid) return 'actif'
+  if (paid.length > 0) return 'inactif'
+  return 'prospect'
+}
+
+const STATUS_CONFIG = {
+  prospect: { label: 'Prospect', bg: 'bg-blue-100', text: 'text-blue-700' },
+  actif: { label: 'Actif', bg: 'bg-green-100', text: 'text-green-700' },
+  inactif: { label: 'Inactif', bg: 'bg-gray-100', text: 'text-gray-600' },
+  prioritaire: { label: 'Prioritaire', bg: 'bg-yellow-100', text: 'text-yellow-700' }
+}
 
 export default function ListeClients() {
   const navigate = useNavigate()
   const { workspace, loading: wsLoading } = useWorkspace()
   const toast = useToast()
   const [clients, setClients] = useState([])
+  const [invoicesByCustomer, setInvoicesByCustomer] = useState({})
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '', address: ''
   })
+  const [duplicateWarning, setDuplicateWarning] = useState(null)
 
   useEffect(() => {
     if (wsLoading) return
@@ -28,13 +55,28 @@ export default function ListeClients() {
 
   const loadClients = async () => {
     try {
-      const { data } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('workspace_id', workspace?.id)
-        .order('created_at', { ascending: false })
+      const [customersRes, invoicesRes] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('*')
+          .eq('workspace_id', workspace?.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('invoices')
+          .select('id, customer_id, status, total_ttc, paid_at')
+          .eq('workspace_id', workspace?.id)
+      ])
 
-      setClients(data || [])
+      setClients(customersRes.data || [])
+
+      // Group invoices by customer_id
+      const grouped = {}
+      ;(invoicesRes.data || []).forEach(inv => {
+        if (!inv.customer_id) return
+        if (!grouped[inv.customer_id]) grouped[inv.customer_id] = []
+        grouped[inv.customer_id].push(inv)
+      })
+      setInvoicesByCustomer(grouped)
     } catch (err) {
       console.error('[ListeClients] Erreur:', err.message)
     } finally {
@@ -43,6 +85,8 @@ export default function ListeClients() {
   }
 
   const filteredClients = clients.filter(c => {
+    const status = getClientStatus(invoicesByCustomer[c.id], c.is_priority)
+    if (statusFilter !== 'all' && status !== statusFilter) return false
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
     return (
@@ -54,7 +98,7 @@ export default function ListeClients() {
     )
   })
 
-  const handleCreate = async () => {
+  const handleCreate = async (force = false) => {
     if (!form.first_name || !form.last_name) {
       toast.error('Nom et prénom sont requis')
       return
@@ -62,6 +106,28 @@ export default function ListeClients() {
 
     setCreateLoading(true)
     try {
+      // Vérifier les doublons (email ou téléphone) avant insertion
+      if (!force && (form.email || form.phone)) {
+        const conditions = []
+        if (form.email) conditions.push(`email.eq.${form.email}`)
+        if (form.phone) conditions.push(`phone.eq.${form.phone}`)
+
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id, first_name, last_name, email, phone')
+          .eq('workspace_id', workspace.id)
+          .or(conditions.join(','))
+          .limit(1)
+
+        if (existing && existing.length > 0) {
+          const dup = existing[0]
+          const matchField = dup.email === form.email ? `email "${dup.email}"` : `téléphone "${dup.phone}"`
+          setDuplicateWarning({ name: `${dup.first_name} ${dup.last_name}`, field: matchField })
+          setCreateLoading(false)
+          return
+        }
+      }
+
       const { error } = await supabase
         .from('customers')
         .insert({
@@ -78,6 +144,7 @@ export default function ListeClients() {
       toast.success('Client créé avec succès !')
       setShowModal(false)
       setForm({ first_name: '', last_name: '', email: '', phone: '', address: '' })
+      setDuplicateWarning(null)
       loadClients()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la création')
@@ -85,6 +152,13 @@ export default function ListeClients() {
       setCreateLoading(false)
     }
   }
+
+  // Count clients per status
+  const statusCounts = { all: clients.length, prospect: 0, actif: 0, inactif: 0, prioritaire: 0 }
+  clients.forEach(c => {
+    const s = getClientStatus(invoicesByCustomer[c.id], c.is_priority)
+    statusCounts[s]++
+  })
 
   if (loading) {
     return (
@@ -95,27 +169,45 @@ export default function ListeClients() {
   }
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#040741] mb-1">Mes clients</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Mes clients</h1>
           <p className="text-gray-500">{clients.length} clients au total</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouveau client
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('clients', ['Prénom', 'Nom', 'Entreprise', 'Email', 'Téléphone', 'Statut'], filteredClients.map(c => [
+              c.first_name || '',
+              c.last_name || '',
+              c.company_name || '',
+              c.email || '',
+              c.phone || '',
+              STATUS_CONFIG[getClientStatus(invoicesByCustomer[c.id], c.is_priority)]?.label || ''
+            ]))}
+            className="border border-gray-200 bg-white text-gray-600 px-4 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau client
+          </button>
+        </div>
       </div>
 
-      {/* Recherche */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
+      {/* Recherche + Filtre statut */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1 max-w-md">
           <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -126,6 +218,28 @@ export default function ListeClients() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
           />
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { key: 'all', label: 'Tous' },
+            { key: 'prioritaire', label: 'Prioritaires' },
+            { key: 'actif', label: 'Actifs' },
+            { key: 'prospect', label: 'Prospects' },
+            { key: 'inactif', label: 'Inactifs' }
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                statusFilter === f.key
+                  ? 'bg-[#313ADF] text-white shadow-md'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-[#313ADF] hover:text-[#313ADF]'
+              }`}
+            >
+              {f.label} ({statusCounts[f.key]})
+            </button>
+          ))}
         </div>
       </div>
 
@@ -138,49 +252,60 @@ export default function ListeClients() {
             </svg>
           </div>
           <p className="text-gray-500 mb-6 text-lg">
-            {searchTerm ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
+            {searchTerm || statusFilter !== 'all' ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
           </p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
-          >
-            Ajouter votre premier client
-          </button>
+          {!searchTerm && statusFilter === 'all' && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity"
+            >
+              Ajouter votre premier client
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClients.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => navigate(`/clients/${c.id}`)}
-              className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-[#313ADF]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#313ADF]/20 transition-colors">
-                  <span className="text-lg font-bold text-[#313ADF]">
-                    {c.first_name?.charAt(0)}{c.last_name?.charAt(0)}
-                  </span>
+          {filteredClients.map((c) => {
+            const status = getClientStatus(invoicesByCustomer[c.id], c.is_priority)
+            const cfg = STATUS_CONFIG[status]
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/clients/${c.id}`)}
+                className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-[#313ADF]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#313ADF]/20 transition-colors">
+                    <span className="text-lg font-bold text-[#313ADF]">
+                      {c.first_name?.charAt(0)}{c.last_name?.charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-[#040741] text-lg truncate">
+                        {c.first_name} {c.last_name}
+                      </p>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cfg.bg} ${cfg.text}`}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    {c.company_name && (
+                      <p className="text-sm text-[#313ADF] font-medium">{c.company_name}</p>
+                    )}
+                    {c.email && (
+                      <p className="text-sm text-gray-500 truncate mt-1">{c.email}</p>
+                    )}
+                    {c.phone && (
+                      <p className="text-sm text-gray-500">{c.phone}</p>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-gray-300 group-hover:text-[#313ADF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[#040741] text-lg truncate">
-                    {c.first_name} {c.last_name}
-                  </p>
-                  {c.company_name && (
-                    <p className="text-sm text-[#313ADF] font-medium">{c.company_name}</p>
-                  )}
-                  {c.email && (
-                    <p className="text-sm text-gray-500 truncate mt-1">{c.email}</p>
-                  )}
-                  {c.phone && (
-                    <p className="text-sm text-gray-500">{c.phone}</p>
-                  )}
-                </div>
-                <svg className="w-5 h-5 text-gray-300 group-hover:text-[#313ADF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -190,7 +315,7 @@ export default function ListeClients() {
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[#040741]">Nouveau client</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={() => { setShowModal(false); setDuplicateWarning(null) }} className="text-gray-400 hover:text-gray-600 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -201,64 +326,48 @@ export default function ListeClients() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-[#040741] mb-2">Prénom *</label>
-                  <input
-                    type="text"
-                    value={form.first_name}
-                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                    placeholder="Jean"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                  />
+                  <input type="text" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} placeholder="Jean" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-[#040741] mb-2">Nom *</label>
-                  <input
-                    type="text"
-                    value={form.last_name}
-                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                    placeholder="Dupont"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                  />
+                  <input type="text" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} placeholder="Dupont" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="jean@email.com"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                />
+                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jean@email.com" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Téléphone</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="06 12 34 56 78"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                />
+                <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="06 12 34 56 78" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Adresse</label>
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="15 rue des Lilas, 75001 Paris"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                />
+                <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="15 rue des Lilas, 75001 Paris" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
               </div>
-
-              <button
-                onClick={handleCreate}
-                disabled={createLoading}
-                className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-              >
+              {duplicateWarning && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <p className="text-sm font-semibold text-orange-700 mb-1">Client potentiellement en double</p>
+                  <p className="text-sm text-orange-600 mb-3">
+                    <span className="font-medium">{duplicateWarning.name}</span> a déjà le même {duplicateWarning.field}.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDuplicateWarning(null)}
+                      className="flex-1 px-3 py-2 bg-white border border-orange-300 text-orange-600 rounded-lg text-sm font-medium hover:bg-orange-50"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => { setDuplicateWarning(null); handleCreate(true) }}
+                      className="flex-1 px-3 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600"
+                    >
+                      Créer quand même
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button onClick={handleCreate} disabled={createLoading} className="w-full bg-gradient-to-r from-[#040741] to-[#313ADF] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
                 {createLoading ? (
                   <>
                     <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -267,9 +376,7 @@ export default function ListeClients() {
                     </svg>
                     Création...
                   </>
-                ) : (
-                  'Créer le client'
-                )}
+                ) : 'Créer le client'}
               </button>
             </div>
           </div>

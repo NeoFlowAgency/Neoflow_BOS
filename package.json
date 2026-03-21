@@ -1,5 +1,5 @@
 {
-  "name": "mvp-maison-de-la-literie-v1",
+  "name": "neoflow-bos",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.91.1",
+    "dompurify": "^3.3.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0",

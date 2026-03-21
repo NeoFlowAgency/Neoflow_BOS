@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerLivraison } from '../lib/api'
-import { jobService } from '../services/jobService'
+import { createInvoice } from '../services/invoiceService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
-
-const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-invoice'
 
 export default function CreerFacture() {
   const navigate = useNavigate()
   const { workspace } = useWorkspace()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -24,8 +23,8 @@ export default function CreerFacture() {
 
   // Products state
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 },
-    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 },
+    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 }
   ])
 
   // Discount & options
@@ -106,6 +105,7 @@ export default function CreerFacture() {
         produit_id: produitSelected.id,
         product_name: produitSelected.name,
         unit_price: produitSelected.unit_price_ht,
+        tax_rate: produitSelected.tax_rate || 20,
         total: produitSelected.unit_price_ht * l.quantity
       } : l
     ))
@@ -120,7 +120,7 @@ export default function CreerFacture() {
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id)) + 1
-    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0, tax_rate: 20 }])
   }
 
   const supprimerLigne = (ligneId) => {
@@ -141,8 +141,13 @@ export default function CreerFacture() {
     }
 
     const total_ht = subtotal - montantRemise
-    const montant_tva = total_ht * 0.20
-    const total_ttc = total_ht + montant_tva
+    // TVA calculée par ligne selon le taux de chaque produit
+    const discountRatio = subtotal > 0 ? montantRemise / subtotal : 0
+    const montant_tva = round(lignes.filter(l => l.produit_id).reduce((sum, l) => {
+      const lineHt = (l.quantity * l.unit_price) * (1 - discountRatio)
+      return sum + lineHt * ((l.tax_rate || 20) / 100)
+    }, 0))
+    const total_ttc = round(total_ht + montant_tva)
 
     return {
       subtotal: round(subtotal),
@@ -195,91 +200,91 @@ export default function CreerFacture() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
+      // Auto-create client if new (no existing ID)
+      let clientId = client.id
+      if (!clientId) {
+        // Check if customer already exists by phone + workspace
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('phone', client.telephone)
+          .limit(1)
+          .single()
+
+        if (existing?.id) {
+          // Update existing customer
+          await supabase
+            .from('customers')
+            .update({
+              first_name: client.prenom,
+              last_name: client.nom,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .eq('id', existing.id)
+          clientId = existing.id
+        } else {
+          // Insert new customer
+          const { data: newCustomer, error: custError } = await supabase
+            .from('customers')
+            .insert({
+              workspace_id: workspace.id,
+              first_name: client.prenom,
+              last_name: client.nom,
+              phone: client.telephone,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .select('id')
+            .single()
+          if (custError) throw new Error('Erreur création client: ' + custError.message)
+          clientId = newCustomer.id
+        }
+      }
+
       const discountAmount = Number(totaux.montantRemise) || 0
 
-      const invoicePayload = {
-        customer: {
-          id: client.id || null,
-          last_name: client.nom,
-          first_name: client.prenom,
-          phone: client.telephone,
-          email: client.email || null,
-          address: client.adresse,
-          default_delivery_address: client.adresse
-        },
-        invoice: {
-          discount_global: discountAmount,
-          discount_type: remiseType || 'percent',
-          notes: notes || '',
-          validity_days: 30,
-          status: 'brouillon',
-          has_delivery: avecLivraison || false,
-          delivery_date: dateLivraison || null,
-          subtotal_ht: totaux.total_ht,
-          total_tva: totaux.montant_tva,
-          total_ttc: totaux.total_ttc
-        },
-        items: lignesValides.map((l, index) => {
-          const produit = produits.find(p => p.id === l.produit_id)
-          return {
-            product_id: l.produit_id,
-            description: produit?.name || l.product_name || '',
-            quantity: parseInt(l.quantity),
-            unit_price_ht: l.unit_price,
-            tax_rate: produit?.tax_rate ?? 20,
-            total_ht: l.total,
-            position: index + 1
-          }
-        })
-      }
-
-      // Step 1: Create job in Supabase (workspace_id guaranteed)
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert({
-          workspace_id: workspace.id,
-          job_type: 'create_invoice',
-          status: 'pending',
-          payload: invoicePayload,
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
-
-      // Step 2: Notify n8n (fire-and-forget — don't block on failure)
-      fetch(N8N_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: job.id,
-          workspace_id: workspace.id,
-          user_id: user.id,
-          ...invoicePayload
-        })
-      }).catch(err => console.warn('[CreerFacture] n8n notification failed (non-blocking):', err.message))
-
-      // Step 3: Poll job until n8n worker completes it
-      const jobResult = await jobService.pollJobStatus(job.id, 30)
-
-      if (jobResult.success) {
-        const result = typeof jobResult.result === 'string'
-          ? JSON.parse(jobResult.result)
-          : jobResult.result || {}
-
-        const factureId = result.invoice_id || result.id || job.id
-
-        if (avecLivraison && factureId && factureId !== job.id) {
-          try { await creerLivraison({ invoice_id: factureId, workspace_id: workspace.id }) } catch (e) { console.warn('Erreur livraison:', e) }
+      const items = lignesValides.map((l, index) => {
+        const produit = produits.find(p => p.id === l.produit_id)
+        return {
+          product_id: l.produit_id,
+          description: produit?.name || l.product_name || '',
+          quantity: parseInt(l.quantity),
+          unit_price_ht: l.unit_price,
+          tax_rate: produit?.tax_rate ?? 20,
+          total_ht: l.total,
+          position: index + 1
         }
+      })
 
-        navigate(`/factures/${factureId}`)
-      } else {
-        // Job timed out or failed — navigate to invoice list
-        console.warn('[CreerFacture] Job not completed yet:', jobResult.error)
-        navigate('/factures')
+      const invoice = await createInvoice(workspace.id, user.id, clientId, items, {
+        discount_global: discountAmount,
+        discount_type: remiseType || 'percent',
+        notes: notes || '',
+        validity_days: 30,
+        has_delivery: avecLivraison || false,
+        delivery_date: dateLivraison || null,
+        subtotal_ht: totaux.total_ht,
+        total_tva: totaux.montant_tva,
+        total_ttc: totaux.total_ttc
+      })
+
+      if (avecLivraison && invoice.id) {
+        try {
+          await supabase.from('deliveries').insert({
+            invoice_id: invoice.id,
+            workspace_id: workspace.id,
+            status: 'en_cours'
+          })
+        } catch (e) {
+          console.warn('[CreerFacture] Erreur création livraison:', e)
+          toast.info('Facture créée mais erreur lors de la création de la livraison')
+        }
       }
+
+      toast.success('Facture créée avec succès !')
+      navigate(`/factures/${invoice.id}`)
     } catch (err) {
       console.error('Erreur création facture:', err.message)
       if (err.message.includes('Failed to fetch')) {
@@ -293,10 +298,10 @@ export default function CreerFacture() {
   }
 
   return (
-    <div className="p-8 min-h-screen max-w-5xl">
+    <div className="p-4 md:p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Nouvelle facture</h1>
         <p className="text-gray-500">Créer une facture pour un client</p>
       </div>
 
@@ -310,7 +315,7 @@ export default function CreerFacture() {
       )}
 
       {/* Section Information Client */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6 overflow-visible">
         <h2 className="text-xl font-bold text-[#040741] mb-6 flex items-center gap-2">
           <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -407,18 +412,19 @@ export default function CreerFacture() {
         {/* Lignes de produits */}
         <div className="space-y-3">
           {lignes.map((ligne) => (
-            <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
-              <div className="md:col-span-5 relative">
+            <div key={ligne.id} className="grid grid-cols-6 md:grid-cols-12 gap-2 md:gap-4 items-center bg-gray-50 rounded-xl p-3">
+              <div className="col-span-5 relative">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
                 <select
                   value={ligne.produit_id || ''}
                   onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
                   disabled={produitsLoading}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50 text-sm md:text-base"
                 >
                   {produitsLoading ? (
-                    <option value="">Chargement des produits...</option>
+                    <option value="">Chargement...</option>
                   ) : produits.length === 0 ? (
-                    <option value="">Aucun produit disponible</option>
+                    <option value="">Aucun produit</option>
                   ) : (
                     <>
                       <option value="">Sélectionner un produit</option>
@@ -433,29 +439,49 @@ export default function CreerFacture() {
                 </div>
               </div>
 
-              <div className="md:col-span-2">
+              <div className="col-span-1 flex justify-center md:hidden">
+                <button
+                  type="button"
+                  onClick={() => supprimerLigne(ligne.id)}
+                  disabled={lignes.length <= 1}
+                  className={`p-2 rounded-lg transition-colors ${
+                    lignes.length <= 1
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Qté</span>
                 <input
                   type="number"
                   min={1}
                   value={ligne.quantity}
                   onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-2 md:px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600">
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
+                <div className="bg-white border border-gray-200 rounded-xl px-2 md:px-3 py-3 text-center text-gray-600 text-sm md:text-base">
                   {ligne.unit_price.toFixed(2)} €
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
+              <div className="col-span-2">
+                <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total</span>
+                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 md:px-3 py-3 text-center font-bold text-[#313ADF] text-sm md:text-base">
                   {ligne.total.toFixed(2)} €
                 </div>
               </div>
 
-              <div className="md:col-span-1 flex justify-center">
+              <div className="hidden md:flex col-span-1 justify-center">
                 <button
                   type="button"
                   onClick={() => supprimerLigne(ligne.id)}
@@ -615,7 +641,7 @@ export default function CreerFacture() {
             </div>
 
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.montant_tva.toFixed(2)} €</span>
             </div>
 
@@ -655,13 +681,40 @@ export default function CreerFacture() {
       {/* Bouton Retour */}
       <button
         onClick={() => navigate('/factures')}
-        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
+        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors mb-24 md:mb-0"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Retour à la liste
       </button>
+
+      {/* Barre sticky mobile - Total + Submit */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-[#040741] to-[#0a0b52] border-t border-white/10 px-4 py-3 z-40 safe-area-bottom">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-white">
+            <span className="text-xs text-white/60">Total TTC</span>
+            <p className="text-xl font-bold">{totaux.total_ttc.toFixed(2)} €</p>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#4149e8] transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+          >
+            {loading ? (
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            Générer
+          </button>
+        </div>
+      </div>
 
       {/* Loader plein écran pendant la création */}
       {loading && (

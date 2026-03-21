@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { jobService } from '../services/jobService'
+import { createQuote } from '../services/quoteService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
-
-const N8N_WEBHOOK = 'https://n8n.srv1137119.hstgr.cloud/webhook/create-quote'
 
 export default function CreerDevis() {
   const navigate = useNavigate()
@@ -17,16 +15,18 @@ export default function CreerDevis() {
   const [error, setError] = useState('')
 
   // Client state
+  const [clientType, setClientType] = useState('particulier')
   const [client, setClient] = useState({
-    id: null, nom: '', prenom: '', telephone: '', email: '', adresse: ''
+    id: null, nom: '', prenom: '', telephone: '', email: '', adresse: '',
+    company_name: '', siret: ''
   })
   const [clientSuggestions, setClientSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
 
   // Products state
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 },
-    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 },
+    { id: 2, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 }
   ])
 
   // Options
@@ -34,6 +34,8 @@ export default function CreerDevis() {
   const [remiseValeur, setRemiseValeur] = useState(0)
   const [validiteDays, setValiditeDays] = useState(30)
   const [notes, setNotes] = useState('')
+  const [depositAmount, setDepositAmount] = useState(30)
+  const [depositType, setDepositType] = useState('percent') // 'percent' | 'euro'
   const [produits, setProduits] = useState([])
   const [produitsLoading, setProduitsLoading] = useState(false)
 
@@ -92,8 +94,12 @@ export default function CreerDevis() {
       prenom: selectedClient.first_name,
       telephone: selectedClient.phone,
       email: selectedClient.email || '',
-      adresse: selectedClient.address
+      adresse: selectedClient.address || '',
+      company_name: selectedClient.company_name || '',
+      siret: selectedClient.siret || ''
     })
+    if (selectedClient.customer_type === 'pro') setClientType('pro')
+    else setClientType('particulier')
     setShowSuggestions(false)
   }
 
@@ -106,7 +112,7 @@ export default function CreerDevis() {
         produit_id: produitSelected.id,
         product_name: produitSelected.name,
         unit_price: produitSelected.unit_price_ht,
-        total: produitSelected.unit_price_ht * l.quantity
+        tax_rate: produitSelected.tax_rate || 20,
       } : l
     ))
   }
@@ -114,13 +120,19 @@ export default function CreerDevis() {
   const handleQuantiteChange = (ligneId, newQuantite) => {
     const qty = Math.max(1, parseInt(newQuantite) || 1)
     setLignes(prev => prev.map(l =>
-      l.id === ligneId ? { ...l, quantity: qty, total: l.unit_price * qty } : l
+      l.id === ligneId ? { ...l, quantity: qty } : l
+    ))
+  }
+
+  const handleLineDiscount = (ligneId, field, value) => {
+    setLignes(prev => prev.map(l =>
+      l.id === ligneId ? { ...l, [field]: value } : l
     ))
   }
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id)) + 1
-    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, total: 0 }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, discount_item: 0, discount_item_type: 'percent', tax_rate: 20 }])
   }
 
   const supprimerLigne = (ligneId) => {
@@ -130,23 +142,46 @@ export default function CreerDevis() {
 
   const round = (num) => Math.round(num * 100) / 100
 
+  const lineTotal = (l) => {
+    const gross = l.unit_price * l.quantity
+    const disc = l.discount_item_type === 'percent'
+      ? gross * ((l.discount_item || 0) / 100)
+      : Math.min(l.discount_item || 0, gross)
+    return round(gross - disc)
+  }
+
   const calculerTotaux = () => {
-    const subtotal = lignes.reduce((sum, l) => sum + (l.quantity * l.unit_price), 0)
+    const subtotalBrut = lignes.reduce((sum, l) => sum + l.unit_price * l.quantity, 0)
+    const subtotalApresLigne = lignes.reduce((sum, l) => sum + lineTotal(l), 0)
+    const remiseLigne = subtotalBrut - subtotalApresLigne
     let montantRemise = 0
     if (remiseType === 'percent') {
-      montantRemise = subtotal * (remiseValeur / 100)
+      montantRemise = subtotalApresLigne * (remiseValeur / 100)
     } else {
-      montantRemise = Math.min(remiseValeur, subtotal)
+      montantRemise = Math.min(remiseValeur, subtotalApresLigne)
     }
-    const total_ht = subtotal - montantRemise
-    const montant_tva = total_ht * 0.20
-    const total_ttc = total_ht + montant_tva
+    const total_ht = subtotalApresLigne - montantRemise
+    // TVA calculée par ligne selon le taux de chaque produit
+    const discountRatio = subtotalApresLigne > 0 ? montantRemise / subtotalApresLigne : 0
+    const montant_tva = round(lignes.reduce((sum, l) => {
+      const lineHt = lineTotal(l) * (1 - discountRatio)
+      return sum + lineHt * ((l.tax_rate || 20) / 100)
+    }, 0))
+    const total_ttc = round(total_ht + montant_tva)
+
+    // Deposit
+    const depositMontant = depositType === 'percent'
+      ? round(total_ttc * ((depositAmount || 0) / 100))
+      : round(Math.min(depositAmount || 0, total_ttc))
+
     return {
-      subtotal: round(subtotal),
+      subtotal: round(subtotalBrut),
+      remiseLigne: round(remiseLigne),
       montantRemise: round(montantRemise),
       total_ht: round(total_ht),
       montant_tva: round(montant_tva),
-      total_ttc: round(total_ttc)
+      total_ttc: round(total_ttc),
+      depositMontant,
     }
   }
 
@@ -187,84 +222,82 @@ export default function CreerDevis() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
+      // Auto-create client if new (no existing ID)
+      let clientId = client.id
+      if (!clientId) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('phone', client.telephone)
+          .limit(1)
+          .single()
+
+        if (existing?.id) {
+          await supabase
+            .from('customers')
+            .update({
+              first_name: client.prenom,
+              last_name: client.nom,
+              email: client.email || null,
+              address: client.adresse
+            })
+            .eq('id', existing.id)
+          clientId = existing.id
+        } else {
+          const { data: newCustomer, error: custError } = await supabase
+            .from('customers')
+            .insert({
+              workspace_id: workspace.id,
+              first_name: client.prenom,
+              last_name: client.nom,
+              phone: client.telephone,
+              email: client.email || null,
+              address: client.adresse,
+              customer_type: clientType,
+              company_name: clientType === 'pro' ? (client.company_name || null) : null,
+              siret: clientType === 'pro' ? (client.siret || null) : null,
+            })
+            .select('id')
+            .single()
+          if (custError) throw new Error('Erreur création client: ' + custError.message)
+          clientId = newCustomer.id
+        }
+      }
+
       const issueDate = new Date().toISOString().split('T')[0]
       const expiryDate = new Date(Date.now() + validiteDays * 86400000).toISOString().split('T')[0]
 
-      const quotePayload = {
-        customer: {
-          id: client.id || null,
-          last_name: client.nom,
-          first_name: client.prenom,
-          phone: client.telephone,
-          email: client.email || null,
-          address: client.adresse
-        },
+      const items = lignesValides.map((l, index) => {
+        const produit = produits.find(p => p.id === l.produit_id)
+        return {
+          product_id: l.produit_id,
+          description: produit?.name || l.product_name || '',
+          quantity: parseInt(l.quantity),
+          unit_price_ht: l.unit_price,
+          tax_rate: produit?.tax_rate ?? 20,
+          discount_item: l.discount_item || 0,
+          discount_item_type: l.discount_item_type || 'percent',
+          total_ht: lineTotal(l),
+          position: index + 1
+        }
+      })
+
+      const quote = await createQuote(workspace.id, user.id, clientId, items, {
         quote_date: issueDate,
         valid_until: expiryDate,
         validity_days: validiteDays,
-        status: 'draft',
         discount_global: Number(totaux.montantRemise) || 0,
         subtotal_ht: totaux.total_ht,
         total_tva: totaux.montant_tva,
         total_ttc: totaux.total_ttc,
-        notes: notes || '',
-        items: lignesValides.map((l, index) => {
-          const produit = produits.find(p => p.id === l.produit_id)
-          return {
-            product_id: l.produit_id,
-            description: produit?.name || l.product_name || '',
-            quantity: parseInt(l.quantity),
-            unit_price_ht: l.unit_price,
-            tax_rate: produit?.tax_rate ?? 20,
-            total_ht: l.total,
-            position: index + 1
-          }
-        })
-      }
+        deposit_amount: totaux.depositMontant,
+        deposit_type: depositType,
+        notes: notes || ''
+      })
 
-      // Create job directly in Supabase (guarantees workspace_id)
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert({
-          workspace_id: workspace.id,
-          job_type: 'create_quote',
-          status: 'pending',
-          payload: quotePayload,
-          created_by: user.id
-        })
-        .select()
-        .single()
-
-      if (jobError) throw new Error('Erreur création du job: ' + jobError.message)
-
-      // Notify n8n (fire-and-forget — don't block on failure)
-      fetch(N8N_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: job.id,
-          workspace_id: workspace.id,
-          user_id: user.id,
-          ...quotePayload
-        })
-      }).catch(err => console.warn('[CreerDevis] n8n notification failed (non-blocking):', err.message))
-
-      // Poll job until n8n worker completes it
-      const jobResult = await jobService.pollJobStatus(job.id, 30)
-
-      if (jobResult.success) {
-        const result = typeof jobResult.result === 'string'
-          ? JSON.parse(jobResult.result)
-          : jobResult.result || {}
-
-        const devisId = result.quote_id || result.id || job.id
-        toast.success('Devis créé avec succès !')
-        navigate(`/devis/${devisId}`)
-      } else {
-        console.warn('[CreerDevis] Job not completed yet:', jobResult.error)
-        toast.info('Devis en cours de création...')
-        navigate('/devis')
-      }
+      toast.success('Devis créé avec succès !')
+      navigate(`/devis/${quote.id}`)
     } catch (err) {
       console.error('Erreur création devis:', err.message)
       if (err.message.includes('Failed to fetch')) {
@@ -279,10 +312,10 @@ export default function CreerDevis() {
   }
 
   return (
-    <div className="p-8 min-h-screen max-w-5xl">
+    <div className="p-4 md:p-8 min-h-screen max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Nouveau devis</h1>
         <p className="text-gray-500">Créer un devis pour un client</p>
       </div>
 
@@ -296,13 +329,19 @@ export default function CreerDevis() {
       )}
 
       {/* Section Information Client */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6">
-        <h2 className="text-xl font-bold text-[#040741] mb-6 flex items-center gap-2">
-          <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          Information Client
-        </h2>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6 overflow-visible">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-[#040741] flex items-center gap-2">
+            <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Information Client
+          </h2>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+            <button type="button" onClick={() => setClientType('particulier')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${clientType === 'particulier' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500 hover:text-[#040741]'}`}>Particulier</button>
+            <button type="button" onClick={() => setClientType('pro')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${clientType === 'pro' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500 hover:text-[#040741]'}`}>Professionnel</button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -359,6 +398,18 @@ export default function CreerDevis() {
             />
           </div>
 
+          {clientType === 'pro' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Nom de l'entreprise</label>
+                <input type="text" value={client.company_name} onChange={(e) => setClient({ ...client, company_name: e.target.value })} placeholder="SARL Dupont" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">SIRET</label>
+                <input type="text" value={client.siret} onChange={(e) => setClient({ ...client, siret: e.target.value })} placeholder="123 456 789 00012" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]" />
+              </div>
+            </>
+          )}
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold text-[#040741] mb-2">Adresse *</label>
             <input
@@ -381,79 +432,87 @@ export default function CreerDevis() {
           Produits
         </h2>
 
-        <div className="hidden md:grid grid-cols-12 gap-4 mb-3 px-2">
-          <div className="col-span-5 text-sm font-medium text-gray-500">Produit</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Quantité</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Prix unit. HT</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Total HT</div>
+        <div className="hidden md:grid grid-cols-12 gap-3 mb-3 px-2">
+          <div className="col-span-4 text-sm font-medium text-gray-500">Produit</div>
+          <div className="col-span-1 text-sm font-medium text-gray-500 text-center">Qté</div>
+          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Prix HT</div>
+          <div className="col-span-3 text-sm font-medium text-gray-500 text-center">Remise ligne</div>
+          <div className="col-span-1 text-sm font-medium text-gray-500 text-center">Total HT</div>
           <div className="col-span-1"></div>
         </div>
 
         <div className="space-y-3">
           {lignes.map((ligne) => (
-            <div key={ligne.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50 rounded-xl p-3">
-              <div className="md:col-span-5 relative">
-                <select
-                  value={ligne.produit_id || ''}
-                  onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
-                  disabled={produitsLoading}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50"
-                >
-                  {produitsLoading ? (
-                    <option value="">Chargement des produits...</option>
-                  ) : produits.length === 0 ? (
-                    <option value="">Aucun produit disponible</option>
-                  ) : (
-                    <>
-                      <option value="">Sélectionner un produit</option>
-                      {produits.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </>
-                  )}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+            <div key={ligne.id} className="bg-gray-50 rounded-xl p-3">
+              {/* Row 1: Produit + Delete */}
+              <div className="flex gap-2 items-start mb-2 md:mb-0 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+                <div className="flex-1 md:col-span-4 relative">
+                  <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Produit</span>
+                  <select
+                    value={ligne.produit_id || ''}
+                    onChange={(e) => handleProduitChange(ligne.id, e.target.value)}
+                    disabled={produitsLoading}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] text-sm md:text-base appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] disabled:opacity-50"
+                  >
+                    {produitsLoading ? <option value="">Chargement...</option> : produits.length === 0 ? <option value="">Aucun produit</option> : (
+                      <><option value="">Sélectionner un produit</option>{produits.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</>
+                    )}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></div>
                 </div>
-              </div>
 
-              <div className="md:col-span-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={ligne.quantity}
-                  onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600">
-                  {ligne.unit_price.toFixed(2)} €
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
-                  {ligne.total.toFixed(2)} €
-                </div>
-              </div>
-
-              <div className="md:col-span-1 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => supprimerLigne(ligne.id)}
-                  disabled={lignes.length <= 1}
-                  className={`p-2 rounded-lg transition-colors ${
-                    lignes.length <= 1
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-red-400 hover:text-red-600 hover:bg-red-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`md:hidden p-2 rounded-lg transition-colors mt-5 ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
+
+                {/* Desktop-only remaining columns */}
+                <div className="hidden md:block md:col-span-1">
+                  <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div className="hidden md:block md:col-span-2">
+                  <div className="bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-gray-600 text-sm">{ligne.unit_price.toFixed(2)} €</div>
+                </div>
+                <div className="hidden md:block md:col-span-3">
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => handleLineDiscount(ligne.id, 'discount_item_type', ligne.discount_item_type === 'percent' ? 'euro' : 'percent')} className="bg-white border border-gray-200 text-gray-500 px-2 py-3 rounded-xl text-xs font-medium hover:bg-gray-100 flex-shrink-0">
+                      {ligne.discount_item_type === 'percent' ? '%' : '€'}
+                    </button>
+                    <input type="number" min={0} max={ligne.discount_item_type === 'percent' ? 100 : ligne.unit_price * ligne.quantity} value={ligne.discount_item || ''} onChange={e => handleLineDiscount(ligne.id, 'discount_item', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center text-sm text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" placeholder="0" />
+                  </div>
+                </div>
+                <div className="hidden md:block md:col-span-1">
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 py-3 text-center font-bold text-[#313ADF] text-sm">{lineTotal(ligne).toFixed(2)}</div>
+                </div>
+                <div className="hidden md:flex md:col-span-1 justify-center">
+                  <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`p-2 rounded-lg transition-colors ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2 mobile: Qté, Prix, Remise, Total in grid */}
+              <div className="md:hidden grid grid-cols-4 gap-2">
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Qté</span>
+                  <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center font-semibold text-[#040741] text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
+                  <div className="bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center text-gray-600 text-xs">{ligne.unit_price.toFixed(2)} €</div>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Remise</span>
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" onClick={() => handleLineDiscount(ligne.id, 'discount_item_type', ligne.discount_item_type === 'percent' ? 'euro' : 'percent')} className="bg-white border border-gray-200 text-gray-500 px-1.5 py-2.5 rounded-l-xl text-xs font-medium">
+                      {ligne.discount_item_type === 'percent' ? '%' : '€'}
+                    </button>
+                    <input type="number" min={0} value={ligne.discount_item || ''} onChange={e => handleLineDiscount(ligne.id, 'discount_item', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-200 rounded-r-xl px-1 py-2.5 text-center text-xs text-[#040741] focus:outline-none" placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Total</span>
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-1 py-2.5 text-center font-bold text-[#313ADF] text-xs">{lineTotal(ligne).toFixed(2)} €</div>
+                </div>
               </div>
             </div>
           ))}
@@ -513,6 +572,28 @@ export default function CreerDevis() {
             )}
           </div>
 
+          {/* Acompte */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-[#040741] mb-3">Acompte demandé</label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                <button type="button" onClick={() => setDepositType('percent')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${depositType === 'percent' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}>%</button>
+                <button type="button" onClick={() => setDepositType('euro')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${depositType === 'euro' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}>€</button>
+              </div>
+              <input
+                type="number" min={0} max={depositType === 'percent' ? 100 : totaux.total_ttc}
+                value={depositAmount || ''}
+                onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)}
+                placeholder="30"
+                className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center font-medium text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+              />
+              <span className="text-gray-500 font-medium">{depositType === 'percent' ? '%' : '€'}</span>
+              {totaux.depositMontant > 0 && (
+                <span className="text-sm text-[#313ADF] font-medium">= {totaux.depositMontant.toFixed(2)} € TTC</span>
+              )}
+            </div>
+          </div>
+
           {/* Validité */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-[#040741] mb-3">Validité du devis</label>
@@ -561,31 +642,38 @@ export default function CreerDevis() {
               <span>Sous-total HT</span>
               <span>{totaux.subtotal.toFixed(2)} €</span>
             </div>
-
+            {totaux.remiseLigne > 0 && (
+              <div className="flex justify-between text-green-400">
+                <span>Remises lignes</span>
+                <span>- {totaux.remiseLigne.toFixed(2)} €</span>
+              </div>
+            )}
             {totaux.montantRemise > 0 && (
               <div className="flex justify-between text-green-400">
-                <span>Remise ({remiseType === 'percent' ? `${remiseValeur}%` : `${remiseValeur}€`})</span>
+                <span>Remise globale</span>
                 <span>- {totaux.montantRemise.toFixed(2)} €</span>
               </div>
             )}
-
             <div className="flex justify-between text-white/70">
               <span>Total HT</span>
               <span>{totaux.total_ht.toFixed(2)} €</span>
             </div>
-
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.montant_tva.toFixed(2)} €</span>
             </div>
-
             <div className="border-t border-white/20 pt-4 mt-4">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold">Total TTC</span>
                 <span className="text-3xl font-bold text-[#313ADF]">{totaux.total_ttc.toFixed(2)} €</span>
               </div>
             </div>
-
+            {totaux.depositMontant > 0 && (
+              <div className="flex justify-between text-yellow-300 text-sm bg-white/10 rounded-lg px-3 py-2">
+                <span>Acompte demandé</span>
+                <span className="font-semibold">{totaux.depositMontant.toFixed(2)} € TTC</span>
+              </div>
+            )}
             <div className="flex justify-between text-white/50 text-sm">
               <span>Validité</span>
               <span>{validiteDays} jours</span>
@@ -620,13 +708,35 @@ export default function CreerDevis() {
       {/* Bouton Retour */}
       <button
         onClick={() => navigate('/devis')}
-        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
+        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors mb-24 md:mb-0"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         Retour à la liste
       </button>
+
+      {/* Barre sticky mobile */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-[#040741] to-[#0a0b52] border-t border-white/10 px-4 py-3 z-40 safe-area-bottom">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-white">
+            <span className="text-xs text-white/60">Total TTC</span>
+            <p className="text-xl font-bold">{totaux.total_ttc.toFixed(2)} €</p>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-[#313ADF] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#4149e8] transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+          >
+            {loading ? (
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            )}
+            Générer
+          </button>
+        </div>
+      </div>
 
       {/* Loader plein écran */}
       {loading && (

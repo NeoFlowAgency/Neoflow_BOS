@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { n8nService } from '../services/n8nService'
+import { convertQuoteToOrder } from '../services/orderService'
+import { generatePdf } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -54,56 +55,20 @@ export default function ApercuDevis() {
     }
   }
 
-  const handleConvertToInvoice = async () => {
+  const handleConvertToOrder = async () => {
     setActionLoading('convert')
     try {
-      const result = await n8nService.convertQuoteToInvoice(devis.id)
-      toast.success(`Facture ${result.invoice_ref || ''} créée !`)
+      const result = await convertQuoteToOrder(devis.id)
 
-      // Update quote status
-      await supabase
-        .from('quotes')
-        .update({ status: 'accepted' })
-        .eq('id', devis.id)
-        .eq('workspace_id', workspace.id)
-
-      const invoiceId = result.invoice_id || result.id
-      if (invoiceId) {
-        navigate(`/factures/${invoiceId}`)
-      } else {
-        navigate('/factures')
+      const orderId = result?.order_id
+      if (!orderId) {
+        throw new Error('La conversion a échoué : aucune commande créée')
       }
+
+      toast.success(`Commande ${result.order_number || ''} créée !`)
+      navigate(`/commandes/${orderId}`)
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la conversion')
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleSendEmail = async () => {
-    if (!devis?.customers?.email) {
-      toast.error("Pas d'email client disponible")
-      return
-    }
-
-    setActionLoading('email')
-    try {
-      await n8nService.sendEmail(
-        devis.customers.email,
-        `Devis ${devis.quote_ref || ''}`,
-        `<h1>Votre devis</h1><p>Veuillez trouver ci-joint votre devis d'un montant de ${devis.total_amount?.toFixed(2)} €.</p>`
-      )
-      toast.success('Email envoyé avec succès !')
-
-      await supabase
-        .from('quotes')
-        .update({ status: 'sent' })
-        .eq('id', devis.id)
-        .eq('workspace_id', workspace.id)
-
-      loadDevis()
-    } catch (err) {
-      toast.error(err.message || "Erreur lors de l'envoi")
     } finally {
       setActionLoading(null)
     }
@@ -112,12 +77,11 @@ export default function ApercuDevis() {
   const handleDownloadPdf = async () => {
     setActionLoading('pdf')
     try {
-      const response = await n8nService.generatePdf('quote', devis.id)
-      if (response.pdf_url) {
-        window.open(response.pdf_url, '_blank')
-        toast.success('PDF généré !')
+      const result = await generatePdf('quote', devis.id)
+      if (result?.pdf_url) {
+        window.open(result.pdf_url, '_blank')
       } else {
-        throw new Error('URL PDF non retournée')
+        throw new Error('URL PDF non disponible')
       }
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la génération du PDF')
@@ -192,7 +156,7 @@ export default function ApercuDevis() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4 no-print">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-bold text-[#040741]">Aperçu du devis</h1>
@@ -205,7 +169,7 @@ export default function ApercuDevis() {
         <div className="flex gap-3 flex-wrap">
           {devis.status !== 'accepted' && devis.status !== 'rejected' && (
             <button
-              onClick={handleConvertToInvoice}
+              onClick={handleConvertToOrder}
               disabled={actionLoading === 'convert'}
               className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
             >
@@ -219,27 +183,9 @@ export default function ApercuDevis() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               )}
-              Convertir en facture
+              Convertir en commande
             </button>
           )}
-
-          <button
-            onClick={handleSendEmail}
-            disabled={actionLoading === 'email'}
-            className="flex items-center gap-2 px-4 py-2 bg-[#313ADF] text-white rounded-xl font-medium hover:bg-[#040741] transition-colors disabled:opacity-50"
-          >
-            {actionLoading === 'email' ? (
-              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            )}
-            Envoyer par email
-          </button>
 
           <button
             onClick={handleDownloadPdf}
@@ -280,7 +226,11 @@ export default function ApercuDevis() {
           {/* En-tête */}
           <div className="flex items-start justify-between mb-8 pb-6 border-b border-gray-100">
             <div>
-              <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              {workspace?.logo_url ? (
+                <img src={workspace.logo_url} alt={workspace.name || 'Logo'} className="h-12 mb-2 object-contain" />
+              ) : (
+                <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              )}
               <p className="text-sm text-gray-500">{workspace?.name || ''}</p>
             </div>
             <div className="text-right">
@@ -299,6 +249,11 @@ export default function ApercuDevis() {
               <p className="font-bold text-[#313ADF] text-sm mb-2">ÉMETTEUR</p>
               <p className="font-medium text-[#040741]">{workspace?.name || 'Entreprise'}</p>
               {workspace?.address && <p className="text-gray-600 text-sm">{workspace.address}</p>}
+              {(workspace?.postal_code || workspace?.city) && <p className="text-gray-600 text-sm">{workspace.postal_code} {workspace.city}</p>}
+              {workspace?.phone && <p className="text-gray-600 text-sm">Tel: {workspace.phone}</p>}
+              {workspace?.email && <p className="text-gray-600 text-sm">{workspace.email}</p>}
+              {workspace?.siret && <p className="text-gray-600 text-sm">SIRET: {workspace.siret}</p>}
+              {workspace?.vat_number && <p className="text-gray-600 text-sm">TVA: {workspace.vat_number}</p>}
             </div>
             <div className="text-right">
               <p className="font-bold text-[#313ADF] text-sm mb-2">DESTINATAIRE</p>
@@ -325,8 +280,8 @@ export default function ApercuDevis() {
                   <tr key={index} className="border-b border-gray-100">
                     <td className="py-3 text-[#040741]">{ligne.description || 'Produit'}</td>
                     <td className="py-3 text-center text-gray-600">{ligne.quantity}</td>
-                    <td className="py-3 text-right text-gray-600">{ligne.unit_price?.toFixed(2)} €</td>
-                    <td className="py-3 text-right font-medium text-[#040741]">{ligne.total_price?.toFixed(2)} €</td>
+                    <td className="py-3 text-right text-gray-600">{(ligne.unit_price_ht ?? ligne.unit_price ?? 0).toFixed(2)} €</td>
+                    <td className="py-3 text-right font-medium text-[#040741]">{(ligne.total_ht ?? ligne.total_price ?? 0).toFixed(2)} €</td>
                   </tr>
                 ))}
               </tbody>
@@ -338,15 +293,15 @@ export default function ApercuDevis() {
             <div className="w-72 bg-gray-50 rounded-xl p-4">
               <div className="flex justify-between py-2 text-gray-600">
                 <span>Sous-total HT</span>
-                <span>{devis.subtotal?.toFixed(2)} €</span>
+                <span>{(devis.subtotal_ht ?? devis.subtotal ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-2 text-gray-600">
                 <span>TVA (20%)</span>
-                <span>{devis.tax_amount?.toFixed(2)} €</span>
+                <span>{(devis.total_tva ?? devis.tax_amount ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
                 <span className="font-bold text-[#040741] text-lg">Total TTC</span>
-                <span className="font-bold text-[#313ADF] text-xl">{devis.total_amount?.toFixed(2)} €</span>
+                <span className="font-bold text-[#313ADF] text-xl">{(devis.total_ttc ?? devis.total_amount ?? 0).toFixed(2)} €</span>
               </div>
             </div>
           </div>
@@ -361,7 +316,10 @@ export default function ApercuDevis() {
 
           {/* Pied de page */}
           <div className="text-xs text-gray-500 border-t border-gray-200 pt-6">
-            <p>Ce devis est valable {devis.expiry_date ? `jusqu'au ${new Date(devis.expiry_date).toLocaleDateString('fr-FR')}` : '30 jours'}. Passé ce délai, il devra être renouvelé.</p>
+            <p>Ce devis est valable {devis.expiry_date ? `jusqu'au ${new Date(devis.expiry_date).toLocaleDateString('fr-FR')}` : '30 jours'}. Passe ce delai, il devra etre renouvele.</p>
+            {workspace?.quote_footer && (
+              <p className="mt-2">{workspace.quote_footer}</p>
+            )}
           </div>
         </div>
       </div>

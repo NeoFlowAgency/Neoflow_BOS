@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { envoyerEmail, genererPdf, creerLivraison, relancePaiement } from '../lib/api'
+import { sendEmail } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -69,7 +69,11 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await envoyerEmail(factureId)
+      await sendEmail(
+        facture.customers.email,
+        `Facture ${facture.invoice_number}`,
+        `<h1>Votre facture</h1><p>Veuillez trouver ci-joint votre facture n° ${facture.invoice_number} d'un montant de ${facture.total_ttc?.toFixed(2)} €.</p>`
+      )
       setActionMessage({ type: 'success', text: 'Email envoyé avec succès !' })
       toast.success('Email envoyé avec succès !')
 
@@ -82,24 +86,8 @@ export default function ApercuFacture() {
     }
   }
 
-  const handleDownloadPdf = async () => {
-    setActionLoading('pdf')
-    setActionMessage({ type: '', text: '' })
-
-    try {
-      const response = await genererPdf(factureId)
-
-      if (response.pdf_url) {
-        window.open(response.pdf_url, '_blank')
-        setActionMessage({ type: 'success', text: 'PDF généré !' })
-      } else {
-        throw new Error('URL PDF non retournée')
-      }
-    } catch (err) {
-      setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la génération' })
-    } finally {
-      setActionLoading(null)
-    }
+  const handleDownloadPdf = () => {
+    window.print()
   }
 
   const handleCreateLivraison = async () => {
@@ -107,7 +95,16 @@ export default function ApercuFacture() {
     setActionMessage({ type: '', text: '' })
 
     try {
-      await creerLivraison({ invoice_id: factureId, delivery_address: facture?.customers?.address })
+      const { error } = await supabase.from('deliveries').insert({
+        invoice_id: factureId,
+        order_id: facture.order_id || null,
+        workspace_id: workspace.id,
+        delivery_type: 'delivery',
+        scheduled_date: facture.delivery_date || null,
+        delivery_address: facture?.customers?.address || null,
+        status: 'a_planifier'
+      })
+      if (error) throw error
       setActionMessage({ type: 'success', text: 'Livraison créée !' })
       toast.success('Livraison créée !')
     } catch (err) {
@@ -118,15 +115,19 @@ export default function ApercuFacture() {
   }
 
   const handleMarkPaid = async () => {
+    if (!window.confirm('Confirmer le paiement de cette facture ?')) return
+
     setActionLoading('paid')
     setActionMessage({ type: '', text: '' })
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('invoices')
         .update({ status: 'payée', paid_at: new Date().toISOString() })
         .eq('id', factureId)
         .eq('workspace_id', workspace.id)
+
+      if (error) throw error
 
       setActionMessage({ type: 'success', text: 'Facture marquée comme payée !' })
       toast.success('Facture marquée comme payée !')
@@ -139,11 +140,20 @@ export default function ApercuFacture() {
   }
 
   const handleSendReminder = async () => {
+    if (!facture?.customers?.email) {
+      setActionMessage({ type: 'error', text: 'Pas d\'email client disponible pour la relance' })
+      return
+    }
+
     setActionLoading('reminder')
     setActionMessage({ type: '', text: '' })
 
     try {
-      await relancePaiement(factureId, workspace.id)
+      await sendEmail(
+        facture.customers.email,
+        `Relance - Facture ${facture.invoice_number}`,
+        `<h1>Relance de paiement</h1><p>Nous vous rappelons que votre facture n° ${facture.invoice_number} d'un montant de ${facture.total_ttc?.toFixed(2)} € est en attente de règlement.</p><p>Merci de procéder au paiement dans les meilleurs délais.</p>`
+      )
       setActionMessage({ type: 'success', text: 'Relance de paiement envoyée !' })
       toast.success('Relance envoyée !')
     } catch (err) {
@@ -185,7 +195,7 @@ export default function ApercuFacture() {
   return (
     <div className="p-8 min-h-screen">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4 no-print">
         <div>
           <h1 className="text-3xl font-bold text-[#040741] mb-1">Aperçu de la facture</h1>
           <p className="text-gray-500">N° {facture.invoice_number}</p>
@@ -229,23 +239,25 @@ export default function ApercuFacture() {
             Télécharger PDF
           </button>
 
-          <button
-            onClick={handleCreateLivraison}
-            disabled={actionLoading === 'livraison'}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-          >
-            {actionLoading === 'livraison' ? (
-              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-            )}
-            Créer livraison
-          </button>
+          {facture?.has_delivery !== false && (
+            <button
+              onClick={handleCreateLivraison}
+              disabled={actionLoading === 'livraison'}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === 'livraison' ? (
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              )}
+              Créer livraison
+            </button>
+          )}
 
           {facture?.status !== 'payée' && (
             <button
@@ -313,11 +325,11 @@ export default function ApercuFacture() {
           {/* En-tête facture */}
           <div className="flex items-start justify-between mb-8 pb-6 border-b border-gray-100">
             <div>
-              <img
-                src="/logo-neoflow.png"
-                alt="Neoflow Agency"
-                className="h-12 mb-2"
-              />
+              {workspace?.logo_url ? (
+                <img src={workspace.logo_url} alt={workspace.name || 'Logo'} className="h-12 mb-2 object-contain" />
+              ) : (
+                <img src="/logo-neoflow.png" alt="Neoflow Agency" className="h-12 mb-2" />
+              )}
               <p className="text-sm text-gray-500">{workspace?.name || ''}</p>
             </div>
             <div className="text-right">
@@ -333,6 +345,10 @@ export default function ApercuFacture() {
               <p className="font-bold text-[#313ADF] text-sm mb-2">ÉMETTEUR</p>
               <p className="font-medium text-[#040741]">{workspace?.name || 'Entreprise'}</p>
               {workspace?.address && <p className="text-gray-600 text-sm">{workspace.address}</p>}
+              {(workspace?.postal_code || workspace?.city) && <p className="text-gray-600 text-sm">{workspace.postal_code} {workspace.city}</p>}
+              {workspace?.phone && <p className="text-gray-600 text-sm">Tel: {workspace.phone}</p>}
+              {workspace?.email && <p className="text-gray-600 text-sm">{workspace.email}</p>}
+              {workspace?.siret && <p className="text-gray-600 text-sm">SIRET: {workspace.siret}</p>}
               {workspace?.vat_number && <p className="text-gray-600 text-sm">TVA: {workspace.vat_number}</p>}
             </div>
             <div className="text-right">
@@ -395,16 +411,32 @@ export default function ApercuFacture() {
           {/* Pied de page */}
           <div className="grid grid-cols-2 gap-8 text-xs text-gray-500 border-t border-gray-200 pt-6">
             <div>
-              <p className="font-bold text-[#040741] text-sm mb-2">Règlement</p>
-              <p>Par virement bancaire:</p>
-              <p>IBAN: FR76 1234 5678 9012</p>
-              <p>BIC: AGRIFRPP</p>
+              <p className="font-bold text-[#040741] text-sm mb-2">Reglement</p>
+              {workspace?.bank_iban || workspace?.bank_bic ? (
+                <>
+                  <p>Par virement bancaire:</p>
+                  {workspace.bank_account_holder && <p>{workspace.bank_account_holder}</p>}
+                  {workspace.bank_iban && <p>IBAN: {workspace.bank_iban}</p>}
+                  {workspace.bank_bic && <p>BIC: {workspace.bank_bic}</p>}
+                </>
+              ) : (
+                <p className="text-gray-400 italic">Coordonnees bancaires non configurees</p>
+              )}
             </div>
             <div>
               <p className="font-bold text-[#040741] text-sm mb-2">Conditions</p>
-              <p>En cas de retard de paiement, une indemnité de 3 fois le taux d'intérêt légal ainsi qu'une indemnité forfaitaire de 40€ seront exigibles.</p>
+              {workspace?.payment_terms ? (
+                <p>{workspace.payment_terms}</p>
+              ) : (
+                <p>En cas de retard de paiement, une indemnite de 3 fois le taux d'interet legal ainsi qu'une indemnite forfaitaire de 40EUR seront exigibles.</p>
+              )}
             </div>
           </div>
+          {workspace?.invoice_footer && (
+            <div className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-100">
+              <p>{workspace.invoice_footer}</p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -97,7 +97,7 @@ export default function PhoneInput({ value, onChange, onSearch, placeholder = "0
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-hidden w-72">
+        <div className="absolute z-50 left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-64 overflow-hidden w-[calc(100vw-2rem)] sm:w-72">
           <div className="p-2 border-b border-gray-100">
             <input
               type="text"
