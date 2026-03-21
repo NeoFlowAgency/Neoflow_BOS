@@ -97,10 +97,12 @@ export default function ApercuFacture() {
     try {
       const { error } = await supabase.from('deliveries').insert({
         invoice_id: factureId,
+        order_id: facture.order_id || null,
         workspace_id: workspace.id,
-        scheduled_date: facture.delivery_date || new Date().toISOString().split('T')[0],
-        delivery_address: facture?.customers?.address,
-        status: 'en_cours'
+        delivery_type: 'delivery',
+        scheduled_date: facture.delivery_date || null,
+        delivery_address: facture?.customers?.address || null,
+        status: 'a_planifier'
       })
       if (error) throw error
       setActionMessage({ type: 'success', text: 'Livraison créée !' })
