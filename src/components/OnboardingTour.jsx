@@ -400,9 +400,24 @@ export default function OnboardingTour() {
   // ── Show on mount if needed ──
   useEffect(() => {
     if (!currentWorkspace) return
-    if (shouldShowOnboarding()) {
+    if (!shouldShowOnboarding()) return // localStorage already marked done
+
+    // Also check DB in case this is a new device/browser
+    const checkProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', user.id)
+        .single()
+      if (profile?.onboarding_completed) {
+        localStorage.setItem('neoflow_onboarding_done', '1')
+        return
+      }
       setPhase('welcome')
     }
+    checkProfile()
   }, [currentWorkspace])
 
   // ── Auto-navigate when step changes ──
@@ -418,7 +433,8 @@ export default function OnboardingTour() {
   const handleWelcomeAction = useCallback(
     async (action) => {
       if (action === 'skip') {
-        await markOnboardingComplete(currentWorkspace?.owner_user_id)
+        const { data: { user } } = await supabase.auth.getUser()
+        await markOnboardingComplete(user?.id)
         setPhase('idle')
         return
       }
@@ -461,7 +477,8 @@ export default function OnboardingTour() {
     setLoading(true)
     try {
       if (currentWorkspace) await deleteTestData(currentWorkspace.id)
-      await markOnboardingComplete(currentWorkspace?.owner_user_id)
+      const { data: { user } } = await supabase.auth.getUser()
+      await markOnboardingComplete(user?.id)
     } catch (err) {
       console.error('[OnboardingTour] cleanup error:', err)
     } finally {
@@ -475,7 +492,8 @@ export default function OnboardingTour() {
     setLoading(true)
     try {
       if (currentWorkspace) await deleteTestData(currentWorkspace.id)
-      await markOnboardingComplete(currentWorkspace?.owner_user_id)
+      const { data: { user } } = await supabase.auth.getUser()
+      await markOnboardingComplete(user?.id)
       navigate('/dashboard')
     } catch (err) {
       console.error('[OnboardingTour] cleanup error:', err)
