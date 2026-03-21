@@ -43,7 +43,7 @@ export default function AdminDashboard() {
       if (!u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q)) return false
     }
     if (filter === 'early-access') {
-      return data.workspaces.some(ws => ws.plan_type === 'early-access' && data.workspaces.some(w => w.owner_email === u.email))
+      return data.workspaces.some(ws => ws.plan_type === 'early-access' && ws.owner_email === u.email)
     }
     return true
   }) || []
