@@ -5,14 +5,13 @@ import { supabase } from '../lib/supabase'
 import { canManageSuppliers, canViewStatistics } from '../lib/permissions'
 import { getStockAlerts } from '../services/stockService'
 
-const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
-const isAdminUser = (email) => email === ADMIN_EMAIL
+const isAdminUser = (user) => user?.app_metadata?.is_internal_admin === true
 
 export default function Sidebar({ isOpen, setIsOpen }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isMobile, setIsMobile] = useState(false)
-  const [userEmail, setUserEmail] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
   const [wsDropdownOpen, setWsDropdownOpen] = useState(false)
   const [ventesOpen, setVentesOpen] = useState(true)
   const [catalogueOpen, setCatalogueOpen] = useState(false)
@@ -35,7 +34,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserEmail(user?.email || null)
+      setCurrentUser(user || null)
     })
   }, [])
 
@@ -644,7 +643,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             }
             label="Parametres"
           />
-          {isAdminUser(userEmail) && (
+          {isAdminUser(currentUser) && (
             <NavItem
               to="/admin"
               icon={
