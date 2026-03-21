@@ -180,7 +180,7 @@ export async function createTestData(workspaceId, userId) {
       .insert({
         workspace_id: workspaceId,
         customer_id: customer1?.id,
-        status: 'envoye',
+        status: 'sent',
         total_ht: quoteHT,
         total_tva: quoteTVA,
         total_ttc: quoteTTC,
@@ -264,7 +264,7 @@ export async function createTestData(workspaceId, userId) {
           customer_id: customer1?.id,
           order_id: order1.id,
           invoice_category: 'deposit',
-          status: 'envoyee',
+          status: 'envoyée',
           total_ht: Math.round(acompte / 1.2 * 100) / 100,
           total_tva: Math.round((acompte - acompte / 1.2) * 100) / 100,
           total_ttc: acompte,
@@ -346,7 +346,7 @@ export async function createTestData(workspaceId, userId) {
         await supabase.from('invoices').insert({
           workspace_id: workspaceId,
           customer_id: inv.customer_id,
-          status: 'payee',
+          status: 'payée',
           total_ht: inv.total_ht,
           total_tva: tva,
           total_ttc: ttc,
