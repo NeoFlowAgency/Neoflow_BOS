@@ -515,7 +515,6 @@ export default function ApercuCommande() {
                       </span>
                     </div>
                     {p.notes && <p className="text-xs text-gray-400 mt-1">{p.notes}</p>}
-                    {p.receiver && <p className="text-xs text-gray-400">Par {p.receiver.full_name}</p>}
                   </div>
                 ))}
               </div>

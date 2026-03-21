@@ -357,8 +357,7 @@ export async function listStockMovements(workspaceId, filters = {}) {
     .select(`
       *,
       product:products(name, reference),
-      location:stock_locations(name, type),
-      user:profiles!created_by(full_name)
+      location:stock_locations(name, type)
     `)
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false })
