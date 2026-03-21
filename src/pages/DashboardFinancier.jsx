@@ -1007,17 +1007,6 @@ export default function DashboardFinancier() {
         )}
       </div>
 
-      {/* BOUTON RETOUR */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="inline-flex items-center gap-2 px-6 py-3 text-[#040741] font-medium hover:bg-gray-100 rounded-xl transition-colors"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Retour a l'accueil
-      </button>
-
       {/* Fullscreen chart modal */}
       {fullscreenChart === 'ca' && (
         <ChartModal title="Evolution du CA" onClose={() => setFullscreenChart(null)}>
