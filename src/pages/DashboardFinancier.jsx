@@ -137,7 +137,7 @@ export default function DashboardFinancier() {
       // Livraisons en retard
       const retard = deliveries.filter(d => {
         if (!d.scheduled_date || d.status === 'livree' || d.status === 'annulee') return false
-        return new Date(d.scheduled_date) < now
+        return d.scheduled_date.slice(0, 10) < today
       })
       setLivraisonsRetardList(retard)
 
