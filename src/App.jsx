@@ -282,7 +282,7 @@ function App() {
             <Route path="/bons-commande/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><CreerBonCommande /></RoleGuard></ProtectedLayout>} />
             <Route path="/bons-commande/:bonCommandeId" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><ApercuBonCommande /></RoleGuard></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
-            <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
+            <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation/admin" element={<ProtectedLayout><RoleGuard allowedRoles={['proprietaire']}><DocumentationAdmin /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
