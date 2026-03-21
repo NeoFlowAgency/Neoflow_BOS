@@ -8,6 +8,8 @@ import { downloadCSV } from '../lib/csvExport'
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
   confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirmé' },
+  en_preparation: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'En préparation' },
+  en_livraison: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En livraison' },
   en_cours: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En cours' },
   livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livré' },
   termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Terminé' },
@@ -17,6 +19,8 @@ const STATUS_BADGES = {
 const STATUS_FILTERS = [
   { value: '', label: 'Tous' },
   { value: 'confirme', label: 'Confirmé' },
+  { value: 'en_preparation', label: 'En préparation' },
+  { value: 'en_livraison', label: 'En livraison' },
   { value: 'en_cours', label: 'En cours' },
   { value: 'livre', label: 'Livré' },
   { value: 'termine', label: 'Terminé' },

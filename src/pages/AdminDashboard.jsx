@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const checkAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !isAdminUser(user.email)) {
+      if (!user || !isAdminUser(user)) {
         navigate('/dashboard', { replace: true })
         return
       }

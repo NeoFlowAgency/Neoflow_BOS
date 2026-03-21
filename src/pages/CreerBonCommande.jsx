@@ -108,7 +108,7 @@ export default function CreerBonCommande() {
 
   const calculerTotaux = () => {
     const totalHt = lignes.reduce((sum, l) => sum + l.unit_cost_ht * l.quantity_ordered, 0)
-    const totalTva = totalHt * 0.20
+    const totalTva = lignes.reduce((sum, l) => sum + l.unit_cost_ht * l.quantity_ordered * ((l.tax_rate || 20) / 100), 0)
     const totalTtc = totalHt + totalTva
     return { totalHt: round(totalHt), totalTva: round(totalTva), totalTtc: round(totalTtc) }
   }
@@ -378,7 +378,7 @@ export default function CreerBonCommande() {
               <span>{totaux.totalHt.toFixed(2)} EUR</span>
             </div>
             <div className="flex justify-between text-white/70">
-              <span>TVA (20%)</span>
+              <span>TVA</span>
               <span>{totaux.totalTva.toFixed(2)} EUR</span>
             </div>
             <div className="border-t border-white/20 pt-4 mt-4">

@@ -58,12 +58,12 @@ export default function Dashboard() {
           .gte('created_at', startOfMonth)
           .lte('created_at', endOfMonth),
 
-        // Commandes en cours (confirme + en_cours)
+        // Commandes en cours (confirme + en_preparation + en_livraison + en_cours)
         supabase
           .from('orders')
           .select('id, status, amount_paid, remaining_amount')
           .eq('workspace_id', workspace.id)
-          .in('status', ['confirme', 'en_cours']),
+          .in('status', ['confirme', 'en_preparation', 'en_livraison', 'en_cours']),
 
         // Livraisons à effectuer
         supabase
@@ -163,12 +163,14 @@ export default function Dashboard() {
   }
 
   const ORDER_STATUS_MAP = {
-    brouillon:  { label: 'Brouillon',   bg: 'bg-gray-100',    text: 'text-gray-600' },
-    confirme:   { label: 'Confirmé',    bg: 'bg-blue-100',    text: 'text-blue-600' },
-    en_cours:   { label: 'En cours',    bg: 'bg-yellow-100',  text: 'text-yellow-700' },
-    livre:      { label: 'Livré',       bg: 'bg-indigo-100',  text: 'text-indigo-600' },
-    termine:    { label: 'Terminé',     bg: 'bg-green-100',   text: 'text-green-600' },
-    annule:     { label: 'Annulé',      bg: 'bg-red-100',     text: 'text-red-600' }
+    brouillon:      { label: 'Brouillon',       bg: 'bg-gray-100',    text: 'text-gray-600' },
+    confirme:       { label: 'Confirmé',        bg: 'bg-blue-100',    text: 'text-blue-600' },
+    en_preparation: { label: 'En préparation',  bg: 'bg-orange-100',  text: 'text-orange-700' },
+    en_livraison:   { label: 'En livraison',    bg: 'bg-yellow-100',  text: 'text-yellow-700' },
+    en_cours:       { label: 'En cours',        bg: 'bg-yellow-100',  text: 'text-yellow-700' },
+    livre:          { label: 'Livré',           bg: 'bg-indigo-100',  text: 'text-indigo-600' },
+    termine:        { label: 'Terminé',         bg: 'bg-green-100',   text: 'text-green-600' },
+    annule:         { label: 'Annulé',          bg: 'bg-red-100',     text: 'text-red-600' }
   }
 
   const StatCard = ({ icon, label, value, sub, color, bgColor, onClick }) => (
