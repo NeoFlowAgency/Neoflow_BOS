@@ -19,6 +19,8 @@ import ChartModal from '../components/ui/ChartModal'
 const COLORS = {
   brouillon: '#6B7280',
   confirme: '#313ADF',
+  en_preparation: '#F97316',
+  en_livraison: '#F59E0B',
   en_cours: '#F59E0B',
   livre: '#8B5CF6',
   termine: '#10B981',
@@ -139,17 +141,19 @@ export default function DashboardFinancier() {
       setLivraisonsRetardList(retard)
 
       // Repartition par statut (orders)
-      const statutCounts = { brouillon: 0, confirme: 0, en_cours: 0, livre: 0, termine: 0, annule: 0 }
+      const statutCounts = { brouillon: 0, confirme: 0, en_preparation: 0, en_livraison: 0, en_cours: 0, livre: 0, termine: 0, annule: 0 }
       orders.forEach(o => {
         if (statutCounts[o.status] !== undefined) statutCounts[o.status]++
       })
       setRepartitionStatut([
-        { name: 'Brouillon',  value: statutCounts.brouillon,  color: COLORS.brouillon },
-        { name: 'Confirmé',   value: statutCounts.confirme,   color: COLORS.confirme },
-        { name: 'En cours',   value: statutCounts.en_cours,   color: COLORS.en_cours },
-        { name: 'Livré',      value: statutCounts.livre,      color: COLORS.livre },
-        { name: 'Terminé',    value: statutCounts.termine,    color: COLORS.termine },
-        { name: 'Annulé',     value: statutCounts.annule,     color: COLORS.annule }
+        { name: 'Brouillon',       value: statutCounts.brouillon,      color: COLORS.brouillon },
+        { name: 'Confirmé',        value: statutCounts.confirme,       color: COLORS.confirme },
+        { name: 'En préparation',  value: statutCounts.en_preparation, color: COLORS.en_preparation },
+        { name: 'En livraison',    value: statutCounts.en_livraison,   color: COLORS.en_livraison },
+        { name: 'En cours',        value: statutCounts.en_cours,       color: COLORS.en_cours },
+        { name: 'Livré',           value: statutCounts.livre,          color: COLORS.livre },
+        { name: 'Terminé',         value: statutCounts.termine,        color: COLORS.termine },
+        { name: 'Annulé',          value: statutCounts.annule,         color: COLORS.annule }
       ].filter(item => item.value > 0))
 
       // Order items for product + margin stats
