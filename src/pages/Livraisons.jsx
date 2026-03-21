@@ -145,7 +145,7 @@ export default function Livraisons() {
   // "Mes livraisons du jour" (pour livreur)
   const today = new Date().toISOString().split('T')[0]
   const mesDuJour = isLivreur
-    ? visibleDeliveries.filter(d => d.scheduled_date === today && d.status !== 'livree')
+    ? visibleDeliveries.filter(d => d.scheduled_date?.startsWith(today) && d.status !== 'livree')
     : []
 
   // ── Helpers ───────────────────────────────────────
@@ -285,7 +285,7 @@ export default function Livraisons() {
     const name = clientName(delivery)
     const order = delivery.order
     const typeBadge = DELIVERY_TYPE_BADGE[delivery.delivery_type] || DELIVERY_TYPE_BADGE.delivery
-    const isOverdue = delivery.scheduled_date && delivery.scheduled_date < today && delivery.status !== 'livree'
+    const isOverdue = delivery.scheduled_date && delivery.scheduled_date.slice(0, 10) < today && delivery.status !== 'livree'
     const assigneeName = delivery.assigned_to ? getMemberName(delivery.assigned_to) : null
 
     return (
