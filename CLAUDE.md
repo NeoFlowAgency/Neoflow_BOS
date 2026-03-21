@@ -20,37 +20,49 @@ src/
 │   │   ├── PhoneInput.jsx          # Input téléphone avec indicatifs
 │   │   └── ToggleButton.jsx        # Bouton bascule (remise %, €)
 │   ├── BugReportForm.jsx     # Formulaire signalement bugs
-│   └── Sidebar.jsx            # Navigation latérale principale
+│   ├── NeoChat.jsx           # Assistant IA (streaming SSE, historique localStorage)
+│   ├── OnboardingTour.jsx    # Tour guidé interactif nouveaux utilisateurs
+│   ├── PaymentModal.jsx      # Modal enregistrement paiement
+│   └── Sidebar.jsx           # Navigation latérale principale
 ├── contexts/
 │   ├── WorkspaceContext.jsx   # Gestion workspace multi-tenant + roles + subscription
 │   └── ToastContext.jsx       # Notifications toast
+├── hooks/
+│   └── usePermissions.js      # Hook accès permissions par rôle
 ├── lib/
 │   ├── supabase.js            # Client Supabase (via env vars)
+│   ├── permissions.js         # Fonctions de vérification des droits par rôle
 │   └── errorMessages.js       # Traduction erreurs EN→FR
 ├── pages/
-│   ├── Login.jsx              # Connexion
-│   ├── Signup.jsx             # Inscription
-│   ├── ResetPassword.jsx      # Reset mdp
+│   ├── Login.jsx / Signup.jsx / ResetPassword.jsx  # Auth
 │   ├── MentionsLegales.jsx    # Page mentions légales publique
 │   ├── Dashboard.jsx          # Accueil avec KPIs
 │   ├── DashboardFinancier.jsx # Stats: CA, produits, vendeurs, charts
-│   ├── CreerFacture.jsx       # Création facture
-│   ├── CreerDevis.jsx         # Création devis
-│   ├── ApercuFacture.jsx      # Aperçu facture + actions
-│   ├── ApercuDevis.jsx        # Aperçu devis + actions
-│   ├── ListeFactures.jsx      # Liste factures
-│   ├── ListeDevis.jsx         # Liste devis
-│   ├── ListeClients.jsx       # CRM: liste clients
-│   ├── FicheClient.jsx        # CRM: fiche client
+│   ├── VenteRapide.jsx        # Point de vente (POS) rapide
+│   ├── CreerCommande.jsx / ListeCommandes.jsx / ApercuCommande.jsx
+│   ├── CreerFacture.jsx / ListeFactures.jsx / ApercuFacture.jsx
+│   ├── CreerDevis.jsx / ListeDevis.jsx / ApercuDevis.jsx
+│   ├── ListeClients.jsx / FicheClient.jsx  # CRM clients
+│   ├── Fournisseurs.jsx / FicheFournisseur.jsx  # Gestion fournisseurs
+│   ├── CreerBonCommande.jsx / ApercuBonCommande.jsx  # Bons de commande fournisseurs
 │   ├── Produits.jsx           # CRUD produits
-│   ├── Livraisons.jsx         # Gestion livraisons
+│   ├── Stock.jsx / StockLocations.jsx  # Stock + emplacements
+│   ├── Livraisons.jsx         # Gestion livraisons (kanban)
+│   ├── Documentation.jsx / DocumentationAdmin.jsx  # Base de connaissances
 │   ├── Settings.jsx           # Paramètres (Compte, Workspace, Abonnement, Support)
-│   ├── WorkspaceOnboarding.jsx # Création workspace + redirect Stripe Checkout
-│   ├── WorkspaceSuspended.jsx  # Page workspace suspendu/incomplet
-│   └── JoinWorkspace.jsx       # Acceptation invitation par token
+│   ├── AdminDashboard.jsx     # Dashboard interne (accès restreint)
+│   ├── WorkspaceOnboarding.jsx / WorkspaceChoice.jsx / WorkspaceSuspended.jsx
+│   ├── OnboardingSurvey.jsx   # Questionnaire onboarding
+│   └── JoinWorkspace.jsx      # Acceptation invitation par token
 ├── services/
 │   ├── workspaceService.js    # CRUD workspace + Stripe checkout/portal
-│   └── invitationService.js   # CRUD invitations par token
+│   ├── invitationService.js   # CRUD invitations par token
+│   ├── orderService.js        # CRUD commandes + paiements + factures
+│   ├── quoteService.js        # CRUD devis
+│   ├── invoiceService.js      # CRUD factures
+│   ├── stockService.js        # Niveaux stock, mouvements, emplacements
+│   ├── supplierService.js     # Fournisseurs + bons de commande
+│   └── onboardingService.js   # Tracking onboarding utilisateur
 └── main.jsx                   # Point d'entrée
 
 supabase/functions/
@@ -60,10 +72,13 @@ supabase/functions/
 ├── accept-invitation/         # Accepte invitation par token hashé
 ├── delete-account/            # Suppression RGPD (transfert/delete workspace)
 ├── generate-pdf/              # Génération PDF factures/devis
-└── send-email/                # Envoi emails via Resend
+├── send-email/                # Envoi emails via Resend
+├── neo-chat/                  # Assistant IA NeoFlow (streaming, contexte workspace)
+├── admin-data/                # Données admin interne
+└── verify-checkout/           # Vérification post-Stripe checkout
 
 sql/
-├── v3_001_roles_migration.sql     # Migration roles owner/manager/member
+├── v3_001_roles_migration.sql     # Migration roles
 ├── v3_002_subscription_columns.sql # Colonnes Stripe sur workspaces
 ├── v3_003_invitations_table.sql   # Table invitations + RLS
 ├── v3_004_rls_and_triggers.sql    # RLS updates + trigger unicité owner
@@ -82,20 +97,27 @@ sql/
 ## Multi-tenant (Workspaces)
 
 - Chaque utilisateur appartient à 1+ workspaces via `workspace_users`
-- `WorkspaceContext` expose: `currentWorkspace`, `isOwner`, `isAdmin`, `isActive`, `subscriptionStatus`
+- `WorkspaceContext` expose: `currentWorkspace`, `workspace`, `role`, `isOwner`, `isAdmin`, `isVendeur`, `isLivreur`, `isActive`, `subscriptionStatus`, `planType`
 - Toutes les queries filtrent par `workspace_id`
 - Switch workspace disponible dans Settings
 
 ## Rôles
 
-| Rôle | Droits |
-|------|--------|
-| **owner** | Tout: gestion abonnement, rôles, invitations, suppression workspace |
-| **admin** | Edit workspace info, invitations, gestion membres (sauf owner) |
-| **member** | Lecture/écriture données métier (factures, devis, clients) |
+Les rôles dans le code sont : `proprietaire`, `manager`, `vendeur`, `livreur` (définis dans `src/lib/permissions.js`).
 
-- Un seul owner par workspace (enforced par trigger SQL `enforce_single_owner`)
-- Le créateur du workspace est automatiquement owner
+| Rôle | Valeur DB | Droits |
+|------|-----------|--------|
+| **Propriétaire** | `proprietaire` | Tout : abonnement Stripe, rôles, invitations, suppression workspace, marges, stats |
+| **Manager** | `manager` | Édite infos workspace, invitations, gère membres (sauf propriétaire), voit marges et stats |
+| **Vendeur** | `vendeur` | Crée commandes/factures/devis, gère clients et produits. Ne voit pas les marges ni coûts |
+| **Livreur** | `livreur` | Vue simplifiée : livraisons uniquement + enregistrement paiement à la livraison |
+
+- Un seul propriétaire par workspace (enforced par trigger SQL `enforce_single_owner`)
+- Le créateur du workspace est automatiquement propriétaire
+- Hiérarchie stricte : `proprietaire > manager > vendeur > livreur`
+- `isOwner` = `role === 'proprietaire'`, `isAdmin` = `role === 'manager' || role === 'proprietaire'`
+- `canViewMargins(role)` → management only (`proprietaire` ou `manager`)
+- `canCreateSales(role)` → `proprietaire`, `manager`, `vendeur`
 
 ## Abonnement Stripe
 
@@ -142,10 +164,10 @@ sql/
 
 ## RLS (Row Level Security)
 
-- Tables données (`invoices`, `quotes`, `customers`, `products`, `deliveries`, `jobs`, etc.): SELECT/INSERT/UPDATE filtré par workspace_id via workspace_users
-- `workspaces`: UPDATE par owner+manager, DELETE par owner uniquement
-- `workspace_invitations`: SELECT/INSERT/DELETE par owner+manager
-- `workspace_users`: contrainte CHECK role IN ('owner', 'manager', 'member')
+- Tables données (`invoices`, `quotes`, `customers`, `products`, `deliveries`, `orders`, `stock_levels`, etc.): SELECT/INSERT/UPDATE filtré par workspace_id via workspace_users
+- `workspaces`: UPDATE par proprietaire+manager, DELETE par proprietaire uniquement
+- `workspace_invitations`: SELECT/INSERT/DELETE par proprietaire+manager
+- `workspace_users`: contrainte CHECK role IN ('proprietaire', 'manager', 'vendeur', 'livreur')
 
 ## Variables d'environnement
 
@@ -203,7 +225,7 @@ Exécuter dans l'ordre dans le SQL Editor Supabase :
 ## Points restants / modules suivants
 
 - [ ] Tests unitaires et E2E
-- [ ] Code splitting (lazy import des pages) pour réduire bundle size
+- [x] Code splitting (lazy import des pages) — implémenté via React.lazy + Suspense
 - [ ] PWA / notifications push
 - [ ] Export CSV des données (factures, clients)
 - [ ] Mode hors-ligne / cache local

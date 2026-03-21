@@ -10,13 +10,13 @@ import PaymentModal from '../components/PaymentModal'
 
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
-  confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirme' },
-  en_preparation: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'En preparation' },
+  confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirmé' },
+  en_preparation: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'En préparation' },
   en_livraison: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En livraison' },
   en_cours: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En cours' },
-  livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livre' },
-  termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Termine' },
-  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annule' }
+  livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livré' },
+  termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Terminé' },
+  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulé' }
 }
 
 const STATUS_FLOW = {
@@ -113,19 +113,19 @@ export default function ApercuCommande() {
       if (isFullyPaid && ['confirme', 'en_preparation', 'en_livraison', 'livre'].includes(order.status)) {
         try {
           await updateOrderStatus(commandeId, 'termine')
-          toast.success('Paiement enregistre ! Commande marquee comme terminee.')
+          toast.success('Paiement enregistré ! Commande marquée comme terminée.')
         } catch {
-          toast.success('Paiement enregistre !')
+          toast.success('Paiement enregistré !')
         }
       } else if (isFirstPayment && order.requires_delivery && order.status === 'confirme') {
         try {
           await updateOrderStatus(commandeId, 'en_preparation')
-          toast.success('Paiement enregistre ! Commande passee en preparation.')
+          toast.success('Paiement enregistré ! Commande passée en préparation.')
         } catch {
-          toast.success('Paiement enregistre !')
+          toast.success('Paiement enregistré !')
         }
       } else {
-        toast.success('Paiement enregistre !')
+        toast.success('Paiement enregistré !')
       }
 
       setShowPaymentModal(false)
@@ -268,7 +268,7 @@ export default function ApercuCommande() {
               <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">Vente rapide</span>
             )}
           </div>
-          <p className="text-gray-500">Creee le {new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
+          <p className="text-gray-500">Créée le {new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
         </div>
 
         {/* Actions statut */}
@@ -507,7 +507,7 @@ export default function ApercuCommande() {
                       <div>
                         <span className="text-sm font-medium text-[#040741]">{(p.amount || 0).toFixed(2)} EUR</span>
                         <span className="text-xs text-gray-400 ml-2">
-                          {p.payment_method === 'cash' ? 'Especes' : p.payment_method === 'card' ? 'CB' : p.payment_method === 'check' ? 'Cheque' : p.payment_method === 'transfer' ? 'Virement' : 'Autre'}
+                          {p.payment_method === 'cash' ? 'Espèces' : p.payment_method === 'card' ? 'CB' : p.payment_method === 'check' ? 'Chèque' : p.payment_method === 'transfer' ? 'Virement' : 'Autre'}
                         </span>
                       </div>
                       <span className="text-xs text-gray-400">
@@ -543,7 +543,7 @@ export default function ApercuCommande() {
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         inv.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {inv.status === 'paid' ? 'Payee' : inv.status === 'sent' ? 'Envoyee' : 'Brouillon'}
+                        {inv.status === 'paid' ? 'Payée' : inv.status === 'sent' ? 'Envoyée' : 'Brouillon'}
                       </span>
                     </div>
                     {inv.invoice_category && (
@@ -594,11 +594,11 @@ export default function ApercuCommande() {
                 <div className="space-y-2">
                   {deliveries.map(del => {
                     const statusMap = {
-                      livree: { bg: 'bg-green-100', text: 'text-green-700', label: 'Livree' },
+                      livree: { bg: 'bg-green-100', text: 'text-green-700', label: 'Livrée' },
                       en_cours: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En cours' },
-                      planifiee: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Planifiee' },
-                      a_planifier: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'A planifier' },
-                      annulee: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulee' }
+                      planifiee: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Planifiée' },
+                      a_planifier: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'À planifier' },
+                      annulee: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulée' }
                     }
                     const s = statusMap[del.status] || statusMap.a_planifier
                     return (
@@ -750,7 +750,7 @@ export default function ApercuCommande() {
                 disabled={createDeliveryLoading}
                 className="px-6 py-2 bg-[#313ADF] text-white rounded-xl font-semibold hover:bg-[#4149e8] disabled:opacity-50 flex items-center gap-2"
               >
-                {createDeliveryLoading ? 'Creation...' : 'Creer la livraison'}
+                {createDeliveryLoading ? 'Création...' : 'Créer la livraison'}
               </button>
             </div>
           </div>

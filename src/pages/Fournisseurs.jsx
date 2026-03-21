@@ -257,7 +257,7 @@ export default function Fournisseurs() {
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200">Annuler</button>
               <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-3 bg-[#313ADF] text-white rounded-xl font-medium hover:bg-[#4149e8] disabled:opacity-50">
-                {saving ? 'Enregistrement...' : editingSupplier ? 'Mettre a jour' : 'Creer'}
+                {saving ? 'Enregistrement...' : editingSupplier ? 'Mettre à jour' : 'Créer'}
               </button>
             </div>
           </div>

@@ -145,11 +145,11 @@ export default function DashboardFinancier() {
       })
       setRepartitionStatut([
         { name: 'Brouillon',  value: statutCounts.brouillon,  color: COLORS.brouillon },
-        { name: 'Confirme',   value: statutCounts.confirme,   color: COLORS.confirme },
+        { name: 'Confirmé',   value: statutCounts.confirme,   color: COLORS.confirme },
         { name: 'En cours',   value: statutCounts.en_cours,   color: COLORS.en_cours },
-        { name: 'Livre',      value: statutCounts.livre,      color: COLORS.livre },
-        { name: 'Termine',    value: statutCounts.termine,    color: COLORS.termine },
-        { name: 'Annule',     value: statutCounts.annule,     color: COLORS.annule }
+        { name: 'Livré',      value: statutCounts.livre,      color: COLORS.livre },
+        { name: 'Terminé',    value: statutCounts.termine,    color: COLORS.termine },
+        { name: 'Annulé',     value: statutCounts.annule,     color: COLORS.annule }
       ].filter(item => item.value > 0))
 
       // Order items for product + margin stats
@@ -497,7 +497,7 @@ export default function DashboardFinancier() {
                 { value: 'semaine', label: 'Semaine' },
                 { value: 'mois', label: 'Mois' },
                 { value: 'trimestre', label: 'Trimestre' },
-                { value: 'annee', label: 'Annee' }
+                { value: 'annee', label: 'Année' }
               ].map((option) => (
                 <button
                   key={option.value}
@@ -1022,7 +1022,7 @@ export default function DashboardFinancier() {
               { value: 'semaine', label: 'Semaine' },
               { value: 'mois', label: 'Mois' },
               { value: 'trimestre', label: 'Trimestre' },
-              { value: 'annee', label: 'Annee' }
+              { value: 'annee', label: 'Année' }
             ].map((option) => (
               <button
                 key={option.value}

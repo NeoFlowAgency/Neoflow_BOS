@@ -264,7 +264,7 @@ export default function StockLocations() {
                 Annuler
               </button>
               <button onClick={handleSave} disabled={saving} className="flex-1 px-4 py-3 bg-[#313ADF] text-white rounded-xl font-medium hover:bg-[#4149e8] disabled:opacity-50">
-                {saving ? 'Enregistrement...' : editingLocation ? 'Mettre a jour' : 'Creer'}
+                {saving ? 'Enregistrement...' : editingLocation ? 'Mettre à jour' : 'Créer'}
               </button>
             </div>
           </div>

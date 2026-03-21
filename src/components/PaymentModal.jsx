@@ -8,9 +8,9 @@ const PAYMENT_TYPES = [
 ]
 
 const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Especes', icon: '💵' },
+  { value: 'cash', label: 'Espèces', icon: '💵' },
   { value: 'card', label: 'Carte bancaire', icon: '💳' },
-  { value: 'check', label: 'Cheque', icon: '📝' },
+  { value: 'check', label: 'Chèque', icon: '📝' },
   { value: 'transfer', label: 'Virement', icon: '🏦' },
   { value: 'other', label: 'Autre', icon: '📋' }
 ]

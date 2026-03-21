@@ -11,14 +11,14 @@ import PaymentModal from '../components/PaymentModal'
 const TIME_SLOTS = [
   '8h-10h', '9h-12h', '10h-12h', '12h-14h',
   '14h-16h', '14h-17h', '16h-18h', '17h-19h', '18h-20h',
-  'Matin (8h-12h)', 'Apres-midi (14h-18h)', 'Journee entiere'
+  'Matin (8h-12h)', 'Après-midi (14h-18h)', 'Journée entière'
 ]
 
 const COLUMNS = [
-  { key: 'a_planifier', label: 'A planifier',  color: 'gray',   bg: 'bg-gray-50',    header: 'bg-gray-100',    text: 'text-gray-700' },
-  { key: 'planifiee',   label: 'Planifiee',     color: 'blue',   bg: 'bg-blue-50',    header: 'bg-blue-100',    text: 'text-blue-700' },
-  { key: 'en_cours',    label: 'En cours',      color: 'yellow', bg: 'bg-yellow-50',  header: 'bg-yellow-100',  text: 'text-yellow-700' },
-  { key: 'livree',      label: 'Livree',        color: 'green',  bg: 'bg-green-50',   header: 'bg-green-100',   text: 'text-green-700' },
+  { key: 'a_planifier', label: 'À planifier',  color: 'gray',   bg: 'bg-gray-50',    header: 'bg-gray-100',    text: 'text-gray-700' },
+  { key: 'planifiee',   label: 'Planifiée',    color: 'blue',   bg: 'bg-blue-50',    header: 'bg-blue-100',    text: 'text-blue-700' },
+  { key: 'en_cours',    label: 'En cours',     color: 'yellow', bg: 'bg-yellow-50',  header: 'bg-yellow-100',  text: 'text-yellow-700' },
+  { key: 'livree',      label: 'Livrée',       color: 'green',  bg: 'bg-green-50',   header: 'bg-green-100',   text: 'text-green-700' },
 ]
 
 const DELIVERY_TYPE_BADGE = {
@@ -266,7 +266,7 @@ export default function Livraisons() {
         await supabase.from('orders').update({ status: 'termine' }).eq('id', paymentOrderId)
       }
 
-      toast.success('Paiement enregistre !')
+      toast.success('Paiement enregistré !')
       setShowPaymentModal(false)
       setPaymentOrderId(null)
       loadDeliveries()

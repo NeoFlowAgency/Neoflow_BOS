@@ -8,12 +8,12 @@ import { useToast } from '../contexts/ToastContext'
 import { canManageSuppliers } from '../lib/permissions'
 
 const STATUS_CONFIG = {
-  brouillon:           { bg: 'bg-gray-100',    text: 'text-gray-700',   label: 'Brouillon',           next: 'envoye',    nextLabel: 'Marquer comme envoye' },
-  envoye:              { bg: 'bg-blue-100',    text: 'text-blue-700',   label: 'Envoye',              next: 'confirme',  nextLabel: 'Confirmer la reception' },
-  confirme:            { bg: 'bg-indigo-100',  text: 'text-indigo-700', label: 'Confirme',            next: null,        nextLabel: null },
-  reception_partielle: { bg: 'bg-orange-100',  text: 'text-orange-700', label: 'Reception partielle', next: null,        nextLabel: null },
-  recu:                { bg: 'bg-green-100',   text: 'text-green-700',  label: 'Recu',                next: null,        nextLabel: null },
-  annule:              { bg: 'bg-red-100',     text: 'text-red-700',    label: 'Annule',              next: null,        nextLabel: null }
+  brouillon:           { bg: 'bg-gray-100',    text: 'text-gray-700',   label: 'Brouillon',           next: 'envoye',    nextLabel: 'Marquer comme envoyé' },
+  envoye:              { bg: 'bg-blue-100',    text: 'text-blue-700',   label: 'Envoyé',              next: 'confirme',  nextLabel: 'Confirmer la réception' },
+  confirme:            { bg: 'bg-indigo-100',  text: 'text-indigo-700', label: 'Confirmé',            next: null,        nextLabel: null },
+  reception_partielle: { bg: 'bg-orange-100',  text: 'text-orange-700', label: 'Réception partielle', next: null,        nextLabel: null },
+  recu:                { bg: 'bg-green-100',   text: 'text-green-700',  label: 'Reçu',                next: null,        nextLabel: null },
+  annule:              { bg: 'bg-red-100',     text: 'text-red-700',    label: 'Annulé',              next: null,        nextLabel: null }
 }
 
 const RECEPTION_STATES = ['confirme', 'envoye', 'reception_partielle']
@@ -235,8 +235,8 @@ export default function ApercuBonCommande() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produit</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Commande</th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Recu</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Cout HT</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Reçu</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Coût HT</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total HT</th>
                   </tr>
                 </thead>
@@ -315,18 +315,18 @@ export default function ApercuBonCommande() {
                 </span>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Cree le</p>
+                <p className="text-xs text-gray-400">Créé le</p>
                 <p className="text-sm font-medium text-[#040741]">{new Date(po.created_at).toLocaleDateString('fr-FR')}</p>
               </div>
               {po.expected_date && (
                 <div>
-                  <p className="text-xs text-gray-400">Livraison prevue</p>
+                  <p className="text-xs text-gray-400">Livraison prévue</p>
                   <p className="text-sm font-medium text-[#040741]">{new Date(po.expected_date).toLocaleDateString('fr-FR')}</p>
                 </div>
               )}
               {po.received_date && (
                 <div>
-                  <p className="text-xs text-gray-400">Recue le</p>
+                  <p className="text-xs text-gray-400">Reçue le</p>
                   <p className="text-sm font-medium text-green-600">{new Date(po.received_date).toLocaleDateString('fr-FR')}</p>
                 </div>
               )}
@@ -437,7 +437,7 @@ export default function ApercuBonCommande() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <label className="text-xs text-gray-500 whitespace-nowrap">Recu maintenant :</label>
+                          <label className="text-xs text-gray-500 whitespace-nowrap">Reçu maintenant :</label>
                           <input
                             type="number"
                             min={0}

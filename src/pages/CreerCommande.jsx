@@ -311,7 +311,7 @@ export default function CreerCommande() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-2">Nouvelle commande</h1>
-        <p className="text-gray-500">Creer une commande pour un client</p>
+        <p className="text-gray-500">Créer une commande pour un client</p>
       </div>
 
       {error && (
@@ -599,7 +599,7 @@ export default function CreerCommande() {
               </div>
             </div>
             {totaux.montantRemise > 0 && (
-              <p className="mt-2 text-sm text-green-600">Remise appliquee : -{totaux.montantRemise.toFixed(2)} EUR</p>
+              <p className="mt-2 text-sm text-green-600">Remise appliquée : -{totaux.montantRemise.toFixed(2)} EUR</p>
             )}
           </div>
 
@@ -721,7 +721,7 @@ export default function CreerCommande() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Creer la commande
+                Créer la commande
               </>
             )}
           </button>

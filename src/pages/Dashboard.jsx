@@ -44,7 +44,7 @@ export default function Dashboard() {
         ordersThisMonthRes,
         ordersInProgressRes,
         deliveriesRes,
-        ,
+        ordersLivresRes,
         quotesRes,
         ordersFromQuoteRes,
         recentOrdersRes
@@ -72,8 +72,13 @@ export default function Dashboard() {
           .eq('workspace_id', workspace.id)
           .not('status', 'in', '("livree","annulee")'),
 
-        // Marges du mois (management only) — placeholder, fetched after
-        Promise.resolve({ data: [] }),
+        // Soldes à récupérer: orders livrés mais pas entièrement payés
+        supabase
+          .from('orders')
+          .select('id, remaining_amount')
+          .eq('workspace_id', workspace.id)
+          .eq('status', 'livre')
+          .gt('remaining_amount', 0),
 
         // Total devis (pour taux conversion)
         supabase
@@ -130,14 +135,7 @@ export default function Dashboard() {
         .filter(o => (o.amount_paid || 0) > 0 && (o.remaining_amount || 0) > 0)
         .reduce((sum, o) => sum + (o.remaining_amount || 0), 0)
 
-      // Soldes à récupérer: orders livrés mais pas entièrement payés
-      const ordersLivresRes = await supabase
-        .from('orders')
-        .select('id, remaining_amount')
-        .eq('workspace_id', workspace.id)
-        .eq('status', 'livre')
-        .gt('remaining_amount', 0)
-
+      // Soldes à récupérer
       const soldesARecuperer = (ordersLivresRes.data || []).reduce((sum, o) => sum + (o.remaining_amount || 0), 0)
 
       // Taux conversion devis → commande
@@ -166,11 +164,11 @@ export default function Dashboard() {
 
   const ORDER_STATUS_MAP = {
     brouillon:  { label: 'Brouillon',   bg: 'bg-gray-100',    text: 'text-gray-600' },
-    confirme:   { label: 'Confirme',    bg: 'bg-blue-100',    text: 'text-blue-600' },
+    confirme:   { label: 'Confirmé',    bg: 'bg-blue-100',    text: 'text-blue-600' },
     en_cours:   { label: 'En cours',    bg: 'bg-yellow-100',  text: 'text-yellow-700' },
-    livre:      { label: 'Livre',       bg: 'bg-indigo-100',  text: 'text-indigo-600' },
-    termine:    { label: 'Termine',     bg: 'bg-green-100',   text: 'text-green-600' },
-    annule:     { label: 'Annule',      bg: 'bg-red-100',     text: 'text-red-600' }
+    livre:      { label: 'Livré',       bg: 'bg-indigo-100',  text: 'text-indigo-600' },
+    termine:    { label: 'Terminé',     bg: 'bg-green-100',   text: 'text-green-600' },
+    annule:     { label: 'Annulé',      bg: 'bg-red-100',     text: 'text-red-600' }
   }
 
   const StatCard = ({ icon, label, value, sub, color, bgColor, onClick }) => (
@@ -230,7 +228,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-4 mb-8">
             <StatCard
               icon={<svg className="w-5 h-5 text-[#040741]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
-              label="Livraisons a effectuer"
+              label="Livraisons à effectuer"
               value={stats.livraisonsAFaire}
               bgColor="bg-[#040741]/10"
               color="text-[#040741]"
@@ -253,7 +251,7 @@ export default function Dashboard() {
               icon={<svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
               label="CA du mois"
               value={`${stats.caMois.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
-              sub="Commandes terminees"
+              sub="Commandes terminées"
               bgColor="bg-green-100"
               color="text-green-700"
               onClick={() => navigate('/dashboard-financier')}
@@ -261,7 +259,7 @@ export default function Dashboard() {
             {canViewMargins ? (
               <StatCard
                 icon={<svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-                label="Benefice du mois"
+                label="Bénéfice du mois"
                 value={`${stats.beneficeMois.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
                 sub={`Marge ${stats.margeMoyenne.toFixed(0)}%`}
                 bgColor="bg-emerald-100"
@@ -283,16 +281,16 @@ export default function Dashboard() {
               icon={<svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
               label="Commandes en cours"
               value={stats.commandesEnCours}
-              sub="Confirme + en cours"
+              sub="Confirmé + en cours"
               bgColor="bg-[#313ADF]/10"
               color="text-[#313ADF]"
               onClick={() => navigate('/commandes')}
             />
             <StatCard
               icon={<svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
-              label="Livraisons a faire"
+              label="Livraisons à faire"
               value={stats.livraisonsAFaire}
-              sub="Non terminees"
+              sub="Non terminées"
               bgColor="bg-orange-100"
               color="text-orange-600"
               onClick={() => navigate('/livraisons')}
@@ -306,16 +304,16 @@ export default function Dashboard() {
                 icon={<svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 label="Acomptes en attente"
                 value={`${stats.acomptesEnAttente.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
-                sub="Reste a encaisser"
+                sub="Reste à encaisser"
                 bgColor="bg-amber-100"
                 color="text-amber-700"
                 onClick={() => navigate('/commandes')}
               />
               <StatCard
                 icon={<svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-                label="Soldes a recuperer"
+                label="Soldes à récupérer"
                 value={`${stats.soldesARecuperer.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
-                sub="Commandes livrees non soldees"
+                sub="Commandes livrées non soldées"
                 bgColor="bg-red-100"
                 color="text-red-600"
                 onClick={() => navigate('/commandes')}
@@ -380,7 +378,7 @@ export default function Dashboard() {
           {recentOrders.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-[#040741]">Dernieres commandes</h2>
+                <h2 className="text-xl font-bold text-[#040741]">Dernières commandes</h2>
                 <button
                   onClick={() => navigate('/commandes')}
                   className="text-[#313ADF] font-medium text-sm hover:underline"

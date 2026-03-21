@@ -1,48 +1,59 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabase'
 import { WorkspaceProvider, useWorkspace } from './contexts/WorkspaceContext'
 import { ToastProvider } from './contexts/ToastContext'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import ResetPassword from './pages/ResetPassword'
-import Dashboard from './pages/Dashboard'
-import CreerFacture from './pages/CreerFacture'
-import ApercuFacture from './pages/ApercuFacture'
-import ListeFactures from './pages/ListeFactures'
-import CreerDevis from './pages/CreerDevis'
-import ListeDevis from './pages/ListeDevis'
-import ApercuDevis from './pages/ApercuDevis'
-import ListeClients from './pages/ListeClients'
-import FicheClient from './pages/FicheClient'
-import Produits from './pages/Produits'
-import VenteRapide from './pages/VenteRapide'
-import CreerCommande from './pages/CreerCommande'
-import ListeCommandes from './pages/ListeCommandes'
-import ApercuCommande from './pages/ApercuCommande'
-import Stock from './pages/Stock'
-import StockLocations from './pages/StockLocations'
-import Fournisseurs from './pages/Fournisseurs'
-import FicheFournisseur from './pages/FicheFournisseur'
-import CreerBonCommande from './pages/CreerBonCommande'
-import ApercuBonCommande from './pages/ApercuBonCommande'
-import Livraisons from './pages/Livraisons'
-import Documentation from './pages/Documentation'
-import DocumentationAdmin from './pages/DocumentationAdmin'
-import DashboardFinancier from './pages/DashboardFinancier'
-import Settings from './pages/Settings'
-import WorkspaceOnboarding from './pages/WorkspaceOnboarding'
-import WorkspaceSuspended from './pages/WorkspaceSuspended'
-import JoinWorkspace from './pages/JoinWorkspace'
-import WorkspaceChoice from './pages/WorkspaceChoice'
-import MentionsLegales from './pages/MentionsLegales'
-import AdminDashboard from './pages/AdminDashboard'
-import OnboardingSurvey from './pages/OnboardingSurvey'
 import Sidebar from './components/Sidebar'
 import BackgroundPattern from './components/ui/BackgroundPattern'
 import OnboardingTour from './components/OnboardingTour'
 import NeoChat from './components/NeoChat'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// Pages — chargées en lazy pour réduire le bundle initial
+const Login = lazy(() => import('./pages/Login'))
+const Signup = lazy(() => import('./pages/Signup'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const CreerFacture = lazy(() => import('./pages/CreerFacture'))
+const ApercuFacture = lazy(() => import('./pages/ApercuFacture'))
+const ListeFactures = lazy(() => import('./pages/ListeFactures'))
+const CreerDevis = lazy(() => import('./pages/CreerDevis'))
+const ListeDevis = lazy(() => import('./pages/ListeDevis'))
+const ApercuDevis = lazy(() => import('./pages/ApercuDevis'))
+const ListeClients = lazy(() => import('./pages/ListeClients'))
+const FicheClient = lazy(() => import('./pages/FicheClient'))
+const Produits = lazy(() => import('./pages/Produits'))
+const VenteRapide = lazy(() => import('./pages/VenteRapide'))
+const CreerCommande = lazy(() => import('./pages/CreerCommande'))
+const ListeCommandes = lazy(() => import('./pages/ListeCommandes'))
+const ApercuCommande = lazy(() => import('./pages/ApercuCommande'))
+const Stock = lazy(() => import('./pages/Stock'))
+const StockLocations = lazy(() => import('./pages/StockLocations'))
+const Fournisseurs = lazy(() => import('./pages/Fournisseurs'))
+const FicheFournisseur = lazy(() => import('./pages/FicheFournisseur'))
+const CreerBonCommande = lazy(() => import('./pages/CreerBonCommande'))
+const ApercuBonCommande = lazy(() => import('./pages/ApercuBonCommande'))
+const Livraisons = lazy(() => import('./pages/Livraisons'))
+const Documentation = lazy(() => import('./pages/Documentation'))
+const DocumentationAdmin = lazy(() => import('./pages/DocumentationAdmin'))
+const DashboardFinancier = lazy(() => import('./pages/DashboardFinancier'))
+const Settings = lazy(() => import('./pages/Settings'))
+const WorkspaceOnboarding = lazy(() => import('./pages/WorkspaceOnboarding'))
+const WorkspaceSuspended = lazy(() => import('./pages/WorkspaceSuspended'))
+const JoinWorkspace = lazy(() => import('./pages/JoinWorkspace'))
+const WorkspaceChoice = lazy(() => import('./pages/WorkspaceChoice'))
+const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const OnboardingSurvey = lazy(() => import('./pages/OnboardingSurvey'))
+
+// Fallback affiché pendant le chargement des chunks
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#313ADF] border-t-transparent" />
+    </div>
+  )
+}
 
 // Internal admin bypass — flag set via app_metadata (server-side only)
 const isInternalUser = (user) => user?.app_metadata?.is_internal_admin === true
@@ -244,6 +255,7 @@ function App() {
       <ErrorBoundary>
       <WorkspaceProvider>
         <ToastProvider>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -311,6 +323,7 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </Suspense>
         </ToastProvider>
       </WorkspaceProvider>
       </ErrorBoundary>

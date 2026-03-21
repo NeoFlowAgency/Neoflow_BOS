@@ -6,20 +6,20 @@ import { useToast } from '../contexts/ToastContext'
 
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
-  confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirme' },
+  confirme: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Confirmé' },
   en_cours: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'En cours' },
-  livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livre' },
-  termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Termine' },
-  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annule' }
+  livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livré' },
+  termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Terminé' },
+  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulé' }
 }
 
 const STATUS_FILTERS = [
   { value: '', label: 'Tous' },
-  { value: 'confirme', label: 'Confirme' },
+  { value: 'confirme', label: 'Confirmé' },
   { value: 'en_cours', label: 'En cours' },
-  { value: 'livre', label: 'Livre' },
-  { value: 'termine', label: 'Termine' },
-  { value: 'annule', label: 'Annule' }
+  { value: 'livre', label: 'Livré' },
+  { value: 'termine', label: 'Terminé' },
+  { value: 'annule', label: 'Annulé' }
 ]
 
 export default function ListeCommandes() {
@@ -154,7 +154,7 @@ export default function ListeCommandes() {
             onClick={() => navigate('/commandes/nouvelle')}
             className="bg-[#313ADF] text-white px-6 py-2 rounded-xl font-semibold hover:bg-[#4149e8] transition-colors"
           >
-            Creer une commande
+            Créer une commande
           </button>
         </div>
       ) : (

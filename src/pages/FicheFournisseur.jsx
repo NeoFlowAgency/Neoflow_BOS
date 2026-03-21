@@ -6,11 +6,11 @@ import { useToast } from '../contexts/ToastContext'
 
 const PO_STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
-  envoye: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoye' },
-  confirme: { bg: 'bg-indigo-100', text: 'text-indigo-600', label: 'Confirme' },
+  envoye: { bg: 'bg-blue-100', text: 'text-blue-600', label: 'Envoyé' },
+  confirme: { bg: 'bg-indigo-100', text: 'text-indigo-600', label: 'Confirmé' },
   reception_partielle: { bg: 'bg-orange-100', text: 'text-orange-600', label: 'Partiel' },
-  recu: { bg: 'bg-green-100', text: 'text-green-600', label: 'Recu' },
-  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annule' }
+  recu: { bg: 'bg-green-100', text: 'text-green-600', label: 'Reçu' },
+  annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulé' }
 }
 
 export default function FicheFournisseur() {
@@ -81,7 +81,7 @@ export default function FicheFournisseur() {
   if (!supplier) {
     return (
       <div className="p-8 text-center">
-        <p className="text-gray-500 mb-4">Fournisseur non trouve</p>
+        <p className="text-gray-500 mb-4">Fournisseur non trouvé</p>
         <button onClick={() => navigate('/fournisseurs')} className="bg-[#313ADF] text-white px-6 py-2 rounded-xl font-semibold">
           Retour aux fournisseurs
         </button>
@@ -253,7 +253,7 @@ export default function FicheFournisseur() {
                       </div>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs text-gray-400">
-                          {po.expected_date ? `Prevue le ${new Date(po.expected_date).toLocaleDateString('fr-FR')}` : new Date(po.created_at).toLocaleDateString('fr-FR')}
+                          {po.expected_date ? `Prévue le ${new Date(po.expected_date).toLocaleDateString('fr-FR')}` : new Date(po.created_at).toLocaleDateString('fr-FR')}
                         </span>
                         <span className="text-sm font-medium text-[#040741]">{(po.total_ht || 0).toFixed(2)} EUR HT</span>
                       </div>

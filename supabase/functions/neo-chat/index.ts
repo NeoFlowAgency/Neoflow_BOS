@@ -20,7 +20,7 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
   const now = new Date()
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  // Limites volontairement basses : llama3.2:3b a 8k de contexte, on garde les données compactes
+  // Limites volontairement basses : on garde les données compactes pour ne pas saturer le contexte du modèle
   const [commandes, factures, factures_payees, devis, livraisons, clients, produits, payments] =
     await Promise.all([
       safe(supabase.from('orders').select('order_number,status,total_ttc,remaining_amount,customers(name)').eq('workspace_id', workspaceId).not('status','in','(termine,annule)').order('created_at',{ascending:false}).limit(8)),

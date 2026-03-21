@@ -31,7 +31,7 @@ export default function AdminDashboard() {
       const result = await invokeFunction('admin-data', {})
       setData(result)
     } catch (err) {
-      setError(err.message || 'Erreur lors du chargement des donnees')
+      setError(err.message || 'Erreur lors du chargement des données')
     } finally {
       setLoading(false)
     }
@@ -75,11 +75,11 @@ export default function AdminDashboard() {
       incomplete: 'bg-gray-100 text-gray-600',
     }
     const labels = {
-      early_access: 'Acces anticipe',
+      early_access: 'Accès anticipé',
       active: 'Actif',
       trialing: 'Essai',
       past_due: 'Retard',
-      canceled: 'Annule',
+      canceled: 'Annulé',
       incomplete: 'Incomplet',
     }
     return (
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
       <div className="p-4 md:p-8 min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent"></div>
-          <p className="text-[#040741] font-medium">Chargement des donnees admin...</p>
+          <p className="text-[#040741] font-medium">Chargement des données admin...</p>
         </div>
       </div>
     )
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
           <p className="font-semibold">Erreur</p>
           <p className="text-sm mt-1">{error}</p>
           <button onClick={loadData} className="mt-3 bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
-            Reessayer
+            Réessayer
           </button>
         </div>
       </div>
@@ -133,8 +133,8 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total utilisateurs" value={data?.stats?.totalUsers || 0} />
         <StatCard label="Total workspaces" value={data?.stats?.totalWorkspaces || 0} />
-        <StatCard label="Acces anticipe payes" value={data?.stats?.earlyAccessPaid || 0} color="text-[#313ADF]" />
-        <StatCard label="Acces anticipe total" value={data?.stats?.earlyAccessTotal || 0} color="text-purple-600" />
+        <StatCard label="Accès anticipé payés" value={data?.stats?.earlyAccessPaid || 0} color="text-[#313ADF]" />
+        <StatCard label="Accès anticipé total" value={data?.stats?.earlyAccessTotal || 0} color="text-purple-600" />
       </div>
 
       {/* Filters */}
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
         <div className="flex gap-2">
           {[
             { key: 'all', label: 'Tous' },
-            { key: 'early-access', label: 'Acces anticipe' },
+            { key: 'early-access', label: 'Accès anticipé' },
             { key: 'standard', label: 'Standard' },
           ].map(f => (
             <button
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Inscription</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Workspaces</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Derniere connexion</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Dernière connexion</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-4 py-3">
                       {ws.plan_type === 'early-access' ? (
-                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Acces anticipe</span>
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Accès anticipé</span>
                       ) : (
                         <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Standard</span>
                       )}

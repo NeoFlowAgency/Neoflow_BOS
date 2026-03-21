@@ -7,7 +7,7 @@ import { canManageStock } from '../lib/permissions'
 import { supabase } from '../lib/supabase'
 
 const MOVEMENT_LABELS = {
-  in: 'Entree',
+  in: 'Entrée',
   out: 'Sortie',
   adjustment: 'Ajustement',
   reservation: 'Reservation',
