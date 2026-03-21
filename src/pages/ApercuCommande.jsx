@@ -541,9 +541,9 @@ export default function ApercuCommande() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-[#313ADF]">{inv.invoice_number}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        inv.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                        inv.status === 'payée' ? 'bg-green-100 text-green-700' : inv.status === 'envoyée' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {inv.status === 'paid' ? 'Payée' : inv.status === 'sent' ? 'Envoyée' : 'Brouillon'}
+                        {inv.status === 'payée' ? 'Payée' : inv.status === 'envoyée' ? 'Envoyée' : inv.status === 'annulée' ? 'Annulée' : 'Brouillon'}
                       </span>
                     </div>
                     {inv.invoice_category && (

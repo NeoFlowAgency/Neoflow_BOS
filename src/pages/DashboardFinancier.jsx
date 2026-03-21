@@ -75,6 +75,7 @@ export default function DashboardFinancier() {
       setError(null)
 
       const now = new Date()
+      const today = now.toISOString().slice(0, 10)
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
       // 1. Orders
@@ -126,7 +127,7 @@ export default function DashboardFinancier() {
         commandesTerminees: ordersTermines.length,
         livraisonsEnRetard: deliveries.filter(d => {
           if (!d.scheduled_date || d.status === 'livree' || d.status === 'annulee') return false
-          return new Date(d.scheduled_date) < now
+          return d.scheduled_date.slice(0, 10) < today
         }).length
       })
 
