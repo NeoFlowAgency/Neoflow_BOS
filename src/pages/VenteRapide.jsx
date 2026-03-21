@@ -179,8 +179,13 @@ export default function VenteRapide() {
     }
 
     const totalHt = subtotalApresLigne - montantRemiseGlobale
-    const totalTva = totalHt * 0.20
-    const totalTtc = totalHt + totalTva
+    // TVA calculée par ligne selon le taux de chaque produit (remise globale répartie proportionnellement)
+    const discountRatio = subtotalApresLigne > 0 ? montantRemiseGlobale / subtotalApresLigne : 0
+    const totalTva = round(panier.reduce((sum, item) => {
+      const lineHt = lineTotal(item) * (1 - discountRatio)
+      return sum + lineHt * ((item.tax_rate || 20) / 100)
+    }, 0))
+    const totalTtc = round(totalHt + totalTva)
 
     return {
       subtotal: round(subtotalBrut),
@@ -625,7 +630,7 @@ export default function VenteRapide() {
                 </div>
               )}
               <div className="flex justify-between text-white/60 text-sm">
-                <span>TVA (20%)</span>
+                <span>TVA</span>
                 <span>{totaux.totalTva.toFixed(2)} EUR</span>
               </div>
               <div className="border-t border-white/20 pt-3 mt-3">
