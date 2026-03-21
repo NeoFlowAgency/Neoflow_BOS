@@ -398,8 +398,8 @@ export default function ApercuFacture() {
                 </div>
               )}
               <div className="flex justify-between py-2 text-gray-600">
-                <span>TVA ({facture.tva_rate || 20}%)</span>
-                <span>{((facture.total_ttc || 0) - (facture.subtotal_ht || 0)).toFixed(2)} €</span>
+                <span>TVA</span>
+                <span>{(facture.total_tva || 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">
                 <span className="font-bold text-[#040741] text-lg">Total TTC</span>

@@ -14,6 +14,7 @@
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
@@ -25,15 +26,29 @@ serve(async (req) => {
   }
 
   try {
-    // Only allow internal calls (from other Edge Functions using the service role key)
+    // Accept service role key (internal calls) OR authenticated user JWT
     const authHeader = req.headers.get('Authorization') || ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const token = authHeader.replace('Bearer ', '')
-    if (!token || token !== serviceRoleKey) {
+    if (!token) {
       return new Response(
-        JSON.stringify({ error: 'Acces refuse' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Non authentifié' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+    if (token !== serviceRoleKey) {
+      // Verify as user JWT
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        serviceRoleKey
+      )
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Acces refuse' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     const { to, subject, html } = await req.json()

@@ -84,6 +84,9 @@ export default function Livraisons() {
           order:orders(
             id, order_number, total_ttc, remaining_amount, amount_paid,
             customer:customers(first_name, last_name, phone, address)
+          ),
+          invoice:invoices(
+            customer:customers(first_name, last_name, phone, address)
           )
         `)
         .eq('workspace_id', workspace.id)
@@ -152,7 +155,7 @@ export default function Livraisons() {
   }
 
   const clientName = (delivery) => {
-    const c = delivery.order?.customer
+    const c = delivery.order?.customer || delivery.invoice?.customer
     if (!c) return 'Client inconnu'
     return `${c.first_name || ''} ${c.last_name || ''}`.trim()
   }
