@@ -180,7 +180,7 @@ export async function createPayment(workspaceId, orderId, userId, paymentData) {
 export async function listPayments(orderId) {
   const { data, error } = await supabase
     .from('payments')
-    .select('*, receiver:profiles!received_by(full_name)')
+    .select('*')
     .eq('order_id', orderId)
     .order('payment_date', { ascending: true })
 
