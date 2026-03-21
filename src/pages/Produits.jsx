@@ -5,11 +5,11 @@ import { useToast } from '../contexts/ToastContext'
 import { canViewMargins } from '../lib/permissions'
 
 const CATEGORIES = [
-  { value: '', label: 'Sans categorie' },
+  { value: '', label: 'Sans catégorie' },
   { value: 'matelas', label: 'Matelas' },
   { value: 'sommier', label: 'Sommier' },
   { value: 'literie', label: 'Ensemble literie' },
-  { value: 'tete_de_lit', label: 'Tete de lit' },
+  { value: 'tete_de_lit', label: 'Tête de lit' },
   { value: 'linge', label: 'Linge de lit' },
   { value: 'oreiller', label: 'Oreiller / Traversin' },
   { value: 'couette', label: 'Couette' },
@@ -217,7 +217,7 @@ export default function Produits() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 cursor-pointer"
           >
-            <option value="">Toutes categories</option>
+            <option value="">Toutes catégories</option>
             {CATEGORIES.filter(c => c.value).map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}

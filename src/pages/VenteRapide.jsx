@@ -34,6 +34,9 @@ export default function VenteRapide() {
   const [defaultLocationId, setDefaultLocationId] = useState(null)
   const [stockWarning, setStockWarning] = useState(null) // { produit } pending confirmation
 
+  // Mobile tab: 'produits' | 'panier'
+  const [mobileTab, setMobileTab] = useState('produits')
+
   useEffect(() => {
     if (workspace?.id) loadProduits()
   }, [workspace?.id])
@@ -107,6 +110,8 @@ export default function VenteRapide() {
             : item
         )
       }
+      // Premier article : basculer vers l'onglet panier sur mobile
+      if (prev.length === 0) setMobileTab('panier')
       return [...prev, {
         product_id: produit.id,
         description: produit.name,
@@ -258,6 +263,7 @@ export default function VenteRapide() {
       setRemiseValeur(0)
       setSelectedClient(null)
       setClientSearch('')
+      setMobileTab('produits')
     } catch (err) {
       console.error('Erreur vente rapide:', err)
       toast.error(err.message || 'Erreur lors de la vente')
@@ -333,9 +339,40 @@ export default function VenteRapide() {
         <p className="text-gray-500">Encaissement rapide en caisse</p>
       </div>
 
+      {/* Tabs mobile (masqués sur desktop) */}
+      <div className="lg:hidden flex mb-4 bg-gray-100 rounded-2xl p-1">
+        <button
+          onClick={() => setMobileTab('produits')}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            mobileTab === 'produits'
+              ? 'bg-white text-[#313ADF] shadow-sm'
+              : 'text-gray-500'
+          }`}
+        >
+          Produits
+        </button>
+        <button
+          onClick={() => setMobileTab('panier')}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+            mobileTab === 'panier'
+              ? 'bg-white text-[#313ADF] shadow-sm'
+              : 'text-gray-500'
+          }`}
+        >
+          Panier
+          {panier.length > 0 && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              mobileTab === 'panier' ? 'bg-[#313ADF] text-white' : 'bg-gray-400 text-white'
+            }`}>
+              {panier.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Colonne gauche : Recherche produits */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={`lg:col-span-2 space-y-4 ${mobileTab !== 'produits' ? 'hidden lg:block' : ''}`}>
           {/* Recherche */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-4">
             <div className="relative">
@@ -403,7 +440,7 @@ export default function VenteRapide() {
         </div>
 
         {/* Colonne droite : Panier + Paiement */}
-        <div className="space-y-4">
+        <div className={`space-y-4 ${mobileTab !== 'panier' ? 'hidden lg:block' : ''}`}>
           {/* Client optionnel */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-4">
             <h3 className="text-sm font-semibold text-[#040741] mb-2">Client (optionnel)</h3>

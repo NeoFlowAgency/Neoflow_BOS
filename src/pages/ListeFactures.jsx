@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
+import { downloadCSV } from '../lib/csvExport'
 
 export default function ListeFactures() {
   const navigate = useNavigate()
@@ -78,15 +79,32 @@ export default function ListeFactures() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Mes factures</h1>
           <p className="text-gray-500">{factures.length} factures au total</p>
         </div>
-        <button
-          onClick={() => navigate('/factures/nouvelle')}
-          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouvelle facture
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('factures', ['N° Facture', 'Client', 'Statut', 'Total TTC', 'Date'], filteredFactures.map(f => [
+              f.invoice_number || '',
+              [f.customers?.first_name, f.customers?.last_name].filter(Boolean).join(' ') || '',
+              f.status || '',
+              f.total_ttc != null ? Number(f.total_ttc).toFixed(2) : '',
+              f.created_at ? new Date(f.created_at).toLocaleDateString('fr-FR') : ''
+            ]))}
+            className="border border-gray-200 bg-white text-gray-600 px-4 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV
+          </button>
+          <button
+            onClick={() => navigate('/factures/nouvelle')}
+            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvelle facture
+          </button>
+        </div>
       </div>
 
       {/* Filtres et Recherche */}

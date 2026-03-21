@@ -24,6 +24,29 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authenticated user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Non authentifie' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const userToken = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabase.auth.getUser(userToken)
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Non authentifie' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { document_type, document_id } = await req.json()
 
     if (!document_type || !document_id) {
@@ -32,11 +55,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     // Load document data
     const table = document_type === 'invoice' ? 'invoices' : 'quotes'
@@ -48,6 +66,22 @@ serve(async (req) => {
       .select('*, customers(*), workspaces(*)')
       .eq('id', document_id)
       .single()
+
+    // Verify user belongs to the document's workspace
+    if (doc?.workspace_id) {
+      const { data: membership } = await supabase
+        .from('workspace_users')
+        .select('id')
+        .eq('workspace_id', doc.workspace_id)
+        .eq('user_id', user.id)
+        .single()
+      if (!membership) {
+        return new Response(
+          JSON.stringify({ error: 'Acces refuse' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
     if (docError || !doc) {
       return new Response(

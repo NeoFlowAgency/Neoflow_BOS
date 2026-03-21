@@ -12,10 +12,8 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    const defaultPriceId = Deno.env.get('STRIPE_PRICE_ID')
-    // Early access one-time price (29€) - TEST
-    const EARLY_ACCESS_PRICE_ID = 'price_1T0OkIApeYuOBUUXOdLDw8N6'
-    const earlyAccessPriceId = Deno.env.get('STRIPE_EARLY_ACCESS_PRICE_ID') || EARLY_ACCESS_PRICE_ID
+    const monthlyPriceId = Deno.env.get('STRIPE_PRICE_ID')
+    const annualPriceId = Deno.env.get('STRIPE_ANNUAL_PRICE_ID')
     if (!stripeKey) {
       throw new Error('Stripe configuration manquante')
     }
@@ -35,11 +33,13 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    const { workspace_id, success_url, cancel_url, plan: rawPlan } = await req.json()
+    const { workspace_id, success_url, cancel_url, billing: rawBilling } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
 
-    // Launch date passed — use standard subscription mode
-    const plan = rawPlan || 'standard'
+    // billing: 'monthly' (default) | 'annual'
+    const billing = rawBilling === 'annual' ? 'annual' : 'monthly'
+    const priceId = billing === 'annual' ? annualPriceId : monthlyPriceId
+    if (!priceId) throw new Error('Prix Stripe non configuré')
 
     // Verify user is owner of this workspace
     const { data: membership } = await supabase
@@ -82,43 +82,21 @@ serve(async (req) => {
     }
 
     const origin = req.headers.get('origin') || 'http://localhost:5173'
-    let session
 
-    if (plan === 'early-access') {
-      // Early access: one-time payment 29€ (not subscription)
-      session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        mode: 'payment',
-        line_items: [{ price: earlyAccessPriceId, quantity: 1 }],
-        allow_promotion_codes: true,
-        metadata: { workspace_id: workspace.id, plan: 'early-access' },
-        success_url: success_url || `${origin}/dashboard?checkout=success`,
-        cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
-      })
-
-      // Mark workspace as early-access
-      await supabase
-        .from('workspaces')
-        .update({ plan_type: 'early-access' })
-        .eq('id', workspace_id)
-    } else {
-      // Standard: subscription with 7-day trial
-      const priceId = defaultPriceId
-      session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        mode: 'subscription',
-        line_items: [{ price: priceId, quantity: 1 }],
-        subscription_data: {
-          trial_period_days: 7,
-          metadata: { workspace_id: workspace.id },
-        },
-        metadata: { workspace_id: workspace.id, plan: plan || 'default' },
-        success_url: success_url || `${origin}/dashboard?checkout=success`,
-        cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
-      })
-    }
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: { workspace_id: workspace.id },
+      },
+      metadata: { workspace_id: workspace.id, billing },
+      success_url: success_url || `${origin}/dashboard?checkout=success`,
+      cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
+    })
 
     return new Response(
       JSON.stringify({ url: session.url, session_id: session.id }),

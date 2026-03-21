@@ -432,7 +432,7 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
     return (
       <button
         onClick={() => setNeoOpen(true)}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[55] flex items-center gap-2.5 bg-gradient-to-r from-[#313ADF] to-[#040741] text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+        className="hidden md:flex fixed bottom-6 right-6 z-[55] items-center gap-2.5 bg-gradient-to-r from-[#313ADF] to-[#040741] text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
         title="Ouvrir Neo"
       >
         <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">

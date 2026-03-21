@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase } from '../lib/supabase'
 import { canManageSuppliers, canViewStatistics } from '../lib/permissions'
+import { getStockAlerts } from '../services/stockService'
 
 const ADMIN_EMAIL = 'neoflowagency05@gmail.com'
 const isAdminUser = (email) => email === ADMIN_EMAIL
@@ -17,6 +18,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [catalogueOpen, setCatalogueOpen] = useState(false)
   const [bottomSheet, setBottomSheet] = useState(null) // 'ventes' | 'boutique' | null
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [stockAlertCount, setStockAlertCount] = useState(0)
   const wsDropdownRef = useRef(null)
   const { currentWorkspace, workspaces, switchWorkspace, role } = useWorkspace()
 
@@ -68,6 +70,14 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     setBottomSheet(null)
   }, [location.pathname])
 
+  // Load stock alerts count
+  useEffect(() => {
+    if (!currentWorkspace?.id) return
+    getStockAlerts(currentWorkspace.id).then(({ outOfStock, lowStock }) => {
+      setStockAlertCount(outOfStock.length + lowStock.length)
+    }).catch(() => {})
+  }, [currentWorkspace?.id])
+
   // Fullscreen support (not available on iOS Safari)
   const fullscreenSupported = !!(
     document.fullscreenEnabled ||
@@ -98,7 +108,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     } catch { /* not supported */ }
   }
 
-  const NavItem = ({ to, icon, label, end, indent }) => (
+  const NavItem = ({ to, icon, label, end, indent, badge }) => (
     <NavLink
       to={to}
       end={end}
@@ -111,8 +121,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       }
       title={!isOpen ? label : ''}
     >
-      <span className="flex-shrink-0">{icon}</span>
-      {(isOpen || isMobile) && <span className="text-sm">{label}</span>}
+      <span className="flex-shrink-0 relative">
+        {icon}
+        {badge > 0 && !isOpen && !isMobile && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+        )}
+      </span>
+      {(isOpen || isMobile) && <span className="text-sm flex-1">{label}</span>}
+      {(isOpen || isMobile) && badge > 0 && (
+        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </NavLink>
   )
 
@@ -150,6 +170,8 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
   const isVentesActive = ventesRoutes.some(r => location.pathname.startsWith(r))
   const isBoutiqueActive = catalogueRoutes.some(r => location.pathname.startsWith(r))
+  const plusRoutes = ['/dashboard', '/statistiques', '/livraisons', '/settings']
+  const isPlusActive = plusRoutes.some(r => location.pathname.startsWith(r))
 
   const VENTES_SHEET = [
     { to: '/vente-rapide', label: 'Vente rapide', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
@@ -162,6 +184,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     { to: '/produits',     label: 'Produits',     show: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg> },
     { to: '/stock',        label: 'Stock',        show: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg> },
     { to: '/fournisseurs', label: 'Fournisseurs', show: canManageSuppliers(role), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> },
+  ]
+
+  const PLUS_SHEET = [
+    { to: '/dashboard',        label: 'Accueil',       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
+    ...(canViewStatistics(role) ? [{ to: '/statistiques', label: 'Statistiques', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> }] : []),
+    { to: '/livraisons',       label: 'Livraisons',    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg> },
+    { to: '/settings',         label: 'Paramètres',    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
   ]
 
   const MobileBottomNav = () => (
@@ -180,10 +209,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           {/* Drag handle */}
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-1" />
           <p className="text-white/40 text-[11px] font-medium uppercase tracking-wider px-5 py-2">
-            {bottomSheet === 'ventes' ? 'Ventes' : 'Boutique'}
+            {bottomSheet === 'ventes' ? 'Ventes' : bottomSheet === 'boutique' ? 'Boutique' : 'Menu'}
           </p>
           <div className="px-3 pb-3 space-y-0.5">
-            {(bottomSheet === 'ventes' ? VENTES_SHEET : BOUTIQUE_SHEET)
+            {(bottomSheet === 'ventes' ? VENTES_SHEET : bottomSheet === 'boutique' ? BOUTIQUE_SHEET : PLUS_SHEET)
               .filter(item => item.show !== false)
               .map(item => (
                 <NavLink
@@ -252,9 +281,13 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              {bottomSheet === 'boutique' && (
+              {bottomSheet === 'boutique' ? (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
-              )}
+              ) : stockAlertCount > 0 ? (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                  {stockAlertCount > 99 ? '99+' : stockAlertCount}
+                </span>
+              ) : null}
             </span>
             <span className="text-[10px] font-medium">Boutique</span>
           </button>
@@ -273,16 +306,23 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             <span className="text-[10px] font-medium">Neo IA</span>
           </button>
 
-          {/* Livraisons */}
-          <NavLink
-            to="/livraisons"
-            className={({ isActive }) => `flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${isActive ? 'text-white' : 'text-white/50'}`}
+          {/* Plus (Dashboard, Stats, Livraisons, Paramètres) */}
+          <button
+            onClick={() => setBottomSheet(s => s === 'plus' ? null : 'plus')}
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${
+              isPlusActive || bottomSheet === 'plus' ? 'text-white' : 'text-white/50'
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            <span className="text-[10px] font-medium">Livraisons</span>
-          </NavLink>
+            <span className="relative">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              {bottomSheet === 'plus' && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
+              )}
+            </span>
+            <span className="text-[10px] font-medium">Plus</span>
+          </button>
 
         </div>
       </div>
@@ -315,36 +355,23 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         />
       )}
 
-      {/* Boutons flottants mobile (haut-droit) : plein écran + accès sidebar complet */}
-      {isMobile && !isOpen && (
-        <div className="md:hidden fixed top-3 right-3 z-[45] flex gap-1.5">
-          {/* Plein écran (masqué sur iOS qui ne supporte pas l'API Fullscreen) */}
-          {fullscreenSupported && (
-            <button
-              onClick={toggleFullscreen}
-              className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-gray-500 rounded-xl shadow-sm border border-gray-200/60 hover:bg-white transition-colors"
-              title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
-            >
-              {isFullscreen ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v5m0-5h5M15 9l5-5m0 0v5m0-5h-5M9 15l-5 5m0 0h5m-5 0v-5M15 15l5 5m0 0h-5m5 0v-5" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              )}
-            </button>
-          )}
-          {/* Menu complet (Dashboard, Paramètres, Stats) */}
+      {/* Bouton plein écran mobile (haut-droit) — masqué sur iOS */}
+      {isMobile && !isOpen && fullscreenSupported && (
+        <div className="md:hidden fixed top-3 right-3 z-[45]">
           <button
-            onClick={() => setIsOpen(true)}
+            onClick={toggleFullscreen}
             className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-gray-500 rounded-xl shadow-sm border border-gray-200/60 hover:bg-white transition-colors"
-            title="Menu complet"
+            title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {isFullscreen ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v5m0-5h5M15 9l5-5m0 0v5m0-5h-5M9 15l-5 5m0 0h5m-5 0v-5M15 15l5 5m0 0h-5m5 0v-5" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            )}
           </button>
         </div>
       )}
@@ -541,6 +568,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             <NavItem
               to="/stock"
               indent
+              badge={stockAlertCount}
               icon={
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />

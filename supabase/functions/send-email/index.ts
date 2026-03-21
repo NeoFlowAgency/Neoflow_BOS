@@ -25,6 +25,17 @@ serve(async (req) => {
   }
 
   try {
+    // Only allow internal calls (from other Edge Functions using the service role key)
+    const authHeader = req.headers.get('Authorization') || ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token || token !== serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'Acces refuse' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { to, subject, html } = await req.json()
 
     if (!to || !subject || !html) {

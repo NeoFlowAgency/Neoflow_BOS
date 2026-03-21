@@ -10,9 +10,9 @@ const MOVEMENT_LABELS = {
   in: 'Entrée',
   out: 'Sortie',
   adjustment: 'Ajustement',
-  reservation: 'Reservation',
-  unreservation: 'Liberation',
-  transfer_in: 'Transfert entree',
+  reservation: 'Réservation',
+  unreservation: 'Libération',
+  transfer_in: 'Transfert entrée',
   transfer_out: 'Transfert sortie'
 }
 
@@ -146,7 +146,7 @@ export default function Stock() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await adjustStock(workspace.id, adjustModal.productId, adjustModal.locationId, parseFloat(adjustQty), adjustNotes, user.id)
-      toast.success('Stock ajuste')
+      toast.success('Stock ajusté')
       setAdjustModal(null)
       setAdjustQty('')
       setAdjustNotes('')
@@ -164,7 +164,7 @@ export default function Stock() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       await transferStock(workspace.id, transferModal.productId, transferModal.locationId, transferToLocation, parseInt(transferQty), user.id)
-      toast.success('Transfert effectue')
+      toast.success('Transfert effectué')
       setTransferModal(null)
       setTransferToLocation('')
       setTransferQty('')
@@ -192,7 +192,7 @@ export default function Stock() {
             <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-            Gerer les emplacements
+            Gérer les emplacements
           </button>
         )}
       </div>
@@ -255,7 +255,7 @@ export default function Stock() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher par nom ou reference..."
+            placeholder="Rechercher par nom ou référence..."
             className="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] shadow-sm"
           />
         </div>
@@ -277,7 +277,7 @@ export default function Stock() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 shadow-sm"
           >
-            <option value="">Toutes les categories</option>
+            <option value="">Toutes les catégories</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -298,7 +298,7 @@ export default function Stock() {
             </svg>
           </div>
           <p className="text-gray-500 mb-2">
-            {searchTerm || locationFilter || categoryFilter ? 'Aucun produit correspondant' : 'Aucun stock enregistre'}
+            {searchTerm || locationFilter || categoryFilter ? 'Aucun produit correspondant' : 'Aucun stock enregistré'}
           </p>
           <p className="text-sm text-gray-400">
             Ajoutez des produits puis ajustez leurs niveaux de stock
@@ -350,7 +350,7 @@ export default function Stock() {
                               {qty}
                             </span>
                             {reserved > 0 && (
-                              <span className="block text-xs text-gray-400 mt-0.5">{reserved} reserve(s)</span>
+                              <span className="block text-xs text-gray-400 mt-0.5">{reserved} réservé(s)</span>
                             )}
                           </td>
                         )
@@ -412,7 +412,7 @@ export default function Stock() {
                               Chargement...
                             </div>
                           ) : movements.length === 0 ? (
-                            <p className="text-sm text-gray-400">Aucun mouvement enregistre</p>
+                            <p className="text-sm text-gray-400">Aucun mouvement enregistré</p>
                           ) : (
                             <div className="space-y-2">
                               {movements.map(m => (
@@ -552,7 +552,7 @@ export default function Stock() {
 
             <div className="mb-4">
               <label className="block text-sm font-semibold text-[#040741] mb-2">
-                Nouvelle quantite <span className="font-normal text-gray-400">(actuellement : {adjustModal.currentQty})</span>
+                Nouvelle quantité <span className="font-normal text-gray-400">(actuellement : {adjustModal.currentQty})</span>
               </label>
               <input
                 type="number"
@@ -589,7 +589,7 @@ export default function Stock() {
       {transferModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold text-[#040741] mb-1">Transferer du stock</h3>
+            <h3 className="text-lg font-bold text-[#040741] mb-1">Transférer du stock</h3>
             <p className="text-sm text-gray-500 mb-6">{transferModal.productName}</p>
 
             <div className="mb-4">
@@ -619,7 +619,7 @@ export default function Stock() {
                 onChange={(e) => setTransferToLocation(e.target.value)}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
               >
-                <option value="">Selectionner un emplacement</option>
+                <option value="">Sélectionner un emplacement</option>
                 {locations.filter(l => l.id !== transferModal.locationId).map(loc => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
@@ -628,7 +628,7 @@ export default function Stock() {
 
             <div className="mb-6">
               <label className="block text-sm font-semibold text-[#040741] mb-2">
-                Quantite <span className="font-normal text-gray-400">(max: {transferModal.currentQty})</span>
+                Quantité <span className="font-normal text-gray-400">(max: {transferModal.currentQty})</span>
               </label>
               <input
                 type="number"
@@ -644,7 +644,7 @@ export default function Stock() {
                 Annuler
               </button>
               <button onClick={handleTransfer} disabled={transferLoading || !transferToLocation || !transferQty} className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 disabled:opacity-50">
-                {transferLoading ? 'Transfert...' : 'Transferer'}
+                {transferLoading ? 'Transfert...' : 'Transférer'}
               </button>
             </div>
           </div>

@@ -1370,40 +1370,52 @@ export default function Settings() {
             )}
           </div>
 
-          {/* Switch workspace */}
-          {workspaces.length > 1 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-              <h2 className="text-xl font-bold text-[#040741] mb-4">Changer de workspace</h2>
-              <div className="space-y-2">
-                {workspaces.map(ws => (
-                  <button
-                    key={ws.id}
-                    onClick={() => switchWorkspace(ws.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${
-                      ws.id === currentWorkspace?.id
-                        ? 'bg-[#313ADF]/10 border-2 border-[#313ADF]'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                    }`}
-                  >
-                    <div className="w-10 h-10 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-[#313ADF]">
-                        {ws.name?.charAt(0)?.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-[#040741]">{ws.name}</p>
-                      <p className="text-xs text-gray-400">{ROLE_LABELS[ws.role] || ws.role}</p>
-                    </div>
-                    {ws.id === currentWorkspace?.id && (
-                      <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
+          {/* Switch workspace + create new */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#040741]">
+                {workspaces.length > 1 ? 'Mes workspaces' : 'Workspace'}
+              </h2>
+              <button
+                onClick={() => navigate('/onboarding/workspace?from=settings')}
+                className="flex items-center gap-2 bg-[#313ADF] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#040741] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Nouveau workspace</span>
+                <span className="sm:hidden">Nouveau</span>
+              </button>
             </div>
-          )}
+            <div className="space-y-2">
+              {workspaces.map(ws => (
+                <button
+                  key={ws.id}
+                  onClick={() => switchWorkspace(ws.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${
+                    ws.id === currentWorkspace?.id
+                      ? 'bg-[#313ADF]/10 border-2 border-[#313ADF]'
+                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="w-10 h-10 bg-[#313ADF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-[#313ADF]">
+                      {ws.name?.charAt(0)?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#040741]">{ws.name}</p>
+                    <p className="text-xs text-gray-400">{ROLE_LABELS[ws.role] || ws.role}</p>
+                  </div>
+                  {ws.id === currentWorkspace?.id && (
+                    <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

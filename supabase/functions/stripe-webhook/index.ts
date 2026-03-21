@@ -37,19 +37,23 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const workspaceId = session.metadata?.workspace_id
-        const plan = session.metadata?.plan
         const subscriptionId = session.subscription as string
 
-        // Early access: one-time payment (no subscription)
-        if (plan === 'early-access' && workspaceId && !subscriptionId) {
+        if (workspaceId && subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+
           await supabase.from('workspaces').update({
-            subscription_status: 'early_access',
+            stripe_subscription_id: subscriptionId,
+            subscription_status: subscription.status,
             is_active: true,
-            plan_type: 'early-access',
-            stripe_payment_intent_id: session.payment_intent as string,
+            plan_type: 'standard',
+            trial_ends_at: subscription.trial_end
+              ? new Date(subscription.trial_end * 1000).toISOString()
+              : null,
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           }).eq('id', workspaceId)
 
-          // Send confirmation email
+          // Send welcome email
           try {
             const { data: ws } = await supabase
               .from('workspaces')
@@ -64,27 +68,23 @@ serve(async (req) => {
                 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
                 await fetch(`${supabaseUrl}/functions/v1/send-email`, {
                   method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${serviceKey}`,
-                  },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
                   body: JSON.stringify({
                     to: owner.email,
-                    subject: 'Bienvenue en Acces Anticipe NeoFlow BOS !',
+                    subject: 'Bienvenue sur NeoFlow BOS !',
                     html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
                       <div style="text-align:center;margin-bottom:30px">
                         <h1 style="color:#040741;margin:0">NeoFlow BOS</h1>
-                        <p style="color:#313ADF;font-weight:bold;margin:5px 0">Acces Anticipe</p>
                       </div>
-                      <h2 style="color:#040741">Votre acces anticipe est active !</h2>
+                      <h2 style="color:#040741">Votre abonnement est actif !</h2>
                       <p>Bonjour ${owner.user_metadata?.full_name || ''},</p>
-                      <p>Merci pour votre confiance ! Votre paiement pour le workspace <strong>${ws.name}</strong> a ete confirme.</p>
-                      <p>L'application sera pleinement accessible a partir du <strong>1er mars 2026 a 00h00</strong>.</p>
-                      <p>D'ici la, vous pouvez vous connecter pour :</p>
+                      <p>Merci pour votre confiance ! Votre workspace <strong>${ws.name}</strong> est maintenant actif.</p>
+                      <p>Vous beneficiez d'un essai gratuit de 7 jours. Aucun prelevement avant la fin de la periode d'essai.</p>
+                      <p>Vous pouvez des maintenant :</p>
                       <ul>
-                        <li>Modifier vos informations personnelles</li>
-                        <li>Configurer votre workspace (adresse, SIRET, logo, etc.)</li>
-                        <li>Acceder au support</li>
+                        <li>Creer vos premiers clients et produits</li>
+                        <li>Emettre des commandes, factures et devis</li>
+                        <li>Gerer votre stock et vos livraisons</li>
                       </ul>
                       <p style="margin-top:30px">A tres bientot !<br><strong>L'equipe NeoFlow</strong></p>
                       <hr style="border:none;border-top:1px solid #eee;margin:30px 0" />
@@ -95,26 +95,8 @@ serve(async (req) => {
               }
             }
           } catch (emailErr) {
-            console.error('[stripe-webhook] Error sending early access email:', emailErr)
+            console.error('[stripe-webhook] Error sending welcome email:', emailErr)
           }
-
-          console.log(`[stripe-webhook] early-access completed: workspace=${workspaceId}`)
-          break
-        }
-
-        // Standard: subscription checkout
-        if (workspaceId && subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-
-          await supabase.from('workspaces').update({
-            stripe_subscription_id: subscriptionId,
-            subscription_status: subscription.status, // 'trialing'
-            is_active: true,
-            trial_ends_at: subscription.trial_end
-              ? new Date(subscription.trial_end * 1000).toISOString()
-              : null,
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          }).eq('id', workspaceId)
 
           console.log(`[stripe-webhook] checkout.session.completed: workspace=${workspaceId} status=${subscription.status}`)
         }

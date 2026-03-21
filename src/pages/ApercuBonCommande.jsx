@@ -399,14 +399,14 @@ export default function ApercuBonCommande() {
             <div className="p-6 space-y-5">
               {/* Emplacement */}
               <div>
-                <label className="block text-sm font-semibold text-[#040741] mb-2">Emplacement de reception *</label>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">Emplacement de réception *</label>
                 <div className="relative">
                   <select
                     value={selectedLocation}
                     onChange={(e) => setSelectedLocation(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
                   >
-                    <option value="">Selectionner un emplacement</option>
+                    <option value="">Sélectionner un emplacement</option>
                     {locations.map(loc => (
                       <option key={loc.id} value={loc.id}>{loc.name} ({loc.location_type})</option>
                     ))}
@@ -421,7 +421,7 @@ export default function ApercuBonCommande() {
 
               {/* Lignes */}
               <div>
-                <label className="block text-sm font-semibold text-[#040741] mb-3">Quantites recues dans cette livraison</label>
+                <label className="block text-sm font-semibold text-[#040741] mb-3">Quantités reçues dans cette livraison</label>
                 <div className="space-y-3">
                   {items.map(item => {
                     const alreadyReceived = item.quantity_received || 0
