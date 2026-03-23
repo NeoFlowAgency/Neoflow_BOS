@@ -5,6 +5,7 @@ import { createOrder } from '../services/orderService'
 import { getStockLevels } from '../services/stockService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { sendPushToWorkspace } from '../lib/pushNotifications'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
 
@@ -300,6 +301,21 @@ export default function CreerCommande() {
         delivery_fees: totaux.fraisLivraison,
         notes
       })
+
+      // Notify managers/owners of new order (non-blocking)
+      const clientLabel = client.prenom || client.nom
+        ? `${client.prenom} ${client.nom}`.trim()
+        : client.company_name || 'Client'
+      sendPushToWorkspace(
+        workspace.id,
+        {
+          title: 'Nouvelle commande',
+          body: `Commande ${order.order_number} créée pour ${clientLabel} — ${totaux.totalTtc.toFixed(2)} €`,
+          tag: `commande-${order.id}`,
+          data: { url: `/commandes/${order.id}` },
+        },
+        user.id,
+      )
 
       toast.success('Commande creee avec succes !')
       navigate(`/commandes/${order.id}`)

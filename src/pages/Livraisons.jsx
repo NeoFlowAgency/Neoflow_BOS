@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { createPayment } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { sendPushToWorkspace } from '../lib/pushNotifications'
 import PaymentModal from '../components/PaymentModal'
 
 // ─── Configs ────────────────────────────────────────────────────────────────
@@ -238,6 +239,23 @@ export default function Livraisons() {
         await supabase.from('orders').update({ status: fullyPaid ? 'termine' : 'livre' }).eq('id', order.id)
       }
       setShowLivraisonModal(false)
+
+      // Notify managers/owners (non-blocking)
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      const clientName = livraisonTarget.order?.customers
+        ? `${livraisonTarget.order.customers.first_name || ''} ${livraisonTarget.order.customers.last_name || ''}`.trim()
+        : 'Client'
+      sendPushToWorkspace(
+        workspace.id,
+        {
+          title: 'Livraison confirmée',
+          body: `Livraison pour ${clientName} marquée comme livrée`,
+          tag: `livraison-${livraisonTarget.id}`,
+          data: { url: '/livraisons' },
+        },
+        currentUser?.id,
+      )
+
       if (withPayment && livraisonTarget.order?.id) {
         setPaymentOrderId(livraisonTarget.order.id)
         setPaymentOrderTotal(livraisonTarget.order.total_ttc || 0)
@@ -268,6 +286,19 @@ export default function Livraisons() {
       if (isFullyPaid) {
         await supabase.from('orders').update({ status: 'termine' }).eq('id', paymentOrderId)
       }
+
+      // Notify managers/owners of payment at delivery (non-blocking)
+      const { data: { user: payUser } } = await supabase.auth.getUser()
+      sendPushToWorkspace(
+        workspace.id,
+        {
+          title: 'Paiement encaissé',
+          body: `Paiement de ${paymentData.amount?.toFixed(2)} € enregistré à la livraison`,
+          tag: `paiement-livraison-${paymentOrderId}`,
+          data: { url: `/commandes/${paymentOrderId}` },
+        },
+        payUser?.id,
+      )
 
       toast.success('Paiement enregistré !')
       setShowPaymentModal(false)
