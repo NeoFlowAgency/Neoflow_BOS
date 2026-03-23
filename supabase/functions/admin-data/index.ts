@@ -51,7 +51,7 @@ serve(async (req) => {
     // Fetch profiles including survey answers
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, full_name, onboarding_completed, onboarding_survey, created_at, deleted_at')
+      .select('id, full_name, onboarding_completed, created_at, deleted_at')
     if (profilesError) throw profilesError
 
     // Build user data
@@ -71,7 +71,6 @@ serve(async (req) => {
         last_sign_in_at: u.last_sign_in_at,
         workspace_count: userWorkspaceCounts.get(u.id) || 0,
         onboarding_completed: profile?.onboarding_completed || false,
-        onboarding_survey: profile?.onboarding_survey || null,
         deleted_at: profile?.deleted_at || null,
       }
     }) || []
@@ -115,7 +114,7 @@ serve(async (req) => {
         (ws: any) => ws.plan_type === 'early-access' && ws.subscription_status === 'early_access'
       ).length,
       earlyAccessTotal: workspaceData.filter((ws: any) => ws.plan_type === 'early-access').length,
-      surveyResponses: users.filter((u: any) => u.onboarding_survey !== null).length,
+      surveyResponses: users.filter((u: any) => u.onboarding_completed === true).length,
     }
 
     return new Response(
