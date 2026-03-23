@@ -4,7 +4,10 @@
 
 import { supabase } from './supabase'
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
+// VAPID public key — public by design (the private key is in Supabase secrets)
+const VAPID_PUBLIC_KEY =
+  import.meta.env.VITE_VAPID_PUBLIC_KEY ||
+  'EOPnuc33WlndNkv_0PdD2gPn3fNQhpII9cMOWqNLIJUtgjwlT-Bi7G0wSSejYHtY5FOAF2dNdg8BH4Rhw8Bn9A'
 
 /**
  * Convert a base64url VAPID public key to Uint8Array
