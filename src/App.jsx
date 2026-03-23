@@ -194,7 +194,10 @@ function Layout({ children }) {
             ? 'ml-0 pb-16'
             : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
         }`}
-        style={!isMobile && neoOpen ? { paddingRight: `${neoWidth}px` } : {}}
+        style={{
+          paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : undefined,
+          ...(!isMobile && neoOpen ? { paddingRight: `${neoWidth}px` } : {}),
+        }}
       >
         {children}
       </main>

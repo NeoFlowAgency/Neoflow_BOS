@@ -22,7 +22,6 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    // Only internal admin can access this endpoint
     if (user.app_metadata?.is_internal_admin !== true) {
       return new Response(
         JSON.stringify({ error: 'Acces refuse' }),
@@ -49,13 +48,13 @@ serve(async (req) => {
       .select('workspace_id, user_id, role, created_at')
     if (wuError) throw wuError
 
-    // Fetch profiles
+    // Fetch profiles including survey answers
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, full_name, onboarding_completed, created_at, deleted_at')
+      .select('id, full_name, onboarding_completed, onboarding_survey, created_at, deleted_at')
     if (profilesError) throw profilesError
 
-    // Build user data with workspace counts
+    // Build user data
     const profileMap = new Map(profiles?.map((p: any) => [p.id, p]) || [])
     const userWorkspaceCounts = new Map<string, number>()
     workspaceUsers?.forEach((wu: any) => {
@@ -72,11 +71,12 @@ serve(async (req) => {
         last_sign_in_at: u.last_sign_in_at,
         workspace_count: userWorkspaceCounts.get(u.id) || 0,
         onboarding_completed: profile?.onboarding_completed || false,
+        onboarding_survey: profile?.onboarding_survey || null,
         deleted_at: profile?.deleted_at || null,
       }
     }) || []
 
-    // Build workspace data with owner info
+    // Build workspace data
     const workspaceData = workspaces?.map((ws: any) => {
       const ownerUser = allUsers?.find((u: any) => u.id === ws.owner_user_id)
       const members = workspaceUsers?.filter((wu: any) => wu.workspace_id === ws.id) || []
@@ -90,33 +90,36 @@ serve(async (req) => {
         subscription_status: ws.subscription_status,
         is_active: ws.is_active,
         stripe_customer_id: ws.stripe_customer_id,
-        stripe_payment_intent_id: ws.stripe_payment_intent_id,
         member_count: members.length,
         created_at: ws.created_at,
       }
     }) || []
 
-    // Compute stats
-    const totalUsers = users.filter((u: any) => !u.deleted_at).length
-    const totalWorkspaces = workspaceData.length
-    const earlyAccessPaid = workspaceData.filter(
-      (ws: any) => ws.plan_type === 'early-access' && ws.subscription_status === 'early_access'
-    ).length
-    const earlyAccessTotal = workspaceData.filter(
-      (ws: any) => ws.plan_type === 'early-access'
-    ).length
+    // Stats
+    const PRICE_MONTHLY = 49.99
+    const activeWorkspaces = workspaceData.filter((ws: any) => ws.subscription_status === 'active').length
+    const trialingWorkspaces = workspaceData.filter((ws: any) => ws.subscription_status === 'trialing').length
+    const pastDueWorkspaces = workspaceData.filter((ws: any) => ws.subscription_status === 'past_due').length
+    const canceledWorkspaces = workspaceData.filter((ws: any) => ws.subscription_status === 'canceled').length
+    const mrrEstimate = activeWorkspaces * PRICE_MONTHLY
+
+    const stats = {
+      totalUsers: users.filter((u: any) => !u.deleted_at).length,
+      totalWorkspaces: workspaceData.length,
+      activeWorkspaces,
+      trialingWorkspaces,
+      pastDueWorkspaces,
+      canceledWorkspaces,
+      mrrEstimate,
+      earlyAccessPaid: workspaceData.filter(
+        (ws: any) => ws.plan_type === 'early-access' && ws.subscription_status === 'early_access'
+      ).length,
+      earlyAccessTotal: workspaceData.filter((ws: any) => ws.plan_type === 'early-access').length,
+      surveyResponses: users.filter((u: any) => u.onboarding_survey !== null).length,
+    }
 
     return new Response(
-      JSON.stringify({
-        stats: {
-          totalUsers,
-          totalWorkspaces,
-          earlyAccessPaid,
-          earlyAccessTotal,
-        },
-        users,
-        workspaces: workspaceData,
-      }),
+      JSON.stringify({ stats, users, workspaces: workspaceData }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error: unknown) {

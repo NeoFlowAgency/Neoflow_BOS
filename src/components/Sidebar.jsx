@@ -356,7 +356,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
       {/* Bouton plein écran mobile (haut-droit) — masqué sur iOS */}
       {isMobile && !isOpen && fullscreenSupported && (
-        <div className="md:hidden fixed top-3 right-3 z-[45]">
+        <div className="md:hidden fixed right-3 z-[45]" style={{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
           <button
             onClick={toggleFullscreen}
             className="w-9 h-9 flex items-center justify-center bg-white/90 backdrop-blur-sm text-gray-500 rounded-xl shadow-sm border border-gray-200/60 hover:bg-white transition-colors"
@@ -381,6 +381,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             ? isOpen ? 'w-full translate-x-0' : '-translate-x-full w-full'
             : isOpen ? 'w-[240px]' : 'w-[80px]'
           }`}
+        style={{ paddingTop: `calc(1.25rem + env(safe-area-inset-top, 0px))` }}
       >
         <DesktopToggle />
 

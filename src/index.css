@@ -43,6 +43,11 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* iOS PWA standalone: compensate for status bar at top */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Touch optimizations */
 @media (hover: none) {
   * {

@@ -7,34 +7,60 @@ const QUESTIONS = [
     id: 'discovery',
     text: 'Comment avez-vous découvert NeoFlow BOS ?',
     options: ['Réseaux sociaux', 'Bouche à oreille', 'Recherche web', 'Salon ou événement', 'Autre'],
+    multiple: false,
   },
   {
     id: 'reason',
     text: 'Pourquoi avez-vous choisi NeoFlow BOS ?',
     options: ['Gestion complète', 'Prix attractif', 'Interface simple', 'Recommandé', 'Autre'],
+    multiple: true,
   },
   {
     id: 'expectation',
-    text: 'Quelle est votre principale attente ?',
-    options: ['Gérer mes ventes', 'Suivre mon stock', 'Gérer mes livraisons', 'Statistiques', 'Autre'],
+    text: 'Quelles sont vos principales attentes ?',
+    options: ['Gérer mes ventes', 'Suivre mon stock', 'Gérer mes livraisons', 'Statistiques', 'Facturation', 'Gestion clients', 'Autre'],
+    multiple: true,
   },
 ]
 
 export default function OnboardingSurvey() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
+  // answers: { discovery: 'value', reason: ['v1','v2'], expectation: ['v1'] }
   const [answers, setAnswers] = useState({})
   const [saving, setSaving] = useState(false)
 
   const current = QUESTIONS[step]
   const isLast = step === QUESTIONS.length - 1
 
+  const currentAnswer = answers[current.id]
+  const hasAnswer = current.multiple
+    ? Array.isArray(currentAnswer) && currentAnswer.length > 0
+    : !!currentAnswer
+
   const handleSelect = (option) => {
-    setAnswers((prev) => ({ ...prev, [current.id]: option }))
+    if (current.multiple) {
+      setAnswers((prev) => {
+        const existing = Array.isArray(prev[current.id]) ? prev[current.id] : []
+        const selected = existing.includes(option)
+          ? existing.filter((o) => o !== option)
+          : [...existing, option]
+        return { ...prev, [current.id]: selected }
+      })
+    } else {
+      setAnswers((prev) => ({ ...prev, [current.id]: option }))
+    }
+  }
+
+  const isSelected = (option) => {
+    if (current.multiple) {
+      return Array.isArray(currentAnswer) && currentAnswer.includes(option)
+    }
+    return currentAnswer === option
   }
 
   const handleNext = async () => {
-    if (!answers[current.id]) return
+    if (!hasAnswer) return
     if (!isLast) {
       setStep((s) => s + 1)
       return
@@ -53,7 +79,7 @@ export default function OnboardingSurvey() {
           .eq('id', user.id)
       }
     } catch {
-      // Ignore survey save errors — non-bloquant
+      // Non-bloquant
     } finally {
       setSaving(false)
       navigate('/onboarding/choice')
@@ -98,14 +124,18 @@ export default function OnboardingSurvey() {
             </div>
 
             {/* Question */}
-            <h2 className="text-xl font-bold text-[#040741] mb-6 leading-snug">
+            <h2 className="text-xl font-bold text-[#040741] mb-1 leading-snug">
               {current.text}
             </h2>
+            {current.multiple && (
+              <p className="text-xs text-gray-400 mb-5">Plusieurs choix possibles</p>
+            )}
+            {!current.multiple && <div className="mb-5" />}
 
             {/* Options */}
             <div className="space-y-2.5 mb-8">
               {current.options.map((option) => {
-                const selected = answers[current.id] === option
+                const selected = isSelected(option)
                 return (
                   <button
                     key={option}
@@ -116,9 +146,21 @@ export default function OnboardingSurvey() {
                         : 'border-gray-200 text-gray-700 hover:border-[#313ADF]/40 hover:bg-gray-50'
                     }`}
                   >
-                    <span className={`inline-block w-4 h-4 rounded-full border-2 mr-3 align-middle transition-colors ${
-                      selected ? 'border-[#313ADF] bg-[#313ADF]' : 'border-gray-300'
-                    }`} />
+                    {current.multiple ? (
+                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded border-2 mr-3 align-middle flex-shrink-0 transition-colors ${
+                        selected ? 'border-[#313ADF] bg-[#313ADF]' : 'border-gray-300'
+                      }`}>
+                        {selected && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                    ) : (
+                      <span className={`inline-block w-4 h-4 rounded-full border-2 mr-3 align-middle transition-colors ${
+                        selected ? 'border-[#313ADF] bg-[#313ADF]' : 'border-gray-300'
+                      }`} />
+                    )}
                     {option}
                   </button>
                 )
@@ -135,7 +177,7 @@ export default function OnboardingSurvey() {
               </button>
               <button
                 onClick={handleNext}
-                disabled={!answers[current.id] || saving}
+                disabled={!hasAnswer || saving}
                 className="px-6 py-2.5 bg-[#313ADF] text-white rounded-xl font-semibold text-sm hover:bg-[#4149e8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 {saving ? 'Envoi...' : isLast ? 'Terminer' : 'Suivant'}
