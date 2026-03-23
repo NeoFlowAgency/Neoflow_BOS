@@ -344,6 +344,17 @@ export default function VenteRapide() {
         <p className="text-gray-500">Encaissement rapide en caisse</p>
       </div>
 
+      {/* Notice NF525 */}
+      <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>
+          NeoFlow BOS est un logiciel de gestion de commandes et <strong>n'est pas un logiciel de caisse certifié NF 525</strong> (art. 286 bis CGI).
+          Vous êtes responsable du respect de vos obligations légales en matière d'enregistrement des paiements.
+        </span>
+      </div>
+
       {/* Tabs mobile (masqués sur desktop) */}
       <div className="lg:hidden flex mb-4 bg-gray-100 rounded-2xl p-1">
         <button

@@ -43,6 +43,7 @@ const WorkspaceSuspended = lazy(() => import('./pages/WorkspaceSuspended'))
 const JoinWorkspace = lazy(() => import('./pages/JoinWorkspace'))
 const WorkspaceChoice = lazy(() => import('./pages/WorkspaceChoice'))
 const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
+const CGU = lazy(() => import('./pages/CGU'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const OnboardingSurvey = lazy(() => import('./pages/OnboardingSurvey'))
 
@@ -265,6 +266,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
+            <Route path="/cgu" element={<CGU />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
             <Route path="/vente-rapide" element={<ProtectedLayout><RoleGuard allowedRoles={SALES_ROLES}><VenteRapide /></RoleGuard></ProtectedLayout>} />
             <Route path="/commandes/nouvelle" element={<ProtectedLayout><RoleGuard allowedRoles={SALES_ROLES}><CreerCommande /></RoleGuard></ProtectedLayout>} />

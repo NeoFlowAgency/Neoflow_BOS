@@ -286,6 +286,8 @@ export default function Login() {
         <span>Propulsé par Neoflow Agency</span>
         <span>·</span>
         <Link to="/mentions-legales" className="hover:text-[#313ADF] transition-colors">Mentions légales</Link>
+        <span>·</span>
+        <Link to="/cgu" className="hover:text-[#313ADF] transition-colors">CGU / CGV</Link>
       </div>
     </div>
   )

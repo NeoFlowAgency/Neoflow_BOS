@@ -16,6 +16,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [acceptCGU, setAcceptCGU] = useState(false)
 
   const validate = () => {
     if (!fullName.trim()) return 'Veuillez entrer votre nom complet'
@@ -24,6 +25,7 @@ export default function Signup() {
     if (!emailRegex.test(email)) return 'Adresse email invalide'
     if (password.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères'
     if (password !== confirmPassword) return 'Les mots de passe ne correspondent pas'
+    if (!acceptCGU) return 'Veuillez accepter les CGU et CGV pour continuer'
     return null
   }
 
@@ -202,6 +204,29 @@ export default function Signup() {
             </div>
           </div>
 
+          {/* CGU acceptance */}
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptCGU}
+                onChange={(e) => setAcceptCGU(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#313ADF] flex-shrink-0"
+              />
+              <span className="text-xs text-gray-600 leading-relaxed">
+                J'ai lu et j'accepte les{' '}
+                <Link to="/cgu" target="_blank" className="text-[#313ADF] hover:underline font-medium">
+                  Conditions Générales d'Utilisation
+                </Link>{' '}et les{' '}
+                <Link to="/cgu" target="_blank" className="text-[#313ADF] hover:underline font-medium">
+                  Conditions Générales de Vente
+                </Link>. Je reconnais avoir été informé(e) que le service démarrant avant l'expiration
+                du délai légal de rétractation de 14 jours, je renonce expressément à ce droit dès
+                le début de la fourniture du service (art. L221-28 Code de la consommation).
+              </span>
+            </label>
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,10 +270,12 @@ export default function Signup() {
         </p>
       </div>
 
-      <div className="mt-8 text-gray-400 text-sm relative z-10 flex items-center gap-3">
+      <div className="mt-8 text-gray-400 text-sm relative z-10 flex items-center gap-3 flex-wrap justify-center">
         <span>Propulsé par Neoflow Agency</span>
         <span>·</span>
         <Link to="/mentions-legales" className="hover:text-[#313ADF] transition-colors">Mentions légales</Link>
+        <span>·</span>
+        <Link to="/cgu" className="hover:text-[#313ADF] transition-colors">CGU / CGV</Link>
       </div>
     </div>
   )
