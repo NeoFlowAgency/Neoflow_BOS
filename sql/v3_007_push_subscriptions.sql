@@ -7,10 +7,12 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   subscription  JSONB NOT NULL,  -- { endpoint, keys: { p256dh, auth } }
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  -- Unique constraint per user+workspace (one subscription per device per workspace)
-  UNIQUE (user_id, workspace_id, (subscription->>'endpoint'))
+  created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Unique index: one subscription per device (endpoint) per user+workspace
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_unique
+  ON push_subscriptions (user_id, workspace_id, (subscription->>'endpoint'));
 
 -- Index for fast lookup by workspace
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_workspace
