@@ -1670,11 +1670,23 @@ export default function Settings() {
 
             {/* Browser support check */}
             {!('Notification' in window) ? (
-              <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-yellow-800 text-sm">Votre navigateur ne supporte pas les notifications push.</p>
+                <div>
+                  <p className="text-blue-800 text-sm font-medium">Installation requise sur iPhone / iPad</p>
+                  <p className="text-blue-700 text-sm mt-1">
+                    Sur iOS, les notifications push nécessitent d'installer l'app sur l'écran d'accueil :
+                  </p>
+                  <ol className="text-blue-700 text-sm mt-2 space-y-1 list-decimal list-inside">
+                    <li>Ouvrez <strong>bos.neoflow-agency.cloud</strong> dans <strong>Safari</strong></li>
+                    <li>Appuyez sur le bouton Partager <strong>⎋</strong></li>
+                    <li>Sélectionnez <strong>« Sur l'écran d'accueil »</strong></li>
+                    <li>Rouvrez l'app depuis l'icône installée</li>
+                  </ol>
+                  <p className="text-blue-600 text-xs mt-2">Requiert iOS 16.4 minimum.</p>
+                </div>
               </div>
             ) : Notification.permission === 'denied' ? (
               <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
