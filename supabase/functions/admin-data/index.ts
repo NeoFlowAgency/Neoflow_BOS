@@ -123,7 +123,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erreur inconnue'
+    const message = error instanceof Error
+      ? error.message
+      : (typeof error === 'object' && error !== null && 'message' in error)
+        ? String((error as Record<string, unknown>).message)
+        : JSON.stringify(error) || 'Erreur inconnue'
     console.error('[admin-data] Error:', message)
     return new Response(
       JSON.stringify({ error: message }),
