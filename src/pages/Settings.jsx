@@ -7,6 +7,7 @@ import { translateError } from '../lib/errorMessages'
 import { updateWorkspace, createPortalSession } from '../services/workspaceService'
 import { createInvitation, listInvitations, revokeInvitation } from '../services/invitationService'
 import { ROLE_LABELS, ROLE_COLORS, getAssignableRoles, canManageRole } from '../lib/permissions'
+import { subscribeToPush, unsubscribeFromPush, getSubscriptionStatus } from '../lib/pushNotifications'
 import BugReportForm from '../components/BugReportForm'
 
 const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'SNC', 'Autre']
@@ -68,6 +69,11 @@ export default function Settings() {
   })
   const [prefSaving, setPrefSaving] = useState(false)
 
+  // Push notifications
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
+  const [pushChecked, setPushChecked] = useState(false)
+
   // Delete account
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteAction, setDeleteAction] = useState('delete_workspace')
@@ -81,6 +87,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadUser()
+    checkPushStatus()
   }, [])
 
   useEffect(() => {
@@ -131,6 +138,32 @@ export default function Settings() {
       console.error('Erreur chargement user:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkPushStatus = async () => {
+    const enabled = await getSubscriptionStatus()
+    setPushEnabled(enabled)
+    setPushChecked(true)
+  }
+
+  const handleTogglePush = async () => {
+    if (!user || !currentWorkspace) return
+    setPushLoading(true)
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(currentWorkspace.id, user.id)
+        setPushEnabled(false)
+        toast.success('Notifications désactivées')
+      } else {
+        await subscribeToPush(currentWorkspace.id, user.id)
+        setPushEnabled(true)
+        toast.success('Notifications activées !')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Erreur notifications')
+    } finally {
+      setPushLoading(false)
     }
   }
 
@@ -520,6 +553,11 @@ export default function Settings() {
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />,
       desc: 'TVA, numérotation, stock'
     }] : []),
+    {
+      key: 'notifications', label: 'Notifications',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />,
+      desc: 'Alertes et notifications push'
+    },
     {
       key: 'support', label: 'Support',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
@@ -1616,6 +1654,85 @@ export default function Settings() {
                   </>
                 ) : 'Enregistrer les préférences'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Notifications */}
+      {activeTab === 'notifications' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-xl font-bold text-[#040741] mb-1">Notifications push</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Recevez des alertes en temps réel sur cet appareil — même quand l'onglet est fermé.
+            </p>
+
+            {/* Browser support check */}
+            {!('Notification' in window) ? (
+              <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-yellow-800 text-sm">Votre navigateur ne supporte pas les notifications push.</p>
+              </div>
+            ) : Notification.permission === 'denied' ? (
+              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                <div>
+                  <p className="text-red-800 text-sm font-medium">Notifications bloquées par le navigateur</p>
+                  <p className="text-red-700 text-xs mt-0.5">Autorisez les notifications dans les paramètres de votre navigateur puis rechargez la page.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${pushEnabled ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <svg className={`w-5 h-5 ${pushEnabled ? 'text-green-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#040741]">
+                      {pushEnabled ? 'Notifications activées' : 'Notifications désactivées'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {pushEnabled ? 'Cet appareil recevra les alertes' : 'Cliquez pour activer sur cet appareil'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleTogglePush}
+                  disabled={pushLoading || !pushChecked}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${pushEnabled ? 'bg-[#313ADF]' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
+
+            {/* What triggers notifications */}
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-[#040741] mb-3">Vous recevrez des notifications pour :</p>
+              <ul className="space-y-2 text-sm text-gray-600">
+                {[
+                  { icon: '📦', label: 'Alertes stock bas (produits sous le seuil)' },
+                  { icon: '🚚', label: 'Livraisons confirmées par un livreur' },
+                  { icon: '💳', label: 'Paiements encaissés à la livraison' },
+                  { icon: '🧾', label: 'Nouvelle commande créée par un vendeur' },
+                  { icon: '⚠️', label: 'Échec de paiement Stripe (abonnement)' },
+                ].map((item) => (
+                  <li key={item.label} className="flex items-center gap-2">
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-400 mt-3">
+                Les notifications ne sont envoyées qu'aux autres membres — jamais à l'auteur de l'action.
+              </p>
             </div>
           </div>
         </div>

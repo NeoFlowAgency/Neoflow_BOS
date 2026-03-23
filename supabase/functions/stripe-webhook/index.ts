@@ -149,6 +149,27 @@ serve(async (req) => {
               grace_period_until: gracePeriodEnd.toISOString(),
             }).eq('id', workspace.id)
 
+            // Notify workspace owner via push
+            try {
+              const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+              const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+              await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+                body: JSON.stringify({
+                  workspace_id: workspace.id,
+                  notification: {
+                    title: 'Échec de paiement',
+                    body: 'Le renouvellement de votre abonnement NeoFlow a échoué. Mettez à jour votre moyen de paiement.',
+                    tag: 'stripe-payment-failed',
+                    data: { url: '/settings' },
+                  },
+                }),
+              })
+            } catch (pushErr) {
+              console.error('[stripe-webhook] push notification error:', pushErr)
+            }
+
             console.log(`[stripe-webhook] invoice.payment_failed: workspace=${workspace.id} grace_until=${gracePeriodEnd.toISOString()}`)
           }
         }
