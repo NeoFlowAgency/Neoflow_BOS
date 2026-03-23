@@ -475,7 +475,10 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
         )}
 
         {/* ── Header ── */}
-        <div className="flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#313ADF] to-[#040741] flex-shrink-0">
+        <div
+          className="flex items-center gap-3 px-4 bg-gradient-to-r from-[#313ADF] to-[#040741] flex-shrink-0"
+          style={{ paddingTop: isMobile ? 'calc(0.875rem + env(safe-area-inset-top, 0px))' : '0.875rem', paddingBottom: '0.875rem' }}
+        >
           <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
             <span className="text-white text-sm font-bold">N</span>
           </div>

@@ -191,11 +191,12 @@ function Layout({ children }) {
       <main
         className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-200 ${
           isMobile
-            ? 'ml-0 pb-16'
+            ? 'ml-0'
             : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
         }`}
         style={{
           paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : undefined,
+          paddingBottom: isMobile ? 'calc(4rem + env(safe-area-inset-bottom, 0px))' : undefined,
           ...(!isMobile && neoOpen ? { paddingRight: `${neoWidth}px` } : {}),
         }}
       >

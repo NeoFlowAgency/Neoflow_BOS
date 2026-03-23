@@ -164,6 +164,7 @@ serve(async (req) => {
 
     const { message, context, history: rawHistory } = await req.json()
     if (!message?.trim()) throw new Error('Message vide')
+    if (message.length > 4000) throw new Error('Message trop long (max 4000 caractères)')
 
     // Sanitize history: only allow user/assistant roles to prevent prompt injection
     const history = Array.isArray(rawHistory)

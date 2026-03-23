@@ -237,6 +237,31 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    // Auth: accept service role key (internal calls) or valid user JWT
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.replace('Bearer ', '')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Non authentifié' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceRoleKey)
+
+    // Only validate user JWT if not called with the service role key
+    if (token !== serviceRoleKey) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: 'Accès refusé' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     const { workspace_id, notification, sender_user_id } = await req.json()
 
     if (!workspace_id || !notification?.title) {
@@ -259,12 +284,6 @@ serve(async (req) => {
 
     const vapidPublicKeyBytes = base64urlToBuffer(VAPID_PUBLIC_KEY)
     const vapidPrivateKeyBytes = base64urlToBuffer(VAPID_PRIVATE_KEY)
-
-    // Use service role key to bypass RLS when fetching subscriptions
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
 
     let query = supabase
       .from('push_subscriptions')

@@ -24,12 +24,18 @@ function escHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+function sanitizeUrl(url) {
+  const trimmed = url.trim().toLowerCase()
+  if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:')) return '#'
+  return url
+}
+
 function inlineMd(str) {
   return str
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-[#313ADF]">$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-[#040741]">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" class="text-[#313ADF] underline" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\[(.+?)\]\((.+?)\)/g, (_, text, url) => `<a href="${sanitizeUrl(url)}" class="text-[#313ADF] underline" target="_blank" rel="noopener noreferrer">${text}</a>`)
 }
 
 function renderMarkdown(text) {

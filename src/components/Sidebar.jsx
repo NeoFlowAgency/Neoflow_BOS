@@ -167,32 +167,115 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     </div>
   )
 
-  const isVentesActive = ventesRoutes.some(r => location.pathname.startsWith(r))
-  const isBoutiqueActive = catalogueRoutes.some(r => location.pathname.startsWith(r))
-  const plusRoutes = ['/dashboard', '/dashboard-financier', '/livraisons', '/settings']
-  const isPlusActive = plusRoutes.some(r => location.pathname.startsWith(r))
+  // ── Icônes réutilisables ──
+  const ICONS = {
+    home:       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
+    flash:      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+    orders:     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+    clients:    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+    delivery:   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>,
+    stats:      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+    products:   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>,
+    stock:      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>,
+    invoices:   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+    quotes:     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>,
+    suppliers:  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+    settings:   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+    admin:      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>,
+    ventes:     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" /></svg>,
+    more:       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" /></svg>,
+    neo:        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+  }
 
-  const VENTES_SHEET = [
-    { to: '/vente-rapide', label: 'Vente rapide', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> },
-    { to: '/commandes',    label: 'Commandes',   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg> },
-    { to: '/factures',     label: 'Factures',    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
-    { to: '/devis',        label: 'Devis',       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
-  ]
+  // ── Navigation mobile par rôle ──
+  // Chaque rôle a ses propres tabs et sheets adaptés à son usage quotidien
+  const getMobileNavConfig = () => {
+    const isAdmin = isAdminUser(currentUser)
 
-  const BOUTIQUE_SHEET = [
-    { to: '/produits',     label: 'Produits',     show: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg> },
-    { to: '/stock',        label: 'Stock',        show: true, icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg> },
-    { to: '/fournisseurs', label: 'Fournisseurs', show: canManageSuppliers(role), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> },
-  ]
+    // PLUS sheet commun aux rôles avec gestion boutique
+    const boutiqueSheet = [
+      { to: '/produits',    label: 'Produits',     icon: ICONS.products },
+      { to: '/stock',       label: 'Stock',        icon: ICONS.stock, badge: stockAlertCount },
+      ...(canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
+      { to: '/settings',    label: 'Paramètres',   icon: ICONS.settings },
+      ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ICONS.admin }] : []),
+    ]
 
-  const PLUS_SHEET = [
-    { to: '/dashboard',        label: 'Accueil',       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
-    ...(canViewStatistics(role) ? [{ to: '/dashboard-financier', label: 'Statistiques', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> }] : []),
-    { to: '/livraisons',       label: 'Livraisons',    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg> },
-    { to: '/settings',         label: 'Paramètres',    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
-  ]
+    // Sheet ventes (commandes + facturation)
+    const ventesSheet = [
+      { to: '/vente-rapide', label: 'Vente rapide', icon: ICONS.flash },
+      { to: '/commandes',    label: 'Commandes',    icon: ICONS.orders },
+      { to: '/factures',     label: 'Factures',     icon: ICONS.invoices },
+      { to: '/devis',        label: 'Devis',        icon: ICONS.quotes },
+    ]
 
-  const MobileBottomNav = () => (
+    if (role === 'livreur') {
+      return {
+        tabs: [
+          { type: 'link',   to: '/livraisons', label: 'Livraisons', icon: ICONS.delivery,
+            isActive: location.pathname.startsWith('/livraisons') },
+          { type: 'link',   to: '/dashboard',  label: 'Accueil',   icon: ICONS.home,
+            isActive: location.pathname === '/dashboard' },
+          { type: 'neo',    label: 'Neo IA',   icon: ICONS.neo },
+          { type: 'sheet',  sheetKey: 'plus',  label: 'Plus',      icon: ICONS.more,
+            sheet: [
+              { to: '/produits',  label: 'Produits',   icon: ICONS.products },
+              { to: '/settings',  label: 'Paramètres', icon: ICONS.settings },
+              ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ICONS.admin }] : []),
+            ]
+          },
+        ]
+      }
+    }
+
+    if (role === 'vendeur') {
+      return {
+        tabs: [
+          { type: 'link',  to: '/vente-rapide', label: 'Vente',    icon: ICONS.flash,
+            isActive: location.pathname.startsWith('/vente-rapide') },
+          { type: 'link',  to: '/commandes',    label: 'Commandes',icon: ICONS.orders,
+            isActive: location.pathname.startsWith('/commandes') },
+          { type: 'link',  to: '/clients',      label: 'Clients',  icon: ICONS.clients,
+            isActive: location.pathname.startsWith('/clients') },
+          { type: 'neo',   label: 'Neo IA',     icon: ICONS.neo },
+          { type: 'sheet', sheetKey: 'plus',    label: 'Plus',     icon: ICONS.more,
+            sheet: [
+              { to: '/factures',  label: 'Factures',   icon: ICONS.invoices },
+              { to: '/devis',     label: 'Devis',      icon: ICONS.quotes },
+              { to: '/produits',  label: 'Produits',   icon: ICONS.products },
+              { to: '/stock',     label: 'Stock',      icon: ICONS.stock, badge: stockAlertCount },
+              { to: '/livraisons',label: 'Livraisons', icon: ICONS.delivery },
+              { to: '/settings',  label: 'Paramètres', icon: ICONS.settings },
+            ]
+          },
+        ]
+      }
+    }
+
+    // manager & propriétaire — même structure
+    return {
+      tabs: [
+        { type: 'link',  to: '/dashboard',          label: 'Accueil',  icon: ICONS.home,
+          isActive: location.pathname === '/dashboard' },
+        { type: 'sheet', sheetKey: 'ventes',         label: 'Ventes',   icon: ICONS.ventes,
+          isActive: ventesRoutes.some(r => location.pathname.startsWith(r)),
+          sheet: ventesSheet },
+        { type: 'link',  to: '/clients',             label: 'Clients',  icon: ICONS.clients,
+          isActive: location.pathname.startsWith('/clients') },
+        { type: 'link',  to: '/dashboard-financier', label: 'Stats',    icon: ICONS.stats,
+          isActive: location.pathname.startsWith('/dashboard-financier') },
+        { type: 'sheet', sheetKey: 'plus',           label: 'Plus',     icon: ICONS.more,
+          sheet: boutiqueSheet },
+      ]
+    }
+  }
+
+  const navConfig = getMobileNavConfig()
+
+  const MobileBottomNav = () => {
+    const activeSheet = navConfig.tabs.find(t => t.type === 'sheet' && t.sheetKey === bottomSheet)
+
+    return (
     <>
       {/* Sheet backdrop */}
       {bottomSheet && (
@@ -200,35 +283,38 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       )}
 
       {/* Sheet panel */}
-      {bottomSheet && (
+      {bottomSheet && activeSheet && (
         <div
           className="md:hidden fixed left-0 right-0 z-[46] bg-gradient-to-b from-[#040741] to-[#0a0b52] border-t border-white/10 rounded-t-2xl shadow-2xl overflow-hidden"
           style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}
         >
-          {/* Drag handle */}
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-1" />
           <p className="text-white/40 text-[11px] font-medium uppercase tracking-wider px-5 py-2">
-            {bottomSheet === 'ventes' ? 'Ventes' : bottomSheet === 'boutique' ? 'Boutique' : 'Menu'}
+            {activeSheet.label}
           </p>
           <div className="px-3 pb-3 space-y-0.5">
-            {(bottomSheet === 'ventes' ? VENTES_SHEET : bottomSheet === 'boutique' ? BOUTIQUE_SHEET : PLUS_SHEET)
-              .filter(item => item.show !== false)
-              .map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setBottomSheet(null)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive ? 'bg-[#313ADF] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
-                    }`
-                  }
-                >
-                  <span className="flex-shrink-0">{item.icon}</span>
-                  <span>{item.label}</span>
-                </NavLink>
-              ))
-            }
+            {activeSheet.sheet.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setBottomSheet(null)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    isActive ? 'bg-[#313ADF] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                <span className="flex-shrink-0 relative">
+                  {item.icon}
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
           </div>
         </div>
       )}
@@ -239,94 +325,72 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-center justify-around py-1">
+          {navConfig.tabs.map((tab, idx) => {
+            if (tab.type === 'neo') {
+              return (
+                <button
+                  key={idx}
+                  onClick={() => { setBottomSheet(null); window.dispatchEvent(new CustomEvent('neoflow:open-neo')) }}
+                  className="flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] text-white/50 hover:text-white transition-colors"
+                >
+                  <span className="relative">
+                    {tab.icon}
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-[#040741]" />
+                  </span>
+                  <span className="text-[10px] font-medium">{tab.label}</span>
+                </button>
+              )
+            }
 
-          {/* Ventes (expandable) */}
-          <button
-            onClick={() => setBottomSheet(s => s === 'ventes' ? null : 'ventes')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${
-              isVentesActive || bottomSheet === 'ventes' ? 'text-white' : 'text-white/50'
-            }`}
-          >
-            <span className="relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-              </svg>
-              {bottomSheet === 'ventes' && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
-              )}
-            </span>
-            <span className="text-[10px] font-medium">Ventes</span>
-          </button>
+            if (tab.type === 'link') {
+              return (
+                <NavLink
+                  key={idx}
+                  to={tab.to}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${isActive ? 'text-white' : 'text-white/50'}`
+                  }
+                >
+                  <span className="relative">
+                    {tab.icon}
+                  </span>
+                  <span className="text-[10px] font-medium">{tab.label}</span>
+                </NavLink>
+              )
+            }
 
-          {/* Clients */}
-          <NavLink
-            to="/clients"
-            className={({ isActive }) => `flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${isActive ? 'text-white' : 'text-white/50'}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span className="text-[10px] font-medium">Clients</span>
-          </NavLink>
+            if (tab.type === 'sheet') {
+              const isThisSheetOpen = bottomSheet === tab.sheetKey
+              const isActive = tab.isActive || isThisSheetOpen
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setBottomSheet(s => s === tab.sheetKey ? null : tab.sheetKey)}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${isActive ? 'text-white' : 'text-white/50'}`}
+                >
+                  <span className="relative">
+                    {tab.icon}
+                    {isThisSheetOpen && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
+                    )}
+                    {!isThisSheetOpen && tab.sheetKey === 'plus' && stockAlertCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                        {stockAlertCount > 99 ? '99+' : stockAlertCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] font-medium">{tab.label}</span>
+                </button>
+              )
+            }
 
-          {/* Boutique (expandable: Produits, Stock, Fournisseurs) */}
-          <button
-            onClick={() => setBottomSheet(s => s === 'boutique' ? null : 'boutique')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${
-              isBoutiqueActive || bottomSheet === 'boutique' ? 'text-white' : 'text-white/50'
-            }`}
-          >
-            <span className="relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              {bottomSheet === 'boutique' ? (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
-              ) : stockAlertCount > 0 ? (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
-                  {stockAlertCount > 99 ? '99+' : stockAlertCount}
-                </span>
-              ) : null}
-            </span>
-            <span className="text-[10px] font-medium">Boutique</span>
-          </button>
-
-          {/* Neo IA */}
-          <button
-            onClick={() => { setBottomSheet(null); window.dispatchEvent(new CustomEvent('neoflow:open-neo')) }}
-            className="flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] text-white/50 hover:text-white transition-colors"
-          >
-            <span className="relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-[#040741]" />
-            </span>
-            <span className="text-[10px] font-medium">Neo IA</span>
-          </button>
-
-          {/* Plus (Dashboard, Stats, Livraisons, Paramètres) */}
-          <button
-            onClick={() => setBottomSheet(s => s === 'plus' ? null : 'plus')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-[60px] transition-colors ${
-              isPlusActive || bottomSheet === 'plus' ? 'text-white' : 'text-white/50'
-            }`}
-          >
-            <span className="relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              {bottomSheet === 'plus' && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#313ADF] rounded-full" />
-              )}
-            </span>
-            <span className="text-[10px] font-medium">Plus</span>
-          </button>
-
+            return null
+          })}
         </div>
       </div>
     </>
-  )
+    )
+  }
 
   const DesktopToggle = () => (
     <button
