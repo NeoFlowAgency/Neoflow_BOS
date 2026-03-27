@@ -1474,12 +1474,14 @@ export default function Settings() {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                     currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
                     currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                    currentWorkspace?.subscription_status === 'early_access' ? 'bg-purple-100 text-purple-700' :
                     currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
                     currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
                     {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
                      currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
+                     currentWorkspace?.subscription_status === 'early_access' ? 'Accès anticipé' :
                      currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
                      currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
                      currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :

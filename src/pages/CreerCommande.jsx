@@ -207,20 +207,21 @@ export default function CreerCommande() {
 
   const handleSubmit = async () => {
     setError('')
+    const showError = (msg) => { setError(msg); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
     const lignesValides = lignes.filter(l => l.produit_id !== null)
     if (lignesValides.length === 0) {
-      setError('Veuillez selectionner au moins un produit')
+      showError('Veuillez selectionner au moins un produit')
       return
     }
 
     if (deliveryType === 'delivery' && (!client.nom || !client.prenom || !client.telephone || !client.adresse)) {
-      setError('Les informations client completes sont requises pour une livraison')
+      showError('Les informations client completes sont requises pour une livraison')
       return
     }
 
     if (!workspace?.id) {
-      setError('Aucun workspace actif')
+      showError('Aucun workspace actif')
       return
     }
 
@@ -321,7 +322,7 @@ export default function CreerCommande() {
       navigate(`/commandes/${order.id}`)
     } catch (err) {
       console.error('Erreur creation commande:', err)
-      setError(err.message || 'Erreur lors de la creation')
+      showError(err.message || 'Erreur lors de la creation')
     } finally {
       setLoading(false)
     }

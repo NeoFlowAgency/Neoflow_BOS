@@ -204,7 +204,7 @@ serve(async (req) => {
 
     // Appel Ollama (direct, sans n8n)
     const ollamaUrl = Deno.env.get('OLLAMA_URL') || 'http://172.17.0.1:11434'
-    const ollamaModel = Deno.env.get('OLLAMA_MODEL') || 'qwen2.5:7b'
+    const ollamaModel = Deno.env.get('OLLAMA_MODEL') || 'qwen2.5:1.5b'
 
     const ollamaRes = await fetch(`${ollamaUrl}/api/chat`, {
       method: 'POST',
@@ -223,7 +223,10 @@ serve(async (req) => {
 
     if (!ollamaRes.ok) {
       const err = await ollamaRes.text()
-      throw new Error(`Ollama error ${ollamaRes.status}: ${err}`)
+      const isMemoryError = err.includes('system memory') || err.includes('requires more')
+      throw new Error(isMemoryError
+        ? "Neo IA est temporairement indisponible (ressources insuffisantes). Réessayez dans quelques instants."
+        : `Ollama error ${ollamaRes.status}: ${err}`)
     }
 
     // Transformer le stream NDJSON d'Ollama en SSE pour le client

@@ -162,36 +162,37 @@ export default function CreerFacture() {
 
   const handleSubmit = async () => {
     setError('')
+    const showError = (msg) => { setError(msg); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     if (!client.nom || !client.prenom || !client.telephone || !client.adresse) {
-      setError('Veuillez remplir tous les champs client obligatoires')
+      showError('Veuillez remplir tous les champs client obligatoires')
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (client.email && !emailRegex.test(client.email)) {
-      setError('Veuillez entrer une adresse email valide (ex: exemple@mail.com)')
+      showError('Veuillez entrer une adresse email valide (ex: exemple@mail.com)')
       return
     }
 
     const phoneDigits = client.telephone.replace(/\D/g, '')
     if (phoneDigits.length < 8) {
-      setError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
+      showError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
       return
     }
 
     if (avecLivraison && !dateLivraison) {
-      setError('Veuillez sélectionner une date de livraison')
+      showError('Veuillez sélectionner une date de livraison')
       return
     }
 
     const lignesValides = lignes.filter(l => l.produit_id !== null)
     if (lignesValides.length === 0) {
-      setError('Veuillez sélectionner au moins un produit')
+      showError('Veuillez sélectionner au moins un produit')
       return
     }
 
     if (!workspace?.id) {
-      setError('Aucun workspace actif. Veuillez sélectionner un workspace.')
+      showError('Aucun workspace actif. Veuillez sélectionner un workspace.')
       return
     }
 
@@ -288,9 +289,9 @@ export default function CreerFacture() {
     } catch (err) {
       console.error('Erreur création facture:', err.message)
       if (err.message.includes('Failed to fetch')) {
-        setError('Impossible de contacter le serveur. Vérifiez votre connexion.')
+        showError('Impossible de contacter le serveur. Vérifiez votre connexion.')
       } else {
-        setError(err.message || 'Une erreur est survenue lors de la création de la facture.')
+        showError(err.message || 'Une erreur est survenue lors de la création de la facture.')
       }
     } finally {
       setLoading(false)

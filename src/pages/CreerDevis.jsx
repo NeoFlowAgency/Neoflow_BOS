@@ -189,31 +189,32 @@ export default function CreerDevis() {
 
   const handleSubmit = async () => {
     setError('')
+    const showError = (msg) => { setError(msg); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     if (!client.nom || !client.prenom || !client.telephone || !client.adresse) {
-      setError('Veuillez remplir tous les champs client obligatoires')
+      showError('Veuillez remplir tous les champs client obligatoires')
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (client.email && !emailRegex.test(client.email)) {
-      setError('Veuillez entrer une adresse email valide')
+      showError('Veuillez entrer une adresse email valide')
       return
     }
 
     const phoneDigits = client.telephone.replace(/\D/g, '')
     if (phoneDigits.length < 8) {
-      setError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
+      showError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
       return
     }
 
     const lignesValides = lignes.filter(l => l.produit_id !== null)
     if (lignesValides.length === 0) {
-      setError('Veuillez sélectionner au moins un produit')
+      showError('Veuillez sélectionner au moins un produit')
       return
     }
 
     if (!workspace?.id) {
-      setError('Aucun workspace actif. Veuillez sélectionner un workspace.')
+      showError('Aucun workspace actif. Veuillez sélectionner un workspace.')
       return
     }
 
@@ -301,9 +302,9 @@ export default function CreerDevis() {
     } catch (err) {
       console.error('Erreur création devis:', err.message)
       if (err.message.includes('Failed to fetch')) {
-        setError('Impossible de contacter le serveur. Vérifiez votre connexion.')
+        showError('Impossible de contacter le serveur. Vérifiez votre connexion.')
       } else {
-        setError(err.message || 'Une erreur est survenue lors de la création du devis.')
+        showError(err.message || 'Une erreur est survenue lors de la création du devis.')
       }
       toast.error('Erreur lors de la création du devis')
     } finally {

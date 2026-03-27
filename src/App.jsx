@@ -280,6 +280,7 @@ function App() {
             <Route path="/devis" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeDevis /></RoleGuard></ProtectedLayout>} />
             <Route path="/clients/:clientId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><FicheClient /></RoleGuard></ProtectedLayout>} />
             <Route path="/clients" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeClients /></RoleGuard></ProtectedLayout>} />
+            <Route path="/catalogue" element={<Navigate to="/produits" replace />} />
             <Route path="/produits" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><Produits /></RoleGuard></ProtectedLayout>} />
             <Route path="/stock/emplacements" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><StockLocations /></RoleGuard></ProtectedLayout>} />
             <Route path="/stock" element={<ProtectedLayout><Stock /></ProtectedLayout>} />
