@@ -42,16 +42,35 @@ serve(async (req) => {
         if (workspaceId && subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
+          // Déterminer le plan depuis les métadonnées de la session
+          // (définies dans create-checkout) ou en comparant le price ID
+          let planType = session.metadata?.plan_type || subscription.metadata?.plan_type || 'pro'
+          if (!['basic', 'pro', 'enterprise'].includes(planType)) {
+            // Rétrocompatibilité : 'standard' → 'pro'
+            planType = 'pro'
+          }
+
           await supabase.from('workspaces').update({
             stripe_subscription_id: subscriptionId,
             subscription_status: subscription.status,
             is_active: true,
-            plan_type: 'standard',
+            plan_type: planType,
             trial_ends_at: subscription.trial_end
               ? new Date(subscription.trial_end * 1000).toISOString()
               : null,
             current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           }).eq('id', workspaceId)
+
+          // Initialiser les NeoCredits selon le plan
+          const monthlyAllowance = planType === 'enterprise' ? -1 : planType === 'pro' ? 2000 : 200
+          await supabase.from('neo_credits').upsert({
+            workspace_id: workspaceId,
+            credits_balance: monthlyAllowance,
+            monthly_allowance: monthlyAllowance,
+            credits_used_this_month: 0,
+            extra_credits: 0,
+            last_reset_at: new Date().toISOString(),
+          }, { onConflict: 'workspace_id' })
 
           // Send welcome email
           try {

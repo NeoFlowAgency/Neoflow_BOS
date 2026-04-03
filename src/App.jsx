@@ -46,6 +46,10 @@ const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
 const CGU = lazy(() => import('./pages/CGU'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const OnboardingSurvey = lazy(() => import('./pages/OnboardingSurvey'))
+const ListeSAV = lazy(() => import('./pages/ListeSAV'))
+const CreerSAV = lazy(() => import('./pages/CreerSAV'))
+const ApercuSAV = lazy(() => import('./pages/ApercuSAV'))
+const LivraisonLivreur = lazy(() => import('./pages/LivraisonLivreur'))
 
 // Fallback affiché pendant le chargement des chunks
 function PageLoader() {
@@ -289,6 +293,10 @@ function App() {
             <Route path="/bons-commande/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><CreerBonCommande /></RoleGuard></ProtectedLayout>} />
             <Route path="/bons-commande/:bonCommandeId" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><ApercuBonCommande /></RoleGuard></ProtectedLayout>} />
             <Route path="/livraisons" element={<ProtectedLayout><Livraisons /></ProtectedLayout>} />
+            <Route path="/livraisons/ma-journee" element={<ProtectedLayout><LivraisonLivreur /></ProtectedLayout>} />
+            <Route path="/sav/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerSAV /></RoleGuard></ProtectedLayout>} />
+            <Route path="/sav/:savId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuSAV /></RoleGuard></ProtectedLayout>} />
+            <Route path="/sav" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeSAV /></RoleGuard></ProtectedLayout>} />
             <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation/admin" element={<ProtectedLayout><RoleGuard allowedRoles={['proprietaire']}><DocumentationAdmin /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />

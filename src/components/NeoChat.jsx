@@ -216,17 +216,99 @@ function ConversationList({ chats, activeChatId, onSelect, onNew, onDelete, onCl
   )
 }
 
+// ─── Carte d'approbation d'action agent ───────────────────────────────────────
+
+function ActionApprovalCard({ action, onApprove, onReject, isProcessing }) {
+  const toolIcons = {
+    update_order_status: (
+      <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+    create_delivery: (
+      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+      </svg>
+    ),
+  }
+
+  return (
+    <div className="my-3 border border-orange-200 rounded-xl overflow-hidden bg-orange-50">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-100 border-b border-orange-200">
+        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span className="text-xs font-semibold text-orange-700">Neo souhaite effectuer une action — votre approbation est requise</span>
+      </div>
+
+      {/* Action details */}
+      <div className="px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            {toolIcons[action.tool_name] || (
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">{action.label}</p>
+            {action.details && (
+              <p className="text-xs text-gray-500 mt-0.5">{action.details}</p>
+            )}
+            {/* Paramètres techniques */}
+            <div className="mt-2 bg-white border border-orange-100 rounded-lg px-3 py-2">
+              <p className="text-[11px] font-mono text-gray-500">
+                {Object.entries(action.tool_args || {}).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex gap-2 px-4 pb-3">
+        <button
+          onClick={() => onApprove(action)}
+          disabled={isProcessing}
+          className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+          {isProcessing ? 'Exécution…' : 'Approuver'}
+        </button>
+        <button
+          onClick={() => onReject(action)}
+          disabled={isProcessing}
+          className="flex-1 flex items-center justify-center gap-1.5 bg-white hover:bg-red-50 text-red-500 hover:text-red-600 text-sm font-semibold py-2 px-4 rounded-lg border border-red-200 transition-colors disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Annuler
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Composant principal ───────────────────────────────────────────────────────
 
 export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, isMobile }) {
   const location = useLocation()
-  const { role, currentWorkspace } = useWorkspace()
+  const { role, currentWorkspace, planType, neoCreditsBalance, isUnlimitedCredits, hasNeoCredits, refreshNeoCredits } = useWorkspace()
 
   const isOpen = neoOpen
   const setIsOpen = setNeoOpen
 
   const [showConvList, setShowConvList] = useState(false)
   const [userId, setUserId] = useState(null)
+  const [localCredits, setLocalCredits] = useState(null)
+  const [pendingAction, setPendingAction] = useState(null) // action en attente d'approbation
+  const [actionProcessing, setActionProcessing] = useState(false) // exécution en cours
+  const [toolExecuting, setToolExecuting] = useState(null) // nom de l'outil en train de tourner
   const [chats, setChats] = useState([])
   const [activeChatId, setActiveChatId] = useState(null)
   const [input, setInput] = useState('')
@@ -402,7 +484,9 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
         })
         setIsStreaming(false)
         setStreamingMsgId(null)
+        setToolExecuting(null)
         accRef.current = ''
+        refreshNeoCredits()
       },
       // onError
       (err) => {
@@ -420,12 +504,133 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
         accRef.current = ''
       },
       abortRef.current.signal,
+      // onMeta — crédits, pending actions, tool status
+      (meta) => {
+        if (meta.credits_remaining !== undefined) {
+          setLocalCredits(meta.credits_remaining)
+        }
+        if (meta.pending_action) {
+          setPendingAction(meta.pending_action)
+          // Stopper le streaming visuellement (l'action attend l'approbation)
+          setIsStreaming(false)
+          setStreamingMsgId(null)
+        }
+        if (meta.tool_executing) {
+          setToolExecuting(meta.tool_executing)
+        }
+      },
     )
   }, [input, activeChatId, isStreaming, chats, location, role, currentWorkspace, saveToStorage])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
+
+  // ── Gestion des actions agent ──
+  const handleApproveAction = useCallback(async (action) => {
+    if (!activeChatId || actionProcessing) return
+    setActionProcessing(true)
+
+    // Ajouter un message "Action approuvée" dans le chat
+    const approvedMsgId = `a_approved_${Date.now()}`
+    const approvedMsg = {
+      id: approvedMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString(),
+    }
+
+    setChats(prev => prev.map(c => c.id === activeChatId ? {
+      ...c,
+      messages: [...c.messages, approvedMsg],
+      updatedAt: new Date().toISOString(),
+    } : c))
+
+    setIsStreaming(true)
+    setStreamingMsgId(approvedMsgId)
+    accRef.current = ''
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+
+    // Construire l'historique incluant le tool call et son résultat (déjà approuvé)
+    const currentMessages = chats.find(c => c.id === activeChatId)?.messages || []
+    const historySnapshot = currentMessages
+      .filter(m => m.id !== 'welcome')
+      .slice(-10)
+      .map(m => ({ role: m.role, content: m.content }))
+
+    await streamNeoChat(
+      {
+        message: `[Action approuvée] ${action.label}`,
+        context: {
+          page: location.pathname,
+          role: role || 'unknown',
+          workspace_name: currentWorkspace?.name || 'NeoFlow BOS',
+          workspace_id: currentWorkspace?.id,
+          approved_action: action,
+        },
+        history: historySnapshot,
+        approved_action_id: action.id,
+        approved_action_result: 'approved',
+      },
+      (token) => {
+        accRef.current += token
+        const content = accRef.current
+        setChats(prev => prev.map(c => c.id === activeChatId ? {
+          ...c,
+          messages: c.messages.map(m => m.id === approvedMsgId ? { ...m, content } : m),
+        } : c))
+      },
+      () => {
+        setChats(prev => { saveToStorage(prev, activeChatId); return prev })
+        setIsStreaming(false)
+        setStreamingMsgId(null)
+        accRef.current = ''
+        refreshNeoCredits()
+      },
+      (err) => {
+        const errContent = `*Erreur exécution action : ${err.message}*`
+        setChats(prev => {
+          const updated = prev.map(c => c.id === activeChatId ? {
+            ...c,
+            messages: c.messages.map(m => m.id === approvedMsgId ? { ...m, content: errContent } : m),
+          } : c)
+          saveToStorage(updated, activeChatId)
+          return updated
+        })
+        setIsStreaming(false)
+        setStreamingMsgId(null)
+      },
+      abortRef.current.signal,
+      (meta) => {
+        if (meta.credits_remaining !== undefined) setLocalCredits(meta.credits_remaining)
+      },
+    )
+
+    setPendingAction(null)
+    setActionProcessing(false)
+  }, [activeChatId, actionProcessing, chats, location, role, currentWorkspace, saveToStorage, refreshNeoCredits])
+
+  const handleRejectAction = useCallback((action) => {
+    setPendingAction(null)
+    // Ajouter un message indiquant le refus
+    if (!activeChatId) return
+    const rejectedMsg = {
+      id: `rejected_${Date.now()}`,
+      role: 'assistant',
+      content: `Action annulée : "${action.label}". Comment puis-je vous aider autrement ?`,
+      timestamp: new Date().toISOString(),
+    }
+    setChats(prev => {
+      const updated = prev.map(c => c.id === activeChatId ? {
+        ...c,
+        messages: [...c.messages, rejectedMsg],
+        updatedAt: new Date().toISOString(),
+      } : c)
+      saveToStorage(updated, activeChatId)
+      return updated
+    })
+  }, [activeChatId, saveToStorage])
 
   // ── Bouton flottant ──
   if (!isOpen) {
@@ -485,10 +690,25 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm leading-tight">Neo — Assistant IA</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-yellow-400 animate-pulse' : 'bg-emerald-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                pendingAction ? 'bg-orange-400 animate-pulse' :
+                isStreaming || toolExecuting ? 'bg-yellow-400 animate-pulse' :
+                'bg-emerald-400'
+              }`} />
               <span className="text-white/60 text-[11px]">
-                {isStreaming ? 'Rédige une réponse…' : 'En ligne · Ollama'}
+                {pendingAction
+                  ? 'Attend votre approbation'
+                  : toolExecuting
+                  ? `Exécute ${toolExecuting}…`
+                  : isStreaming
+                  ? 'Rédige une réponse…'
+                  : `En ligne · ${(planType === 'pro' || planType === 'enterprise' || planType === 'early-access') ? 'OpenRouter' : 'Ollama'}`}
               </span>
+              {!isUnlimitedCredits && (
+                <span className={`text-[11px] ml-1 font-medium ${(localCredits ?? neoCreditsBalance) <= 10 ? 'text-orange-300' : 'text-white/50'}`}>
+                  · {localCredits ?? neoCreditsBalance} crédits
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-0.5">
@@ -556,6 +776,30 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
                     isStreaming={isStreaming && msg.id === streamingMsgId}
                   />
                 ))}
+
+                {/* Indicateur outil en cours d'exécution */}
+                {toolExecuting && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400 pl-10">
+                    <svg className="w-3.5 h-3.5 animate-spin text-[#313ADF]" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Recherche en cours ({toolExecuting})…
+                  </div>
+                )}
+
+                {/* Carte d'approbation */}
+                {pendingAction && (
+                  <div className="pl-10">
+                    <ActionApprovalCard
+                      action={pendingAction}
+                      onApprove={handleApproveAction}
+                      onReject={handleRejectAction}
+                      isProcessing={actionProcessing}
+                    />
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
             )}

@@ -215,8 +215,14 @@ export default function CreerCommande() {
       return
     }
 
+    // Livraison : nom + prénom + téléphone + adresse obligatoires
     if (deliveryType === 'delivery' && (!client.nom || !client.prenom || !client.telephone || !client.adresse)) {
-      showError('Les informations client completes sont requises pour une livraison')
+      showError('Les informations client complètes sont requises pour une livraison')
+      return
+    }
+    // Retrait en magasin : nom + prénom + téléphone obligatoires (identification du client)
+    if (deliveryType === 'pickup' && (!client.nom || !client.prenom || !client.telephone)) {
+      showError('Le nom, prénom et téléphone du client sont requis pour un retrait en magasin')
       return
     }
 

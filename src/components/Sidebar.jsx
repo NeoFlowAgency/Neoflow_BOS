@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase } from '../lib/supabase'
-import { canManageSuppliers, canViewStatistics } from '../lib/permissions'
+import { canManageSuppliers, canViewStatistics, canUseSAV } from '../lib/permissions'
 import { getStockAlerts } from '../services/stockService'
+import { countOpenSAVTickets } from '../services/savService'
 
 const isAdminUser = (user) => user?.app_metadata?.is_internal_admin === true
 
@@ -18,6 +19,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [bottomSheet, setBottomSheet] = useState(null) // 'ventes' | 'boutique' | null
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [stockAlertCount, setStockAlertCount] = useState(0)
+  const [savAlertCount, setSavAlertCount] = useState(0)
   const wsDropdownRef = useRef(null)
   const { currentWorkspace, workspaces, switchWorkspace, role } = useWorkspace()
 
@@ -72,10 +74,20 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   // Load stock alerts count
   useEffect(() => {
     if (!currentWorkspace?.id) return
-    getStockAlerts(currentWorkspace.id).then(({ outOfStock, lowStock }) => {
-      setStockAlertCount(outOfStock.length + lowStock.length)
+    getStockAlerts(currentWorkspace.id).then(({ outOfStock, lowStock, locationAlerts }) => {
+      const locationOnlyAlerts = (locationAlerts || []).filter(a =>
+        !outOfStock.some(o => o.product?.id === a.product?.id) &&
+        !lowStock.some(l => l.product?.id === a.product?.id)
+      )
+      setStockAlertCount(outOfStock.length + lowStock.length + locationOnlyAlerts.length)
     }).catch(() => {})
   }, [currentWorkspace?.id])
+
+  // Load open SAV tickets count (badge sidebar)
+  useEffect(() => {
+    if (!currentWorkspace?.id) return
+    countOpenSAVTickets(currentWorkspace.id).then(setSavAlertCount).catch(() => {})
+  }, [currentWorkspace?.id, location.pathname])
 
   // Fullscreen support (not available on iOS Safari)
   const fullscreenSupported = !!(
@@ -212,8 +224,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     if (role === 'livreur') {
       return {
         tabs: [
-          { type: 'link',   to: '/livraisons', label: 'Livraisons', icon: ICONS.delivery,
-            isActive: location.pathname.startsWith('/livraisons') },
+          { type: 'link',   to: '/livraisons/ma-journee', label: 'Ma journée', icon: ICONS.delivery,
+            isActive: location.pathname === '/livraisons/ma-journee' },
+          { type: 'link',   to: '/livraisons', label: 'Kanban', icon: ICONS.orders,
+            isActive: location.pathname === '/livraisons' },
           { type: 'link',   to: '/dashboard',  label: 'Accueil',   icon: ICONS.home,
             isActive: location.pathname === '/dashboard' },
           { type: 'neo',    label: 'Neo IA',   icon: ICONS.neo },
@@ -663,6 +677,30 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               </svg>
             }
             label="Livraisons"
+          />
+          {role === 'livreur' && (
+            <NavItem
+              to="/livraisons/ma-journee"
+              indent
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              }
+              label="Ma journée"
+            />
+          )}
+
+          {/* SAV */}
+          <NavItem
+            to="/sav"
+            badge={savAlertCount}
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            }
+            label="SAV"
           />
 
           {/* Neo IA */}

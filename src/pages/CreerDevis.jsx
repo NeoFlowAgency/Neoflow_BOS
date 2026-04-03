@@ -190,8 +190,11 @@ export default function CreerDevis() {
   const handleSubmit = async () => {
     setError('')
     const showError = (msg) => { setError(msg); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-    if (!client.nom || !client.prenom || !client.telephone || !client.adresse) {
-      showError('Veuillez remplir tous les champs client obligatoires')
+    // Infos client optionnelles sur le devis — obligatoires seulement si partiellement remplies
+    // (si l'utilisateur a commencé à remplir, il faut finir)
+    const hasPartialClient = client.nom || client.prenom || client.telephone
+    if (hasPartialClient && (!client.nom || !client.prenom || !client.telephone)) {
+      showError('Veuillez compléter les informations client (nom, prénom, téléphone)')
       return
     }
 
@@ -201,10 +204,12 @@ export default function CreerDevis() {
       return
     }
 
-    const phoneDigits = client.telephone.replace(/\D/g, '')
-    if (phoneDigits.length < 8) {
-      showError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
-      return
+    if (client.telephone) {
+      const phoneDigits = client.telephone.replace(/\D/g, '')
+      if (phoneDigits.length < 8) {
+        showError('Veuillez entrer un numéro de téléphone valide (minimum 8 chiffres)')
+        return
+      }
     }
 
     const lignesValides = lignes.filter(l => l.produit_id !== null)

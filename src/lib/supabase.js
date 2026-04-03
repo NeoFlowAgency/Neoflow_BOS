@@ -61,7 +61,7 @@ export async function invokeFunction(name, body = {}) {
  * @param {(err: Error) => void} onError - appelé en cas d'erreur
  * @param {AbortSignal} [signal] - pour annuler le stream
  */
-export async function streamNeoChat(payload, onToken, onDone, onError, signal) {
+export async function streamNeoChat(payload, onToken, onDone, onError, signal, onMeta) {
   let accessToken = null
   try {
     const { data } = await supabase.auth.refreshSession()
@@ -125,6 +125,9 @@ export async function streamNeoChat(payload, onToken, onDone, onError, signal) {
           const parsed = JSON.parse(data)
           if (parsed.error) { onError(new Error(parsed.error)); return }
           if (parsed.t) onToken(parsed.t)
+          if (parsed.credits_remaining !== undefined && onMeta) onMeta({ credits_remaining: parsed.credits_remaining })
+          if (parsed.pending_action && onMeta) onMeta({ pending_action: parsed.pending_action })
+          if (parsed.tool_executing && onMeta) onMeta({ tool_executing: parsed.tool_executing })
         } catch { /* skip invalid JSON */ }
       }
     }

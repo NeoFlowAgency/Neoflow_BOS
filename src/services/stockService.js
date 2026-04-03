@@ -411,14 +411,36 @@ export async function getStockAlerts(workspaceId, lowStockThreshold = 3) {
 
   const outOfStock = []
   const lowStock = []
+  const locationAlerts = []
 
   for (const ps of Object.values(productStocks)) {
+    // Alerte globale (total toutes locations)
     if (ps.totalAvailable <= 0) {
       outOfStock.push(ps)
     } else if (ps.totalAvailable < lowStockThreshold) {
       lowStock.push(ps)
     }
+
+    // Alertes par emplacement individuel
+    // Un emplacement à 0 alors que d'autres en ont est quand même une alerte
+    for (const loc of ps.locations) {
+      if (loc.available <= 0) {
+        locationAlerts.push({
+          product: ps.product,
+          location: loc.location,
+          available: loc.available,
+          type: 'rupture_emplacement'
+        })
+      } else if (loc.available < lowStockThreshold) {
+        locationAlerts.push({
+          product: ps.product,
+          location: loc.location,
+          available: loc.available,
+          type: 'faible_emplacement'
+        })
+      }
+    }
   }
 
-  return { outOfStock, lowStock }
+  return { outOfStock, lowStock, locationAlerts }
 }

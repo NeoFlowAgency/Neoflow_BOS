@@ -310,20 +310,25 @@ serve(async (req) => {
     )
 
     // Remove expired/invalid subscriptions (410 Gone)
-    const expiredEndpoints: string[] = []
+    // Use .filter() with ->> operator for JSONB column (correct Supabase syntax)
+    const expiredIndexes: number[] = []
     results.forEach((result, i) => {
       if (result.status === 'fulfilled' && result.value.status === 410) {
-        expiredEndpoints.push(rows[i].subscription.endpoint)
+        expiredIndexes.push(i)
       }
     })
-    if (expiredEndpoints.length > 0) {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .in('subscription->>endpoint', expiredEndpoints)
+    if (expiredIndexes.length > 0) {
+      await Promise.all(
+        expiredIndexes.map((i) =>
+          supabase
+            .from('push_subscriptions')
+            .delete()
+            .filter('subscription->>endpoint', 'eq', rows[i].subscription.endpoint)
+        )
+      )
     }
 
-    const sent = results.filter((r) => r.status === 'fulfilled' && (r.value.status === 200 || r.value.status === 201)).length
+    const sent = results.filter((r) => r.status === 'fulfilled' && (r.value.status === 200 || r.value.status === 201 || r.value.status === 204)).length
 
     return new Response(JSON.stringify({ sent, total: rows.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

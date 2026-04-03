@@ -6,8 +6,8 @@ import { useToast } from '../contexts/ToastContext'
 import { translateError } from '../lib/errorMessages'
 import { updateWorkspace, createPortalSession } from '../services/workspaceService'
 import { createInvitation, listInvitations, revokeInvitation } from '../services/invitationService'
-import { ROLE_LABELS, ROLE_COLORS, getAssignableRoles, canManageRole } from '../lib/permissions'
-import { subscribeToPush, unsubscribeFromPush, getSubscriptionStatus } from '../lib/pushNotifications'
+import { ROLE_LABELS, ROLE_COLORS, getAssignableRoles, canManageRole, PLAN_LABELS, getMonthlyNeoCredits } from '../lib/permissions'
+import { subscribeToPush, unsubscribeFromPush, getSubscriptionStatus, sendPushToWorkspace } from '../lib/pushNotifications'
 import BugReportForm from '../components/BugReportForm'
 
 const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'SNC', 'Autre']
@@ -16,7 +16,7 @@ const COUNTRIES = ['France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada', 'Autr
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { workspaces, currentWorkspace, isAdmin, isOwner, role: myRole, switchWorkspace, refreshWorkspaces } = useWorkspace()
+  const { workspaces, currentWorkspace, isAdmin, isOwner, role: myRole, switchWorkspace, refreshWorkspaces, planType, neoCredits, neoCreditsBalance, isUnlimitedCredits } = useWorkspace()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('compte')
   const [user, setUser] = useState(null)
@@ -162,6 +162,28 @@ export default function Settings() {
       }
     } catch (err) {
       toast.error(err.message || 'Erreur notifications')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  const handleTestPush = async () => {
+    if (!user || !currentWorkspace) return
+    setPushLoading(true)
+    try {
+      await sendPushToWorkspace(
+        currentWorkspace.id,
+        {
+          title: 'NeoFlow BOS — Test',
+          body: 'Les notifications fonctionnent correctement !',
+          tag: 'test-notif',
+          data: { url: '/settings' }
+        },
+        null // null = envoyer à tout le monde y compris soi-même pour le test
+      )
+      toast.success('Notification de test envoyée — vérifiez votre appareil.')
+    } catch (err) {
+      toast.error(err.message || 'Erreur envoi notification test')
     } finally {
       setPushLoading(false)
     }
@@ -1462,80 +1484,192 @@ export default function Settings() {
       )}
 
       {/* Tab: Abonnement (owner only) */}
-      {activeTab === 'abonnement' && isOwner && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#040741] mb-6">Abonnement</h2>
+      {activeTab === 'abonnement' && isOwner && (() => {
+        const planInfo = PLAN_LABELS[planType] || PLAN_LABELS.basic
+        const monthlyAllowance = getMonthlyNeoCredits(planType)
+        const creditsUsed = neoCredits?.credits_used_this_month ?? 0
+        const creditsBalance = isUnlimitedCredits ? null : (neoCreditsBalance ?? 0)
+        const usedPct = (monthlyAllowance > 0 && !isUnlimitedCredits)
+          ? Math.min(100, Math.round((creditsUsed / monthlyAllowance) * 100))
+          : 0
+        const subStatus = currentWorkspace?.subscription_status
+        const subStatusLabel = subStatus === 'active' ? 'Actif' :
+          subStatus === 'trialing' ? 'Essai gratuit' :
+          subStatus === 'early_access' ? 'Accès anticipé' :
+          subStatus === 'past_due' ? 'Paiement en retard' :
+          subStatus === 'canceled' ? 'Annulé' :
+          subStatus === 'incomplete' ? 'Incomplet' : subStatus || 'Inconnu'
+        const subStatusColor = subStatus === 'active' ? 'bg-green-100 text-green-700' :
+          subStatus === 'trialing' ? 'bg-blue-100 text-blue-700' :
+          subStatus === 'past_due' ? 'bg-orange-100 text-orange-700' :
+          subStatus === 'canceled' ? 'bg-red-100 text-red-700' :
+          'bg-gray-100 text-gray-600'
 
-            <div className="space-y-4">
-                {/* Status badge */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-[#040741]">Statut :</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    currentWorkspace?.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
-                    currentWorkspace?.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                    currentWorkspace?.subscription_status === 'early_access' ? 'bg-purple-100 text-purple-700' :
-                    currentWorkspace?.subscription_status === 'past_due' ? 'bg-orange-100 text-orange-700' :
-                    currentWorkspace?.subscription_status === 'canceled' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-600'
-                  }`}>
-                    {currentWorkspace?.subscription_status === 'active' ? 'Actif' :
-                     currentWorkspace?.subscription_status === 'trialing' ? 'Essai gratuit' :
-                     currentWorkspace?.subscription_status === 'early_access' ? 'Accès anticipé' :
-                     currentWorkspace?.subscription_status === 'past_due' ? 'Paiement en retard' :
-                     currentWorkspace?.subscription_status === 'canceled' ? 'Annulé' :
-                     currentWorkspace?.subscription_status === 'incomplete' ? 'Incomplet' :
-                     currentWorkspace?.subscription_status || 'Inconnu'}
-                  </span>
-                </div>
+        return (
+          <div className="space-y-5">
 
-                {/* Plan */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-[#040741]">Plan :</span>
-                  <span className="text-sm text-gray-600">NeoFlow BOS - 49,99 EUR/mois</span>
-                </div>
+            {/* Alertes abonnement */}
+            {subStatus === 'trialing' && currentWorkspace?.trial_ends_at && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-blue-700">
+                  Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>. Aucun prélèvement avant cette date.
+                </p>
+              </div>
+            )}
+            {subStatus === 'past_due' && (
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+                <svg className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-sm text-orange-700">
+                  Paiement en retard. Régularisez votre situation pour éviter la suspension.
+                </p>
+              </div>
+            )}
 
-                {/* Trial info */}
-                {currentWorkspace?.subscription_status === 'trialing' && currentWorkspace?.trial_ends_at && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <p className="text-sm text-blue-700">
-                      Essai gratuit jusqu'au <span className="font-semibold">{new Date(currentWorkspace.trial_ends_at).toLocaleDateString('fr-FR')}</span>
-                    </p>
-                  </div>
-                )}
-
-                {/* Past due warning */}
-                {currentWorkspace?.subscription_status === 'past_due' && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                    <p className="text-sm text-orange-700">
-                      Votre paiement est en retard. Veuillez régulariser votre situation pour éviter la suspension de votre workspace.
-                    </p>
-                  </div>
-                )}
-
-                {/* Next billing */}
-                {currentWorkspace?.current_period_end && currentWorkspace?.subscription_status !== 'canceled' && (
+            {/* Plan actuel */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Plan actuel</p>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-[#040741]">Prochaine facturation :</span>
-                    <span className="text-sm text-gray-600">
-                      {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}
+                    <h2 className="text-2xl font-bold text-[#040741]">{planInfo.label}</h2>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${planInfo.color}`}>
+                      {planInfo.label}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${subStatusColor}`}>
+                      {subStatusLabel}
                     </span>
                   </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {planType === 'basic' ? '19 € / mois' :
+                     planType === 'pro' ? '49 € / mois' :
+                     planType === 'enterprise' ? 'Sur devis' :
+                     planType === 'early-access' ? 'Accès anticipé' : ''}
+                    {currentWorkspace?.current_period_end && subStatus !== 'canceled' && (
+                      <span className="text-gray-400"> · Renouvellement le {new Date(currentWorkspace.current_period_end).toLocaleDateString('fr-FR')}</span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={handleManageBilling}
+                  className="flex-shrink-0 bg-[#313ADF] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#040741] transition-colors"
+                >
+                  Gérer l'abonnement
+                </button>
+              </div>
+
+              {/* Fonctionnalités du plan */}
+              <div className="mt-5 pt-5 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Fonctionnalités incluses</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { label: 'Commandes, factures, devis', included: true },
+                    { label: 'Clients, produits, stock', included: true },
+                    { label: 'SAV (service après-vente)', included: true },
+                    { label: 'Livraisons kanban', included: true },
+                    { label: 'Neo IA (assistant)', included: true },
+                    { label: `Agent IA (function calling)`, included: planType !== 'basic' },
+                    { label: `App livreur mobile + GPS`, included: planType !== 'basic' },
+                    { label: `Membres : ${planType === 'enterprise' ? 'illimités' : planType === 'basic' ? '2 max' : '10 max'}`, included: true },
+                    { label: 'Multi-workspace avancé', included: planType === 'enterprise' },
+                  ].map((f) => (
+                    <div key={f.label} className={`flex items-center gap-2 text-sm ${f.included ? 'text-gray-700' : 'text-gray-400'}`}>
+                      {f.included ? (
+                        <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                      {f.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {planType === 'basic' && (
+                <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#040741]">Passer au plan Pro</p>
+                    <p className="text-xs text-gray-500">Agent IA, app livreur GPS, jusqu'à 10 membres — 49 €/mois</p>
+                  </div>
+                  <button
+                    onClick={handleManageBilling}
+                    className="bg-gradient-to-r from-[#313ADF] to-[#040741] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Upgrader
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* NeoCredits */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">NeoCredits</p>
+                  <p className="text-sm text-gray-500">1 crédit = 1 000 tokens IA utilisés</p>
+                </div>
+                {isUnlimitedCredits ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Illimité</span>
+                ) : (
+                  <span className={`text-2xl font-bold ${creditsBalance <= 20 ? 'text-orange-500' : 'text-[#040741]'}`}>
+                    {creditsBalance}
+                    <span className="text-sm font-normal text-gray-400"> / {monthlyAllowance}</span>
+                  </span>
                 )}
               </div>
 
-              <button
-                onClick={handleManageBilling}
-                className="mt-6 bg-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#040741] transition-colors"
-              >
-                Gérer mon abonnement
-              </button>
-              <p className="text-xs text-gray-400 mt-2">
-                Modifier votre moyen de paiement, annuler ou réactiver votre abonnement via le portail Stripe.
-              </p>
+              {!isUnlimitedCredits && (
+                <>
+                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        usedPct >= 90 ? 'bg-red-500' :
+                        usedPct >= 70 ? 'bg-orange-400' :
+                        'bg-[#313ADF]'
+                      }`}
+                      style={{ width: `${usedPct}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-400">{creditsUsed} crédits utilisés ce mois</p>
+                    <p className="text-xs text-gray-400">{creditsBalance} restants</p>
+                  </div>
+                  {creditsBalance <= 20 && creditsBalance > 0 && (
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                      <p className="text-xs text-orange-700 font-medium">Crédits bientôt épuisés. Votre quota sera renouvelé le 1er du mois prochain.</p>
+                    </div>
+                  )}
+                  {creditsBalance <= 0 && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-xs text-red-700 font-medium">Crédits épuisés. Neo IA est temporairement indisponible jusqu'au renouvellement mensuel.</p>
+                    </div>
+                  )}
+                  {neoCredits?.last_reset_at && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      Dernier renouvellement : {new Date(neoCredits.last_reset_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                </>
+              )}
+              {isUnlimitedCredits && (
+                <p className="text-sm text-gray-500">Votre plan Enterprise inclut des crédits IA illimités.</p>
+              )}
+            </div>
+
+            <p className="text-xs text-gray-400 text-center">
+              Gérez votre moyen de paiement, annulez ou réactivez depuis le portail Stripe.
+            </p>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Tab: Préférences */}
       {activeTab === 'preferences' && (
@@ -1748,6 +1882,23 @@ export default function Settings() {
                 Les notifications ne sont envoyées qu'aux autres membres — jamais à l'auteur de l'action.
               </p>
             </div>
+
+            {/* Bouton de test */}
+            {pushEnabled && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">Tester les notifications</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Envoie une notification test à tous les appareils abonnés de ce workspace.</p>
+                </div>
+                <button
+                  onClick={handleTestPush}
+                  disabled={pushLoading}
+                  className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {pushLoading ? 'Envoi...' : 'Envoyer un test'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

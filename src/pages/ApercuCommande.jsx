@@ -111,11 +111,18 @@ export default function ApercuCommande() {
       const isFullyPaid = newAmountPaid >= (order.total_ttc || 0) - 0.01
 
       if (isFullyPaid && ['confirme', 'en_preparation', 'en_livraison', 'livre'].includes(order.status)) {
-        try {
-          await updateOrderStatus(commandeId, 'termine')
-          toast.success('Paiement enregistré ! Commande marquée comme terminée.')
-        } catch {
-          toast.success('Paiement enregistré !')
+        // Une vente directe (sans livraison ni retrait) est terminée dès le paiement complet
+        // Une livraison/retrait nécessite une confirmation de remise au client
+        const needsDeliveryConfirm = order.delivery_type !== 'none' && !order.delivery_confirmed
+        if (needsDeliveryConfirm) {
+          toast.success('Paiement enregistré ! Confirmez la remise au client pour clôturer la commande.')
+        } else {
+          try {
+            await updateOrderStatus(commandeId, 'termine')
+            toast.success('Paiement enregistré ! Commande clôturée.')
+          } catch {
+            toast.success('Paiement enregistré !')
+          }
         }
       } else if (isFirstPayment && order.requires_delivery && order.status === 'confirme') {
         try {
@@ -198,6 +205,37 @@ export default function ApercuCommande() {
     }
   }
 
+  const handleConfirmDelivery = async () => {
+    setActionLoading('confirm-delivery')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          delivery_confirmed: true,
+          delivery_confirmed_at: new Date().toISOString(),
+          delivery_confirmed_by: user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', commandeId)
+      if (error) throw error
+
+      // Si commande payée à 100%, la clôturer maintenant
+      const isFullyPaid = (order.amount_paid || 0) >= (order.total_ttc || 0) - 0.01
+      if (isFullyPaid && ['confirme', 'en_preparation', 'en_livraison', 'livre'].includes(order.status)) {
+        await updateOrderStatus(commandeId, 'termine')
+        toast.success('Remise confirmée ! Commande clôturée.')
+      } else {
+        toast.success('Remise au client confirmée !')
+      }
+      loadOrder()
+    } catch (err) {
+      toast.error(err.message || 'Erreur confirmation')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleDelete = async () => {
     setActionLoading('delete')
     try {
@@ -273,6 +311,21 @@ export default function ApercuCommande() {
 
         {/* Actions statut */}
         <div className="flex gap-2 flex-wrap">
+          {/* Bouton confirmation remise client (livraison/retrait non encore confirmé) */}
+          {order.delivery_type !== 'none' && !order.delivery_confirmed && !['termine', 'annule'].includes(order.status) && (
+            <button
+              onClick={handleConfirmDelivery}
+              disabled={actionLoading === 'confirm-delivery'}
+              className="px-4 py-2 rounded-xl font-medium text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === 'confirm-delivery' ? 'Confirmation...' : order.delivery_type === 'pickup' ? 'Confirmer le retrait' : 'Confirmer la livraison'}
+            </button>
+          )}
+          {order.delivery_confirmed && !['termine', 'annule'].includes(order.status) && (
+            <span className="px-3 py-2 rounded-xl text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+              {order.delivery_type === 'pickup' ? 'Retrait confirmé' : 'Livraison confirmée'}
+            </span>
+          )}
           {nextStatuses.map(status => (
             <button
               key={status}
@@ -287,6 +340,18 @@ export default function ApercuCommande() {
               {actionLoading === status ? 'Mise a jour...' : `Passer en ${STATUS_BADGES[status]?.label}`}
             </button>
           ))}
+          {/* Bouton SAV — visible dès que la commande est confirmée */}
+          {!['brouillon', 'annule'].includes(order.status) && (
+            <button
+              onClick={() => navigate(`/sav/nouveau?order_id=${commandeId}${order.customer_id ? '&customer_id=' + order.customer_id : ''}`)}
+              className="px-4 py-2 rounded-xl font-medium text-sm bg-white border-2 border-orange-300 text-orange-600 hover:bg-orange-50 transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Créer ticket SAV
+            </button>
+          )}
         </div>
       </div>
 

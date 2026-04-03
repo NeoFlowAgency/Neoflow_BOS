@@ -4,6 +4,14 @@ import Stripe from 'https://esm.sh/stripe@14?target=deno'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 
+// Mapping plan → price IDs (secrets Supabase)
+// Secrets à configurer :
+//   STRIPE_BASIC_MONTHLY_PRICE_ID  — Basic 19€/mois
+//   STRIPE_BASIC_ANNUAL_PRICE_ID   — Basic annuel (optionnel)
+//   STRIPE_PRO_MONTHLY_PRICE_ID    — Pro 49€/mois (= ancien STRIPE_PRICE_ID)
+//   STRIPE_PRO_ANNUAL_PRICE_ID     — Pro annuel (= ancien STRIPE_ANNUAL_PRICE_ID)
+// Rétrocompatibilité : STRIPE_PRICE_ID et STRIPE_ANNUAL_PRICE_ID toujours acceptés pour Pro
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
@@ -12,15 +20,11 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    const monthlyPriceId = Deno.env.get('STRIPE_PRICE_ID')
-    const annualPriceId = Deno.env.get('STRIPE_ANNUAL_PRICE_ID')
-    if (!stripeKey) {
-      throw new Error('Stripe configuration manquante')
-    }
+    if (!stripeKey) throw new Error('Stripe configuration manquante')
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-04-10' })
 
-    // Verify authenticated user
+    // Auth
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) throw new Error('Non authentifie')
 
@@ -33,15 +37,32 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
     if (userError || !user) throw new Error('Non authentifie')
 
-    const { workspace_id, success_url, cancel_url, billing: rawBilling } = await req.json()
+    const { workspace_id, success_url, cancel_url, billing: rawBilling, plan_type: rawPlan } = await req.json()
     if (!workspace_id) throw new Error('workspace_id requis')
 
-    // billing: 'monthly' (default) | 'annual'
+    // Paramètres
     const billing = rawBilling === 'annual' ? 'annual' : 'monthly'
-    const priceId = billing === 'annual' ? annualPriceId : monthlyPriceId
-    if (!priceId) throw new Error('Prix Stripe non configuré')
+    const planType = rawPlan === 'basic' ? 'basic' : 'pro'
 
-    // Verify user is owner of this workspace
+    // Résoudre le price ID selon le plan et la fréquence
+    let priceId: string | undefined
+
+    if (planType === 'basic') {
+      priceId = billing === 'annual'
+        ? Deno.env.get('STRIPE_BASIC_ANNUAL_PRICE_ID') || Deno.env.get('STRIPE_BASIC_MONTHLY_PRICE_ID')
+        : Deno.env.get('STRIPE_BASIC_MONTHLY_PRICE_ID')
+    } else {
+      // Pro — rétrocompatibilité avec les anciens secrets
+      priceId = billing === 'annual'
+        ? (Deno.env.get('STRIPE_PRO_ANNUAL_PRICE_ID') || Deno.env.get('STRIPE_ANNUAL_PRICE_ID'))
+        : (Deno.env.get('STRIPE_PRO_MONTHLY_PRICE_ID') || Deno.env.get('STRIPE_PRICE_ID'))
+    }
+
+    if (!priceId) {
+      throw new Error(`Prix Stripe non configuré pour le plan "${planType}" en mode "${billing}"`)
+    }
+
+    // Vérifier que l'utilisateur est propriétaire du workspace
     const { data: membership } = await supabase
       .from('workspace_users')
       .select('role')
@@ -53,7 +74,7 @@ serve(async (req) => {
       throw new Error('Seul le proprietaire du workspace peut creer un abonnement')
     }
 
-    // Get workspace info
+    // Récupérer le workspace
     const { data: workspace } = await supabase
       .from('workspaces')
       .select('id, name, stripe_customer_id')
@@ -62,16 +83,13 @@ serve(async (req) => {
 
     if (!workspace) throw new Error('Workspace introuvable')
 
-    // Create or reuse Stripe customer
+    // Créer ou réutiliser le customer Stripe
     let customerId = workspace.stripe_customer_id
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
         name: workspace.name,
-        metadata: {
-          workspace_id: workspace.id,
-          user_id: user.id,
-        },
+        metadata: { workspace_id: workspace.id, user_id: user.id },
       })
       customerId = customer.id
 
@@ -91,9 +109,9 @@ serve(async (req) => {
       allow_promotion_codes: true,
       subscription_data: {
         trial_period_days: 7,
-        metadata: { workspace_id: workspace.id },
+        metadata: { workspace_id: workspace.id, plan_type: planType },
       },
-      metadata: { workspace_id: workspace.id, billing },
+      metadata: { workspace_id: workspace.id, billing, plan_type: planType },
       success_url: success_url || `${origin}/dashboard?checkout=success`,
       cancel_url: cancel_url || `${origin}/onboarding/workspace?checkout=canceled`,
     })
@@ -107,7 +125,7 @@ serve(async (req) => {
     console.error('[create-checkout] Error:', message)
     return new Response(
       JSON.stringify({ success: false, error: message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })

@@ -66,6 +66,16 @@ export default function ApercuDevis() {
       }
 
       toast.success(`Commande ${result.order_number || ''} créée !`)
+
+      // Si le devis avait un acompte, rappeler de l'enregistrer sur la commande
+      const depositAmount = result?.deposit_amount || devis.deposit_amount
+      if (depositAmount && depositAmount > 0) {
+        const depositLabel = (result?.deposit_type || devis.deposit_type) === 'percent'
+          ? `${depositAmount}% du total`
+          : `${Number(depositAmount).toFixed(2)} €`
+        toast.info(`Acompte prévu : ${depositLabel} — pensez à l'enregistrer sur la commande.`)
+      }
+
       navigate(`/commandes/${orderId}`)
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la conversion')

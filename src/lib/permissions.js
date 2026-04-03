@@ -139,3 +139,84 @@ export function canAccessPage(role, path) {
   if (!allowedRoles) return true
   return allowedRoles.includes(role)
 }
+
+// ============================================================
+// PLAN-BASED PERMISSIONS
+// plan : 'basic' | 'pro' | 'enterprise' | 'early-access'
+// ============================================================
+
+const PRO_PLANS = ['pro', 'enterprise', 'early-access']
+const ENTERPRISE_PLANS = ['enterprise']
+
+/**
+ * Neo AI disponible sur tous les plans (avec limite de crédits sur basic/pro)
+ * Retourne false seulement si pas d'abonnement actif
+ */
+export function canUseNeo(plan) {
+  return ['basic', 'pro', 'enterprise', 'early-access'].includes(plan)
+}
+
+/**
+ * Agent IA (Neo avec function calling) — Pro et Enterprise uniquement
+ */
+export function canUseNeoAgent(plan) {
+  return PRO_PLANS.includes(plan)
+}
+
+/**
+ * SAV disponible sur tous les plans (basic = basique, pro/enterprise = complet)
+ */
+export function canUseSAV(plan) {
+  return ['basic', 'pro', 'enterprise', 'early-access'].includes(plan)
+}
+
+/**
+ * SAV avancé (garantie multi-intervenant, reporting SAV) — Pro/Enterprise
+ */
+export function canUseAdvancedSAV(plan) {
+  return PRO_PLANS.includes(plan)
+}
+
+/**
+ * App livreur mobile-first + tracking GPS — Pro/Enterprise uniquement
+ */
+export function canUseDeliveryApp(plan) {
+  return PRO_PLANS.includes(plan)
+}
+
+/**
+ * Gestion multi-workspace avancée — Enterprise uniquement
+ */
+export function canUseMultiWorkspace(plan) {
+  return ENTERPRISE_PLANS.includes(plan)
+}
+
+/**
+ * Nombre maximum de membres selon le plan
+ * -1 = illimité
+ */
+export function getMaxMembers(plan) {
+  if (ENTERPRISE_PLANS.includes(plan)) return -1
+  if (PRO_PLANS.includes(plan)) return 10
+  return 2 // basic
+}
+
+/**
+ * Allocation mensuelle NeoCredits selon le plan
+ * -1 = illimité (enterprise)
+ */
+export function getMonthlyNeoCredits(plan) {
+  if (ENTERPRISE_PLANS.includes(plan)) return -1
+  if (PRO_PLANS.includes(plan)) return 2000
+  return 200 // basic
+}
+
+/**
+ * Label et couleur du plan pour l'affichage
+ */
+export const PLAN_LABELS = {
+  basic: { label: 'Basic', color: 'bg-gray-100 text-gray-700', accent: '#6B7280' },
+  pro: { label: 'Pro', color: 'bg-blue-100 text-blue-700', accent: '#313ADF' },
+  enterprise: { label: 'Enterprise', color: 'bg-purple-100 text-purple-700', accent: '#7C3AED' },
+  'early-access': { label: 'Accès Anticipé', color: 'bg-amber-100 text-amber-700', accent: '#D97706' },
+}

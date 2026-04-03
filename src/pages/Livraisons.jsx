@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { createPayment } from '../services/orderService'
@@ -6,6 +6,17 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { sendPushToWorkspace } from '../lib/pushNotifications'
 import PaymentModal from '../components/PaymentModal'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet'
+
+// Fix Leaflet default icon broken with bundlers
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
 
 // ─── Configs ────────────────────────────────────────────────────────────────
 
@@ -39,8 +50,14 @@ export default function Livraisons() {
   const [currentUserId, setCurrentUserId] = useState(null)
   const [workspaceMembers, setWorkspaceMembers] = useState([])
 
+  // Vue carte
+  const [view, setView] = useState('kanban') // 'kanban' | 'map'
+  const [livreurPositions, setLivreurPositions] = useState([])
+  const mapPollRef = useRef(null)
+
   // Vue livreur : uniquement ses livraisons
   const isLivreur = role === 'livreur'
+  const isManager = ['proprietaire', 'manager'].includes(role)
 
   // ── Modals ────────────────────────────────────────
   // Plan modal (a_planifier → planifiee)
@@ -75,6 +92,43 @@ export default function Livraisons() {
       loadWorkspaceMembers()
     }
   }, [workspace?.id])
+
+  // ── Polling positions livreurs (carte, toutes les 15s) ────────────────────
+  useEffect(() => {
+    if (!workspace?.id || !isManager) return
+    if (view === 'map') {
+      loadLivreurPositions()
+      mapPollRef.current = setInterval(loadLivreurPositions, 15000)
+    }
+    return () => {
+      if (mapPollRef.current) { clearInterval(mapPollRef.current); mapPollRef.current = null }
+    }
+  }, [view, workspace?.id, isManager])
+
+  const loadLivreurPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('livreur_positions')
+        .select('user_id, lat, lng, accuracy, heading, speed, is_tracking, updated_at')
+        .eq('workspace_id', workspace.id)
+
+      if (error) throw error
+
+      // Enrichir avec le nom du membre
+      const membersById = {}
+      workspaceMembers.forEach(m => { membersById[m.user_id] = m.full_name || 'Livreur' })
+
+      const FIVE_MIN = 5 * 60 * 1000
+      const now = Date.now()
+      setLivreurPositions((data || []).map(p => ({
+        ...p,
+        name: membersById[p.user_id] || 'Livreur',
+        isOnline: p.is_tracking && (now - new Date(p.updated_at).getTime()) < FIVE_MIN,
+      })))
+    } catch (err) {
+      console.error('[Livraisons] Erreur positions:', err)
+    }
+  }
 
   const loadDeliveries = async () => {
     try {
@@ -475,10 +529,182 @@ export default function Livraisons() {
             {isLivreur ? 'Vos livraisons assignees' : `${visibleDeliveries.length} livraison(s) actives`}
           </p>
         </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Bouton Ma journée pour livreurs */}
+          {isLivreur && (
+            <button
+              onClick={() => navigate('/livraisons/ma-journee')}
+              className="flex items-center gap-2 px-4 py-2 bg-[#313ADF] text-white rounded-xl font-semibold text-sm hover:bg-[#4149e8] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Vue mobile
+            </button>
+          )}
+          {/* Onglets Kanban / Carte (manager uniquement) */}
+          {isManager && (
+            <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setView('kanban')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'kanban' ? 'bg-white text-[#040741] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Kanban
+              </button>
+              <button
+                onClick={() => setView('map')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'map' ? 'bg-white text-[#040741] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                Carte
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* ── Vue Carte ────────────────────────────────── */}
+      {view === 'map' && isManager && (
+        <div className="space-y-4">
+          {/* Légende + compteurs livreurs */}
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-4 text-sm flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Planifiée
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" /> En cours
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Livrée
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-[#313ADF] border-2 border-white shadow inline-block" /> Livreur en ligne
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" /> Livreur hors ligne
+              </span>
+            </div>
+            <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Actualisation toutes les 15s
+            </div>
+          </div>
+
+          {/* Tableau livreurs en ligne */}
+          {livreurPositions.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {livreurPositions.map(pos => (
+                <div
+                  key={pos.user_id}
+                  className={`bg-white border rounded-xl px-3 py-2 flex items-center gap-2 ${pos.isOnline ? 'border-[#313ADF]/30' : 'border-gray-200 opacity-60'}`}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${pos.isOnline ? 'bg-green-400' : 'bg-gray-300'}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#040741] truncate">{pos.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {pos.isOnline
+                        ? (pos.speed ? `${(pos.speed * 3.6).toFixed(0)} km/h` : 'En ligne')
+                        : 'Hors ligne'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Carte Leaflet */}
+          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ height: '520px' }}>
+            <MapContainer
+              center={[46.603354, 1.888334]}
+              zoom={6}
+              style={{ height: '100%', width: '100%' }}
+              scrollWheelZoom
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              {/* Pins adresses de livraison */}
+              {deliveries
+                .filter(d => d.delivery_address || d.order?.customer?.address)
+                .filter(d => d.status !== 'annulee')
+                .map(d => {
+                  // On ne peut pas géocoder ici sans API — on affiche juste les livraisons avec coordonnées si disponibles
+                  // Si delivery a lat/lng stockés, on les affiche, sinon on skip
+                  if (!d.lat || !d.lng) return null
+                  const colors = { planifiee: '#3b82f6', en_cours: '#eab308', livree: '#22c55e', a_planifier: '#6b7280' }
+                  const color = colors[d.status] || '#6b7280'
+                  return (
+                    <CircleMarker
+                      key={d.id}
+                      center={[d.lat, d.lng]}
+                      radius={9}
+                      pathOptions={{ color: 'white', weight: 2, fillColor: color, fillOpacity: 0.9 }}
+                    >
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-semibold">{d.order?.order_number}</p>
+                          <p>{d.delivery_address || d.order?.customer?.address}</p>
+                          <p className="text-gray-500 mt-1">
+                            {d.order?.customer?.first_name} {d.order?.customer?.last_name}
+                          </p>
+                          <p className="text-orange-600 font-medium">
+                            Restant : {(d.order?.remaining_amount || 0).toFixed(2)} €
+                          </p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )
+                })}
+
+              {/* Pins livreurs */}
+              {livreurPositions.map(pos => (
+                <CircleMarker
+                  key={pos.user_id}
+                  center={[pos.lat, pos.lng]}
+                  radius={12}
+                  pathOptions={{
+                    color: 'white',
+                    weight: 3,
+                    fillColor: pos.isOnline ? '#313ADF' : '#9ca3af',
+                    fillOpacity: 0.95
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <p className="font-semibold">{pos.name}</p>
+                      <p className={pos.isOnline ? 'text-green-600' : 'text-gray-400'}>
+                        {pos.isOnline ? 'En ligne' : 'Hors ligne'}
+                      </p>
+                      {pos.speed && (
+                        <p className="text-gray-500">{(pos.speed * 3.6).toFixed(0)} km/h</p>
+                      )}
+                      <p className="text-gray-400 text-xs mt-1">
+                        MAJ : {new Date(pos.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
+
+          {livreurPositions.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-4">
+              Aucun livreur n'a activé le tracking GPS. Les livreurs doivent ouvrir la vue mobile et activer le GPS.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Mes livraisons du jour (livreur uniquement) */}
-      {isLivreur && mesDuJour.length > 0 && (
+      {view === 'kanban' && isLivreur && mesDuJour.length > 0 && (
         <div className="mb-8">
           <h2 className="text-base font-bold text-[#040741] mb-3 flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -493,7 +719,7 @@ export default function Livraisons() {
       )}
 
       {/* Kanban */}
-      <div className="flex lg:grid lg:grid-cols-4 gap-4 lg:gap-5 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 lg:mx-0 lg:px-0 lg:overflow-visible">
+      {view === 'kanban' && <div className="flex lg:grid lg:grid-cols-4 gap-4 lg:gap-5 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 lg:mx-0 lg:px-0 lg:overflow-visible">
         {COLUMNS.map(col => {
           const colDeliveries = grouped[col.key] || []
           return (
@@ -539,7 +765,7 @@ export default function Livraisons() {
             </div>
           )
         })}
-      </div>
+      </div>}
 
       {/* ── Modal Planifier ──────────────────────────── */}
       {showPlanModal && planTarget && (
