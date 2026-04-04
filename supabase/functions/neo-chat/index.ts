@@ -28,7 +28,7 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
       safe(supabase.from('quotes').select('quote_number,status,total_ttc,customers(first_name,last_name)').eq('workspace_id', workspaceId).not('status','in','(accepted,rejected,expired)').order('created_at',{ascending:false}).limit(5)),
       safe(supabase.from('deliveries').select('delivery_date,status,time_slot,customers(first_name,last_name)').eq('workspace_id', workspaceId).not('status','in','(livree,annulee)').order('delivery_date',{ascending:true}).limit(6)),
       safe(supabase.from('customers').select('first_name,last_name,phone,city').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(10)),
-      safe(supabase.from('products').select('name,price,category').eq('workspace_id', workspaceId).eq('is_archived',false).order('name',{ascending:true}).limit(20)),
+      safe(supabase.from('products').select('name,price,category').eq('workspace_id', workspaceId).order('name',{ascending:true}).limit(20)),
       safe(supabase.from('payments').select('amount').eq('workspace_id', workspaceId).gte('payment_date', firstOfMonth)),
     ])
 
@@ -80,78 +80,92 @@ function buildSystemPrompt(context: any, wd: any, isPro: boolean): string {
   const page = pageLabels[context?.page] || context?.page || 'Application'
   const role = roleLabels[context?.role] || context?.role || 'Utilisateur'
   const shop = context?.workspace_name || 'le magasin'
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   // deno-lint-ignore no-explicit-any
   const fmt = (arr: any[], label: string, fn: (x: any) => string) => {
-    if (!Array.isArray(arr) || arr.length === 0) return `${label} : aucun`
-    return `${label} (${arr.length}) :\n` + arr.map(fn).join('\n')
+    if (!Array.isArray(arr) || arr.length === 0) return `${label} : (aucun)`
+    return `${label} :\n` + arr.map((x, i) => `  ${i+1}. ${fn(x)}`).join('\n')
   }
 
   const k = wd?.kpis || {}
-  const kpiBlock = `KPIs du mois :
-  CA encaissé     : ${k.ca_mois ? k.ca_mois + ' €' : 'inconnu'}
-  Soldes à encaisser : ${k.soldes_en_attente ? k.soldes_en_attente + ' €' : '0 €'}
-  Commandes actives  : ${k.commandes_actives ?? 0}
-  Devis ouverts      : ${k.devis_ouverts ?? 0}
-  Livraisons prévues : ${k.livraisons_prevues ?? 0}
-  Catalogue produits : ${k.produits_catalogue ?? 0} produit(s)`
+  // deno-lint-ignore no-explicit-any
+  const cname = (c: any) => [c?.first_name, c?.last_name].filter(Boolean).join(' ') || 'Client inconnu'
 
   // deno-lint-ignore no-explicit-any
-  const cname = (c: any) => [c?.first_name, c?.last_name].filter(Boolean).join(' ') || '?'
+  const commandesBlock = fmt(wd?.commandes || [], 'Commandes en cours', (c: any) =>
+    `${c.order_number} — ${cname(c.customers)} — ${c.status} — ${c.total_ttc}€${c.remaining_amount>0?' (reste: '+c.remaining_amount+'€)':''}`)
   // deno-lint-ignore no-explicit-any
-  const commandesBlock = fmt(wd?.commandes || [], 'COMMANDES EN COURS', (c: any) =>
-    `${c.order_number||'?'}|${cname(c.customers)}|${c.status}|${c.total_ttc}€${c.remaining_amount>0?'|reste:'+c.remaining_amount+'€':''}`)
+  const facturesBlock = fmt(wd?.factures || [], 'Factures récentes', (f: any) =>
+    `${f.invoice_number} — ${cname(f.customers)} — ${f.status} — ${f.total_ttc}€`)
   // deno-lint-ignore no-explicit-any
-  const facturesBlock = fmt(wd?.factures || [], 'FACTURES', (f: any) =>
-    `${f.invoice_number||'?'}|${cname(f.customers)}|${f.status}|${f.total_ttc}€|${f.issue_date||''}`)
+  const devisBlock = fmt(wd?.devis || [], 'Devis en attente', (d: any) =>
+    `${d.quote_number} — ${cname(d.customers)} — ${d.status} — ${d.total_ttc}€`)
   // deno-lint-ignore no-explicit-any
-  const devisBlock = fmt(wd?.devis || [], 'DEVIS OUVERTS', (d: any) =>
-    `${d.quote_number||'?'}|${cname(d.customers)}|${d.status}|${d.total_ttc}€`)
+  const livraisonsBlock = fmt(wd?.livraisons || [], 'Livraisons à venir', (l: any) =>
+    `${cname(l.customers)} — ${l.delivery_date}${l.time_slot?' '+l.time_slot:''} — ${l.status}`)
   // deno-lint-ignore no-explicit-any
-  const livraisonsBlock = fmt(wd?.livraisons || [], 'LIVRAISONS À VENIR', (l: any) =>
-    `${cname(l.customers)}|${l.delivery_date||'?'}${l.time_slot?' '+l.time_slot:''}|${l.status}`)
+  const clientsBlock = fmt(wd?.clients || [], 'Clients récents', (c: any) =>
+    `${cname(c)}${c.city?' ('+c.city+')':''}${c.phone?' — '+c.phone:''}`)
   // deno-lint-ignore no-explicit-any
-  const clientsBlock = fmt(wd?.clients || [], 'CLIENTS RÉCENTS', (c: any) =>
-    `${cname(c)}${c.city?' ('+c.city+')':''}|${c.phone||''}`)
-  // deno-lint-ignore no-explicit-any
-  const produitsBlock = fmt(wd?.produits || [], 'PRODUITS', (p: any) =>
-    `${p.name}${p.category?' ['+p.category+']':''}|${p.price}€`)
+  const produitsBlock = fmt(wd?.produits || [], 'Produits du catalogue', (p: any) =>
+    `${p.name}${p.category?' ['+p.category+']':''} — ${p.price}€`)
 
-  const agentBlock = isPro ? `
-CAPACITÉS AGENT (tu peux appeler des outils pour aider l'utilisateur) :
-- search_orders : rechercher des commandes par statut, numéro, ou client
-- get_customer_info : obtenir les détails d'un client
-- get_stock_alerts : voir les alertes de stock faible ou rupture
-- search_products : rechercher des produits dans le catalogue
-- update_order_status : MODIFIER le statut d'une commande (DEMANDE APPROBATION)
-- create_delivery : CRÉER une livraison planifiée (DEMANDE APPROBATION)
+  const toolsBlock = isPro ? `
+## Outils disponibles (UTILISE-LES pour répondre avec des données précises)
 
-RÈGLES AGENT :
-- Pour les actions qui MODIFIENT des données (update_order_status, create_delivery), tu DOIS expliquer ce que tu vas faire AVANT d'appeler l'outil. L'utilisateur devra approuver.
-- Pour les lectures (search_orders, get_customer_info, get_stock_alerts, search_products), tu peux appeler directement.
-- Ne jamais inventer des données non disponibles dans le contexte.
-- Si tu n'es pas sûr des paramètres (ex: ID de commande exact), demande à l'utilisateur de confirmer.` : ''
+**Lecture (appel direct, pas besoin d'approbation) :**
+- \`search_orders\` — chercher des commandes par numéro, statut, ou nom client
+- \`get_customer_info\` — fiche complète d'un client (coordonnées, historique)
+- \`get_stock_alerts\` — produits en rupture ou stock faible
+- \`search_products\` — rechercher des produits dans le catalogue
 
-  return `Tu es Neo, assistant IA de NeoFlow BOS (gestion magasin literie) pour « ${shop} ».
-Page: ${page} | Rôle: ${role}${agentBlock}
+**Écriture (TOUJOURS demander approbation avant) :**
+- \`update_order_status\` — modifier le statut d'une commande
+- \`create_delivery\` — planifier une livraison
 
---- DONNÉES RÉELLES (ne pas inventer) ---
-${kpiBlock}
+## Règles d'utilisation des outils
+
+1. **Pour toute question sur les commandes/clients/produits/stock** : utilise d'abord l'outil de lecture correspondant pour obtenir les données actuelles — ne te base pas uniquement sur le contexte ci-dessous qui peut être incomplet.
+2. **Pour annuler N commandes** : appelle d'abord \`search_orders\` pour trouver les N dernières, puis appelle \`update_order_status\` une fois PAR commande (chaque appel déclenche une carte d'approbation séparée). Ne décris pas ce que tu vas faire — appelle directement l'outil.
+3. **Pour les modifications** : NE DIS PAS "je vais faire X" et attends — appelle l'outil immédiatement, le système d'approbation s'occupera de demander confirmation à l'utilisateur.
+4. **Si le résultat d'un outil est vide** : dis-le clairement sans inventer.` : `
+## Mode basique
+Tu n'as pas accès aux outils de recherche en temps réel. Utilise uniquement les données ci-dessous pour répondre.`
+
+  return `Tu es **Neo**, l'assistant IA de **${shop}** (logiciel NeoFlow BOS — gestion de magasin).
+Date : ${today} | Page active : ${page} | Rôle de l'utilisateur : ${role}
+
+## Ta personnalité
+- Direct, précis, utile. Réponses courtes sauf si question complexe.
+- Toujours en français.
+- Tu connais NeoFlow BOS par cœur : tu guides l'utilisateur dans l'interface, tu réponds sur ses données réelles.
+- Quand tu ne sais pas ou que la donnée n'est pas disponible, tu le dis clairement sans inventer.
+${toolsBlock}
+
+## Données actuelles du workspace (snapshot au chargement)
+
+**KPIs du mois :**
+- CA encaissé : ${k.ca_mois ? k.ca_mois + ' €' : 'N/A'}
+- Soldes à encaisser : ${k.soldes_en_attente ? k.soldes_en_attente + ' €' : '0 €'}
+- Commandes actives : ${k.commandes_actives ?? 0}
+- Devis ouverts : ${k.devis_ouverts ?? 0}
+- Livraisons prévues : ${k.livraisons_prevues ?? 0}
+- Produits au catalogue : ${k.produits_catalogue ?? 0}
+
 ${commandesBlock}
-${facturesBlock}
-${devisBlock}
-${livraisonsBlock}
-${clientsBlock}
-${produitsBlock}
---- FIN DONNÉES ---
 
-RÈGLES STRICTES:
-- Si une section dit "aucun" → réponds qu'il n'y en a pas, point.
-- Réponds UNIQUEMENT en français.
-- Réponse courte et directe (max 150 mots sauf si question complexe).
-- Pour les calculs: fais-les et donne la conclusion.
-- Pour "comment faire": donne les étapes numérotées précises.
-- N'invente AUCUNE donnée qui n'est pas dans les sections ci-dessus.`
+${produitsBlock}
+
+${devisBlock}
+
+${livraisonsBlock}
+
+${clientsBlock}
+
+${facturesBlock}
+
+> Ces données sont un snapshot. Pour des données à jour ou des recherches précises, utilise les outils.`
 }
 
 // ── Définition des outils (OpenAI function calling format) ────────────────────
@@ -216,13 +230,13 @@ const NEO_TOOLS = [
     type: 'function',
     function: {
       name: 'update_order_status',
-      description: 'Modifier le statut d\'une commande. ATTENTION: cette action modifie des données réelles et requiert l\'approbation de l\'utilisateur.',
+      description: 'Modifier le statut d\'une commande. Requiert approbation utilisateur. Pour annuler utilise plutôt cancel_order.',
       parameters: {
         type: 'object',
         properties: {
-          order_number: { type: 'string', description: 'Numéro de commande (ex: CMD-2026-042)' },
+          order_number: { type: 'string', description: 'Numéro exact de la commande (ex: CMD-2026-042)' },
           new_status: { type: 'string', description: 'Nouveau statut: confirme, en_preparation, en_livraison, livre, termine, annule' },
-          reason: { type: 'string', description: 'Raison du changement de statut (pour le journal)' },
+          reason: { type: 'string', description: 'Raison du changement' },
         },
         required: ['order_number', 'new_status'],
       },
@@ -231,8 +245,23 @@ const NEO_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'cancel_order',
+      description: 'Annuler une commande. Requiert approbation utilisateur. Utilise cet outil quand l\'utilisateur demande d\'annuler une commande spécifique.',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_number: { type: 'string', description: 'Numéro exact de la commande à annuler (ex: CMD-2026-042)' },
+          reason: { type: 'string', description: 'Raison de l\'annulation (optionnel)' },
+        },
+        required: ['order_number'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'create_delivery',
-      description: 'Planifier une livraison pour une commande. ATTENTION: cette action crée des données réelles et requiert l\'approbation de l\'utilisateur.',
+      description: 'Planifier une livraison pour une commande. Requiert approbation utilisateur.',
       parameters: {
         type: 'object',
         properties: {
@@ -248,7 +277,7 @@ const NEO_TOOLS = [
 ]
 
 // Outils qui nécessitent une approbation explicite de l'utilisateur
-const APPROVAL_REQUIRED_TOOLS = new Set(['update_order_status', 'create_delivery'])
+const APPROVAL_REQUIRED_TOOLS = new Set(['update_order_status', 'cancel_order', 'create_delivery'])
 
 // ── Exécution des outils (lecture seule) ─────────────────────────────────────
 
@@ -396,6 +425,29 @@ async function executeApprovedAction(supabase: any, workspaceId: string, toolNam
         return `✅ Commande ${order.order_number} passée en statut "${toolArgs.new_status}".`
       }
 
+      case 'cancel_order': {
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id,order_number,status')
+          .eq('workspace_id', workspaceId)
+          .ilike('order_number', `%${toolArgs.order_number}%`)
+          .limit(1)
+
+        if (!orders || orders.length === 0) {
+          return `Commande "${toolArgs.order_number}" introuvable.`
+        }
+        const order = orders[0]
+        if (order.status === 'annule') return `La commande ${order.order_number} est déjà annulée.`
+
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'annule', updated_at: new Date().toISOString() })
+          .eq('id', order.id)
+
+        if (error) return `Erreur annulation: ${error.message}`
+        return `✅ Commande ${order.order_number} annulée.`
+      }
+
       case 'create_delivery': {
         // Trouver la commande
         const { data: orders } = await supabase
@@ -443,6 +495,11 @@ function getActionLabel(toolName: string, toolArgs: any): { label: string; detai
       return {
         label: `Passer la commande ${toolArgs.order_number} en "${toolArgs.new_status}"`,
         details: toolArgs.reason || `Modification du statut de ${toolArgs.order_number}`,
+      }
+    case 'cancel_order':
+      return {
+        label: `Annuler la commande ${toolArgs.order_number}`,
+        details: toolArgs.reason || 'Annulation demandée par l\'utilisateur',
       }
     case 'create_delivery':
       return {
