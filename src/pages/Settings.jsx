@@ -1750,7 +1750,7 @@ export default function Settings() {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Tokens supplémentaires</p>
-                  <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Plus vous achetez, moins c'est cher</span>
+                  <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Allez, c'est parti 🚀</span>
                 </div>
                 <p className="text-sm text-gray-500 mb-4">S'ajoutent à votre quota mensuel. Valables jusqu'à la fin du mois.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
