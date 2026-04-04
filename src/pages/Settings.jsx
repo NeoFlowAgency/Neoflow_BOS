@@ -1690,12 +1690,12 @@ export default function Settings() {
               )}
             </div>
 
-            {/* NeoCredits */}
+            {/* Tokens Neo IA */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">NeoCredits</p>
-                  <p className="text-sm text-gray-500">1 crédit = 1 000 tokens IA utilisés</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Tokens Neo IA</p>
+                  <p className="text-sm text-gray-500">1 token = 1 000 mots traités par l'IA</p>
                 </div>
                 {isUnlimitedCredits ? (
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Illimité</span>
@@ -1720,17 +1720,17 @@ export default function Settings() {
                     />
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">{creditsUsed} crédits utilisés ce mois</p>
+                    <p className="text-xs text-gray-400">{creditsUsed} tokens utilisés ce mois</p>
                     <p className="text-xs text-gray-400">{creditsBalance} restants</p>
                   </div>
                   {creditsBalance <= 20 && creditsBalance > 0 && (
                     <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
-                      <p className="text-xs text-orange-700 font-medium">Crédits bientôt épuisés. Votre quota sera renouvelé le 1er du mois prochain.</p>
+                      <p className="text-xs text-orange-700 font-medium">Tokens bientôt épuisés. Votre quota sera renouvelé le 1er du mois prochain.</p>
                     </div>
                   )}
                   {creditsBalance <= 0 && (
                     <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
-                      <p className="text-xs text-red-700 font-medium">Crédits épuisés. Neo IA est temporairement indisponible jusqu'au renouvellement mensuel.</p>
+                      <p className="text-xs text-red-700 font-medium">Tokens épuisés. Neo IA est indisponible jusqu'au renouvellement mensuel ou achat de tokens.</p>
                     </div>
                   )}
                   {neoCredits?.last_reset_at && (
@@ -1741,21 +1741,25 @@ export default function Settings() {
                 </>
               )}
               {isUnlimitedCredits && (
-                <p className="text-sm text-gray-500">Votre plan Enterprise inclut des crédits IA illimités.</p>
+                <p className="text-sm text-gray-500">Votre plan Enterprise inclut des tokens IA illimités.</p>
               )}
             </div>
 
-            {/* Acheter des crédits supplémentaires (Basic/Pro uniquement) */}
+            {/* Acheter des tokens supplémentaires (Basic/Pro uniquement) */}
             {!isUnlimitedCredits && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Crédits supplémentaires</p>
-                <p className="text-sm text-gray-500 mb-4">Achetez des crédits en plus de votre quota mensuel. Valables jusqu'à la fin du mois.</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Tokens supplémentaires</p>
+                  <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Plus vous achetez, moins c'est cher</span>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">S'ajoutent à votre quota mensuel. Valables jusqu'à la fin du mois.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { pack: '500',  credits: '500',   price: '4,99 €',  popular: false },
-                    { pack: '1000', credits: '1 000', price: '8,99 €',  popular: true  },
-                    { pack: '2000', credits: '2 000', price: '14,99 €', popular: false },
-                  ].map(({ pack, credits, price, popular }) => (
+                    { pack: '500',   tokens: '500',    price: '4,99 €',  perToken: '0,010 €', popular: false },
+                    { pack: '2000',  tokens: '2 000',  price: '14,99 €', perToken: '0,0075 €', popular: true  },
+                    { pack: '5000',  tokens: '5 000',  price: '29,99 €', perToken: '0,006 €', popular: false },
+                    { pack: '10000', tokens: '10 000', price: '49,99 €', perToken: '0,005 €', popular: false },
+                  ].map(({ pack, tokens, price, perToken, popular }) => (
                     <button
                       key={pack}
                       onClick={() => handleBuyCredits(pack)}
@@ -1764,18 +1768,21 @@ export default function Settings() {
                     >
                       {popular && (
                         <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold px-2 py-0.5 bg-[#313ADF] text-white rounded-full whitespace-nowrap">
-                          Meilleur rapport
+                          Populaire
                         </span>
                       )}
-                      <span className="text-lg font-bold text-[#040741]">{credits}</span>
-                      <span className="text-xs text-gray-400 mb-2">crédits</span>
+                      <span className="text-lg font-bold text-[#040741]">{tokens}</span>
+                      <span className="text-xs text-gray-400 mb-1">tokens</span>
                       <span className="text-sm font-semibold text-[#313ADF]">
-                        {buyingCredits === pack ? '...' : price}
+                        {buyingCredits === pack ? (
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 border-2 border-[#313ADF] border-t-transparent rounded-full animate-spin inline-block" /></span>
+                        ) : price}
                       </span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">{perToken}/token</span>
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-3">Les crédits achetés ne se reportent pas au mois suivant.</p>
+                <p className="text-xs text-gray-400 mt-3">Les tokens achetés ne se reportent pas au mois suivant.</p>
               </div>
             )}
 

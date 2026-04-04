@@ -711,7 +711,7 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
               </span>
               {!isUnlimitedCredits && (
                 <span className={`text-[11px] ml-1 font-medium ${(localCredits ?? neoCreditsBalance) <= 10 ? 'text-orange-300' : 'text-white/50'}`}>
-                  · {localCredits ?? neoCreditsBalance} crédits
+                  · {localCredits ?? neoCreditsBalance} tokens
                 </span>
               )}
             </div>

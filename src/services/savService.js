@@ -8,10 +8,9 @@ export async function listSAVTickets(workspaceId, { status, type, search, limit 
     .select(`
       id, ticket_number, type, status, priority, description,
       refund_amount, created_at, updated_at, resolved_at,
+      customer_id, order_id, assigned_to, created_by,
       customers (id, first_name, last_name, phone),
-      orders (id, order_number),
-      assigned_profile:assigned_to (id, full_name),
-      created_profile:created_by (id, full_name)
+      orders (id, order_number)
     `)
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false })
@@ -37,10 +36,9 @@ export async function getSAVTicket(ticketId) {
       .select(`
         id, ticket_number, type, status, priority, description, resolution,
         refund_amount, created_at, updated_at, resolved_at, closed_at,
+        customer_id, order_id, assigned_to, created_by,
         customers (id, first_name, last_name, phone, email, address, city),
-        orders (id, order_number, total_ttc, status),
-        assigned_profile:assigned_to (id, full_name),
-        created_profile:created_by (id, full_name)
+        orders (id, order_number, total_ttc, status)
       `)
       .eq('id', ticketId)
       .single(),

@@ -70,21 +70,47 @@ serve(async (req) => {
     )
 
     if (activeSub) {
-      // Activate workspace
+      // Déduire le plan depuis les métadonnées ou le price_id
+      let planType = activeSub.metadata?.plan_type || ''
+      if (!['basic', 'pro', 'enterprise'].includes(planType)) {
+        const priceId = (activeSub.items?.data[0]?.price as Stripe.Price)?.id || ''
+        const basicMonthly = Deno.env.get('STRIPE_BASIC_MONTHLY_PRICE_ID') || ''
+        const basicAnnual  = Deno.env.get('STRIPE_BASIC_ANNUAL_PRICE_ID') || ''
+        if (priceId && (priceId === basicMonthly || priceId === basicAnnual)) {
+          planType = 'basic'
+        } else {
+          planType = 'pro'
+        }
+      }
+
+      const monthlyAllowance = planType === 'enterprise' ? -1 : planType === 'basic' ? 200 : 2000
+
+      // Activer le workspace avec le bon plan
       await supabase.from('workspaces').update({
         stripe_subscription_id: activeSub.id,
         subscription_status: activeSub.status,
         is_active: true,
+        plan_type: planType,
         trial_ends_at: activeSub.trial_end
           ? new Date(activeSub.trial_end * 1000).toISOString()
           : null,
         current_period_end: new Date(activeSub.current_period_end * 1000).toISOString(),
       }).eq('id', workspace_id)
 
-      console.log(`[verify-checkout] Activated workspace=${workspace_id} status=${activeSub.status}`)
+      // Initialiser les tokens selon le plan (si pas déjà fait)
+      await supabase.from('neo_credits').upsert({
+        workspace_id,
+        credits_balance: monthlyAllowance,
+        monthly_allowance: monthlyAllowance,
+        credits_used_this_month: 0,
+        extra_credits: 0,
+        last_reset_at: new Date().toISOString(),
+      }, { onConflict: 'workspace_id' })
+
+      console.log(`[verify-checkout] Activated workspace=${workspace_id} plan=${planType} status=${activeSub.status}`)
 
       return new Response(
-        JSON.stringify({ success: true, is_active: true, subscription_status: activeSub.status }),
+        JSON.stringify({ success: true, is_active: true, subscription_status: activeSub.status, plan_type: planType }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

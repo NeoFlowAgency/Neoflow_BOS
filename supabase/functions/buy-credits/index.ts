@@ -25,10 +25,13 @@ function getCorsHeaders(req: Request) {
 // Le client envoie { workspace_id, pack } où pack = '500' | '1000' | '2000'
 // On utilise le même price ID Stripe et on ajuste la quantité
 
-const CREDIT_PACKS: Record<string, { credits: number; label: string }> = {
-  '500':  { credits: 500,  label: '500 NeoCredits' },
-  '1000': { credits: 1000, label: '1 000 NeoCredits' },
-  '2000': { credits: 2000, label: '2 000 NeoCredits' },
+// Packs de tokens : quantity = nombre d'unités de 500 tokens (1 unité Stripe = 500 tokens)
+// price_id unique, on ajuste la quantity
+const CREDIT_PACKS: Record<string, { credits: number; label: string; quantity: number }> = {
+  '500':   { credits: 500,   label: '500 Tokens',    quantity: 1  },
+  '2000':  { credits: 2000,  label: '2 000 Tokens',  quantity: 4  },
+  '5000':  { credits: 5000,  label: '5 000 Tokens',  quantity: 10 },
+  '10000': { credits: 10000, label: '10 000 Tokens', quantity: 20 },
 }
 
 serve(async (req) => {
@@ -58,7 +61,7 @@ serve(async (req) => {
     if (!workspace_id) throw new Error('workspace_id requis')
 
     const packInfo = CREDIT_PACKS[pack]
-    if (!packInfo) throw new Error(`Pack "${pack}" invalide. Valeurs acceptées: 500, 1000, 2000`)
+    if (!packInfo) throw new Error(`Pack "${pack}" invalide. Valeurs acceptées: 500, 2000, 5000, 10000`)
 
     // Vérifier que l'utilisateur est propriétaire
     const { data: membership } = await supabase
@@ -103,7 +106,7 @@ serve(async (req) => {
       mode: 'payment',
       line_items: [{
         price: creditsPriceId,
-        quantity: packInfo.credits / 500, // 1 unité = 500 crédits
+        quantity: packInfo.quantity, // 1 unité Stripe = 500 tokens
       }],
       metadata: {
         workspace_id: workspace.id,

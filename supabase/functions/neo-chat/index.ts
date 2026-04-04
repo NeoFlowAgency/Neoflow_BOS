@@ -396,88 +396,50 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
   }
 }
 
-// ── Exécution des actions avec approbation ────────────────────────────────────
+// Note: l'exécution des actions approuvées est faite directement dans executeApprovedActionInline()
+// appelé depuis le handler principal lorsque approved_action_id est présent dans la requête.
 
 // deno-lint-ignore no-explicit-any
-async function executeApprovedAction(supabase: any, workspaceId: string, toolName: string, toolArgs: any): Promise<string> {
+async function executeApprovedActionInline(supabase: any, workspaceId: string, toolName: string, toolArgs: any): Promise<string> {
   try {
     switch (toolName) {
       case 'update_order_status': {
-        // Trouver la commande par numéro
         const { data: orders } = await supabase
-          .from('orders')
-          .select('id,order_number,status')
-          .eq('workspace_id', workspaceId)
-          .ilike('order_number', `%${toolArgs.order_number}%`)
-          .limit(1)
-
-        if (!orders || orders.length === 0) {
-          return `Commande "${toolArgs.order_number}" introuvable.`
-        }
+          .from('orders').select('id,order_number,status')
+          .eq('workspace_id', workspaceId).ilike('order_number', `%${toolArgs.order_number}%`).limit(1)
+        if (!orders?.length) return `Commande "${toolArgs.order_number}" introuvable.`
         const order = orders[0]
-
-        const { error } = await supabase
-          .from('orders')
-          .update({ status: toolArgs.new_status, updated_at: new Date().toISOString() })
-          .eq('id', order.id)
-
+        const { error } = await supabase.from('orders')
+          .update({ status: toolArgs.new_status, updated_at: new Date().toISOString() }).eq('id', order.id)
         if (error) return `Erreur mise à jour: ${error.message}`
         return `✅ Commande ${order.order_number} passée en statut "${toolArgs.new_status}".`
       }
-
       case 'cancel_order': {
         const { data: orders } = await supabase
-          .from('orders')
-          .select('id,order_number,status')
-          .eq('workspace_id', workspaceId)
-          .ilike('order_number', `%${toolArgs.order_number}%`)
-          .limit(1)
-
-        if (!orders || orders.length === 0) {
-          return `Commande "${toolArgs.order_number}" introuvable.`
-        }
+          .from('orders').select('id,order_number,status')
+          .eq('workspace_id', workspaceId).ilike('order_number', `%${toolArgs.order_number}%`).limit(1)
+        if (!orders?.length) return `Commande "${toolArgs.order_number}" introuvable.`
         const order = orders[0]
         if (order.status === 'annule') return `La commande ${order.order_number} est déjà annulée.`
-
-        const { error } = await supabase
-          .from('orders')
-          .update({ status: 'annule', updated_at: new Date().toISOString() })
-          .eq('id', order.id)
-
+        const { error } = await supabase.from('orders')
+          .update({ status: 'annule', updated_at: new Date().toISOString() }).eq('id', order.id)
         if (error) return `Erreur annulation: ${error.message}`
         return `✅ Commande ${order.order_number} annulée.`
       }
-
       case 'create_delivery': {
-        // Trouver la commande
         const { data: orders } = await supabase
-          .from('orders')
-          .select('id,order_number,customer_id')
-          .eq('workspace_id', workspaceId)
-          .ilike('order_number', `%${toolArgs.order_number}%`)
-          .limit(1)
-
-        if (!orders || orders.length === 0) {
-          return `Commande "${toolArgs.order_number}" introuvable.`
-        }
+          .from('orders').select('id,order_number,customer_id')
+          .eq('workspace_id', workspaceId).ilike('order_number', `%${toolArgs.order_number}%`).limit(1)
+        if (!orders?.length) return `Commande "${toolArgs.order_number}" introuvable.`
         const order = orders[0]
-
-        const { error } = await supabase
-          .from('deliveries')
-          .insert({
-            workspace_id: workspaceId,
-            order_id: order.id,
-            customer_id: order.customer_id,
-            delivery_date: toolArgs.delivery_date,
-            time_slot: toolArgs.time_slot || null,
-            notes: toolArgs.notes || null,
-            status: 'planifiee',
-          })
-
+        const { error } = await supabase.from('deliveries').insert({
+          workspace_id: workspaceId, order_id: order.id, customer_id: order.customer_id,
+          delivery_date: toolArgs.delivery_date, time_slot: toolArgs.time_slot || null,
+          notes: toolArgs.notes || null, status: 'planifiee',
+        })
         if (error) return `Erreur création livraison: ${error.message}`
-        return `✅ Livraison planifiée pour la commande ${order.order_number} le ${toolArgs.delivery_date}${toolArgs.time_slot ? ' ('+toolArgs.time_slot+')' : ''}.`
+        return `✅ Livraison planifiée pour ${order.order_number} le ${toolArgs.delivery_date}${toolArgs.time_slot ? ' ('+toolArgs.time_slot+')' : ''}.`
       }
-
       default:
         return `Action "${toolName}" non reconnue.`
     }
@@ -604,7 +566,7 @@ serve(async (req) => {
     const creditsBalance: number = creditsRow?.credits_balance ?? 0
 
     if (!isUnlimited && creditsBalance <= 0) {
-      throw new Error('NeoCredits épuisés. Attendez le renouvellement mensuel ou achetez des crédits supplémentaires.')
+      throw new Error('Tokens épuisés. Attendez le renouvellement mensuel ou achetez des tokens supplémentaires dans Paramètres → Abonnement.')
     }
 
     // ── Récupérer les données workspace ───────────────────────────────────────
@@ -635,10 +597,36 @@ serve(async (req) => {
         ...history.slice(-10),
       ]
 
-      // Si on reprend après une action approuvée, on injecte le résultat de l'outil
-      if (approved_action_id && approved_action_result) {
-        // Le résultat de l'outil est injecté dans l'historique et on relance l'inférence
-        // sans message utilisateur supplémentaire
+      // Si on reprend après une action approuvée : exécuter l'action et streamer le résultat
+      if (approved_action_id && approved_action_result === 'approved') {
+        const { data: pendingAction } = await supabase
+          .from('neo_pending_actions')
+          .select('tool_name, tool_args')
+          .eq('id', approved_action_id)
+          .single()
+
+        if (pendingAction) {
+          const actionResult = await executeApprovedActionInline(
+            supabase, workspaceId!, pendingAction.tool_name, pendingAction.tool_args
+          )
+          // Marquer l'action comme exécutée
+          await supabase.from('neo_pending_actions')
+            .update({ status: 'executed', executed_at: new Date().toISOString() })
+            .eq('id', approved_action_id)
+
+          // Relancer OpenRouter avec le résultat de l'outil pour obtenir un résumé naturel
+          messages.push({ role: 'user', content: message || `[Action exécutée]` })
+          messages.push({
+            role: 'assistant', content: null,
+            tool_calls: [{ id: 'approved_action', type: 'function', function: { name: pendingAction.tool_name, arguments: JSON.stringify(pendingAction.tool_args) } }],
+          })
+          messages.push({
+            role: 'tool', tool_call_id: 'approved_action',
+            name: pendingAction.tool_name, content: actionResult,
+          })
+        } else {
+          messages.push({ role: 'user', content: message })
+        }
       } else {
         messages.push({ role: 'user', content: message })
       }

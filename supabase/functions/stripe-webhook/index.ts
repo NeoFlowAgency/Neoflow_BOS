@@ -64,14 +64,29 @@ serve(async (req) => {
         const subscriptionId = session.subscription as string
 
         if (workspaceId && subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ['items.data.price'],
+          })
 
-          // Déterminer le plan depuis les métadonnées de la session
-          // (définies dans create-checkout) ou en comparant le price ID
-          let planType = session.metadata?.plan_type || subscription.metadata?.plan_type || 'pro'
+          // Déterminer le plan : priorité aux métadonnées, fallback sur le price_id réel
+          let planType = session.metadata?.plan_type || subscription.metadata?.plan_type || ''
+
+          // Si les métadonnées sont absentes ou invalides, déduire depuis le price_id
           if (!['basic', 'pro', 'enterprise'].includes(planType)) {
-            // Rétrocompatibilité : 'standard' → 'pro'
-            planType = 'pro'
+            const priceId = (subscription.items.data[0]?.price as Stripe.Price)?.id || ''
+            const basicMonthly = Deno.env.get('STRIPE_BASIC_MONTHLY_PRICE_ID') || ''
+            const basicAnnual  = Deno.env.get('STRIPE_BASIC_ANNUAL_PRICE_ID') || ''
+            const proMonthly   = Deno.env.get('STRIPE_PRO_MONTHLY_PRICE_ID') || Deno.env.get('STRIPE_PRICE_ID') || ''
+            const proAnnual    = Deno.env.get('STRIPE_PRO_ANNUAL_PRICE_ID') || Deno.env.get('STRIPE_ANNUAL_PRICE_ID') || ''
+
+            if (priceId && (priceId === basicMonthly || priceId === basicAnnual)) {
+              planType = 'basic'
+            } else if (priceId && (priceId === proMonthly || priceId === proAnnual)) {
+              planType = 'pro'
+            } else {
+              planType = 'pro' // fallback ultime
+            }
+            console.log(`[stripe-webhook] plan déduit depuis price_id=${priceId} → ${planType}`)
           }
 
           await supabase.from('workspaces').update({
