@@ -52,6 +52,7 @@ const ApercuSAV = lazy(() => import('./pages/ApercuSAV'))
 const LivraisonLivreur = lazy(() => import('./pages/LivraisonLivreur'))
 const EnterprisePage = lazy(() => import('./pages/EnterprisePage'))
 const AdminWorkspaces = lazy(() => import('./pages/AdminWorkspaces'))
+const Neo = lazy(() => import('./pages/Neo'))
 
 // Fallback affiché pendant le chargement des chunks
 function PageLoader() {
@@ -305,6 +306,7 @@ function App() {
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route path="/admin-workspaces" element={<ProtectedLayout><AdminWorkspaces /></ProtectedLayout>} />
+            <Route path="/neo" element={<ProtectedRoute><Neo /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
             <Route
               path="/onboarding/survey"
