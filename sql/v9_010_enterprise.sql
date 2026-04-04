@@ -40,6 +40,11 @@ CREATE INDEX IF NOT EXISTS idx_enterprise_links_workspace ON enterprise_workspac
 -- ============================================================
 ALTER TABLE enterprise_accounts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "enterprise_accounts_owner_select" ON enterprise_accounts;
+DROP POLICY IF EXISTS "enterprise_accounts_owner_insert" ON enterprise_accounts;
+DROP POLICY IF EXISTS "enterprise_accounts_owner_update" ON enterprise_accounts;
+DROP POLICY IF EXISTS "enterprise_accounts_service_role" ON enterprise_accounts;
+
 CREATE POLICY "enterprise_accounts_owner_select" ON enterprise_accounts
   FOR SELECT USING (auth.uid() = owner_user_id);
 
@@ -56,6 +61,9 @@ CREATE POLICY "enterprise_accounts_service_role" ON enterprise_accounts
 -- RLS enterprise_workspace_links
 -- ============================================================
 ALTER TABLE enterprise_workspace_links ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "enterprise_links_owner_select" ON enterprise_workspace_links;
+DROP POLICY IF EXISTS "enterprise_links_service_role" ON enterprise_workspace_links;
 
 CREATE POLICY "enterprise_links_owner_select" ON enterprise_workspace_links
   FOR SELECT USING (

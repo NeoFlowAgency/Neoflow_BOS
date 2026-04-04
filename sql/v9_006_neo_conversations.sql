@@ -75,6 +75,18 @@ ALTER TABLE neo_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE neo_pending_actions ENABLE ROW LEVEL SECURITY;
 
 -- Conversations : accès par workspace
+DROP POLICY IF EXISTS "neo_conversations_select" ON neo_conversations;
+DROP POLICY IF EXISTS "neo_conversations_insert" ON neo_conversations;
+DROP POLICY IF EXISTS "neo_conversations_update" ON neo_conversations;
+DROP POLICY IF EXISTS "neo_conversations_delete" ON neo_conversations;
+DROP POLICY IF EXISTS "neo_conversations_service" ON neo_conversations;
+DROP POLICY IF EXISTS "neo_messages_select" ON neo_messages;
+DROP POLICY IF EXISTS "neo_messages_insert" ON neo_messages;
+DROP POLICY IF EXISTS "neo_messages_service" ON neo_messages;
+DROP POLICY IF EXISTS "neo_pending_actions_select" ON neo_pending_actions;
+DROP POLICY IF EXISTS "neo_pending_actions_update" ON neo_pending_actions;
+DROP POLICY IF EXISTS "neo_pending_actions_service" ON neo_pending_actions;
+
 CREATE POLICY "neo_conversations_select" ON neo_conversations
   FOR SELECT USING (
     workspace_id IN (

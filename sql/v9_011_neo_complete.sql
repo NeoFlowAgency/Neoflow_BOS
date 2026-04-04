@@ -364,19 +364,19 @@ END$$;
 -- ============================================================
 -- Fonction pg_cron : vérifier les tâches planifiées toutes les minutes
 -- ============================================================
-DO $$
+DO $outer$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
     PERFORM cron.schedule(
       'neo-scheduled-tasks-check',
       '* * * * *',
-      $$
+      $cron$
       UPDATE neo_scheduled_tasks
       SET status = 'running', updated_at = NOW()
       WHERE status = 'active'
         AND next_run_at <= NOW()
         AND next_run_at IS NOT NULL
-      $$
+      $cron$
     );
   END IF;
-END$$;
+END$outer$;

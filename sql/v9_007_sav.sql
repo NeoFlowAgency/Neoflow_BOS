@@ -60,6 +60,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trigger_sav_ticket_number ON sav_tickets;
 CREATE TRIGGER trigger_sav_ticket_number
   BEFORE INSERT ON sav_tickets
   FOR EACH ROW
