@@ -618,7 +618,7 @@ export default function Livraisons() {
           )}
 
           {/* Carte Leaflet */}
-          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ height: '520px' }}>
+          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
             <MapContainer
               center={[46.603354, 1.888334]}
               zoom={6}

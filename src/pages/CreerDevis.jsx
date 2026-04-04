@@ -228,9 +228,9 @@ export default function CreerDevis() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non authentifié')
 
-      // Auto-create client if new (no existing ID)
+      // Auto-create client if new (no existing ID) — only if client info was provided
       let clientId = client.id
-      if (!clientId) {
+      if (!clientId && hasPartialClient) {
         const { data: existing } = await supabase
           .from('customers')
           .select('id')
@@ -341,7 +341,7 @@ export default function CreerDevis() {
             <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            Information Client
+            Information Client <span className="text-sm font-normal text-gray-400">(optionnel)</span>
           </h2>
           <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
             <button type="button" onClick={() => setClientType('particulier')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${clientType === 'particulier' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500 hover:text-[#040741]'}`}>Particulier</button>

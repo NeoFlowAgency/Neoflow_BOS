@@ -26,7 +26,7 @@ export default function WorkspaceOnboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [billing, setBilling] = useState('monthly')
-  const [selectedPlan, setSelectedPlan] = useState('pro')
+  const [selectedPlan, setSelectedPlan] = useState('basic')
 
   const [form, setForm] = useState({
     // Step 1

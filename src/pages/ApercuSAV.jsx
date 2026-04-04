@@ -7,6 +7,7 @@ import {
   resolveSAVTicket,
   addSAVComment,
   updateSAVItemAction,
+  generateAvoir,
 } from '../services/savService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
@@ -70,6 +71,7 @@ export default function ApercuSAV() {
   const [commentSaving, setCommentSaving] = useState(false)
 
   const [statusChanging, setStatusChanging] = useState(false)
+  const [avoirLoading, setAvoirLoading] = useState(false)
 
   useEffect(() => {
     loadTicket()
@@ -141,6 +143,20 @@ export default function ApercuSAV() {
       toast.error('Erreur lors de l\'ajout du commentaire')
     } finally {
       setCommentSaving(false)
+    }
+  }
+
+  const handleGenerateAvoir = async () => {
+    setAvoirLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const invoice = await generateAvoir(id, user.id)
+      toast.success(`Avoir ${invoice.invoice_number} créé avec succès`)
+      await loadTicket()
+    } catch (err) {
+      toast.error(err.message || 'Erreur lors de la génération de l\'avoir')
+    } finally {
+      setAvoirLoading(false)
     }
   }
 
@@ -236,6 +252,20 @@ export default function ApercuSAV() {
               >
                 Clore
               </button>
+            )}
+            {(ticket.type === 'retour' || ticket.type === 'avoir') && !ticket.avoir_generated && (ticket.refund_amount > 0) && (
+              <button
+                onClick={handleGenerateAvoir}
+                disabled={avoirLoading}
+                className="px-4 py-2 bg-purple-100 text-purple-700 text-sm font-semibold rounded-xl hover:bg-purple-200 transition-colors disabled:opacity-50"
+              >
+                {avoirLoading ? 'Génération…' : 'Générer avoir'}
+              </button>
+            )}
+            {ticket.avoir_generated && (
+              <span className="px-4 py-2 bg-green-50 text-green-600 text-sm font-semibold rounded-xl border border-green-200">
+                ✓ Avoir généré
+              </span>
             )}
           </div>
         )}

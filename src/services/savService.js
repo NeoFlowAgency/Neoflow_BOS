@@ -35,7 +35,8 @@ export async function getSAVTicket(ticketId) {
       .from('sav_tickets')
       .select(`
         id, ticket_number, type, status, priority, description, resolution,
-        refund_amount, created_at, updated_at, resolved_at, closed_at,
+        refund_amount, avoir_generated, avoir_invoice_id,
+        created_at, updated_at, resolved_at, closed_at,
         customer_id, order_id, assigned_to, created_by,
         customers (id, first_name, last_name, phone, email, address, city),
         orders (id, order_number, total_ttc, status)
@@ -221,6 +222,82 @@ async function addSAVHistory(ticketId, userId, action, comment = '', metadata = 
     comment,
     ...(metadata ? { metadata } : {}),
   })
+}
+
+// ── Générer un avoir depuis un ticket SAV ─────────────────────────────────────
+
+export async function generateAvoir(ticketId, userId) {
+  // Charger le ticket avec ses infos
+  const { data: ticket, error: ticketError } = await supabase
+    .from('sav_tickets')
+    .select('*, customers(id), orders(id)')
+    .eq('id', ticketId)
+    .single()
+
+  if (ticketError || !ticket) throw new Error('Ticket introuvable')
+  if (ticket.avoir_generated) throw new Error('Un avoir a déjà été généré pour ce ticket')
+
+  const refundAmount = Number(ticket.refund_amount || 0)
+  if (refundAmount <= 0) throw new Error('Veuillez d\'abord définir le montant du remboursement dans la résolution')
+
+  // Calculer les montants HT/TVA (TVA 20% par défaut)
+  const tvaRate = 0.20
+  const totalTTC = refundAmount
+  const totalHT  = +(totalTTC / (1 + tvaRate)).toFixed(2)
+  const totalTVA = +(totalTTC - totalHT).toFixed(2)
+
+  // Obtenir le prochain numéro de facture
+  const year = new Date().getFullYear()
+  const { data: numResult, error: numError } = await supabase
+    .rpc('get_next_invoice_number', { p_workspace_id: ticket.workspace_id, p_year: year })
+  if (numError) throw numError
+  const invoiceNumber = numResult?.invoice_number
+
+  // Créer la facture d'avoir (montants positifs, type = 'avoir')
+  const { data: invoice, error: invError } = await supabase
+    .from('invoices')
+    .insert({
+      workspace_id:    ticket.workspace_id,
+      customer_id:     ticket.customer_id,
+      order_id:        ticket.order_id,
+      created_by:      userId,
+      invoice_number:  invoiceNumber,
+      invoice_type:    'avoir',
+      invoice_category: 'standard',
+      status:          'paid',
+      issue_date:      new Date().toISOString().split('T')[0],
+      subtotal_ht:     totalHT,
+      total_tva:       totalTVA,
+      total_ttc:       totalTTC,
+      discount_global: 0,
+      notes:           `Avoir suite au ticket SAV ${ticket.ticket_number}`,
+    })
+    .select('id, invoice_number')
+    .single()
+
+  if (invError) throw new Error('Erreur création avoir : ' + invError.message)
+
+  // Créer une ligne sur la facture d'avoir
+  await supabase.from('invoice_items').insert({
+    invoice_id:    invoice.id,
+    description:   `Avoir SAV — ${ticket.ticket_number}`,
+    quantity:      1,
+    unit_price_ht: totalHT,
+    tax_rate:      20,
+    total_ht:      totalHT,
+    position:      1,
+  })
+
+  // Mettre à jour le ticket
+  await supabase
+    .from('sav_tickets')
+    .update({ avoir_generated: true, avoir_invoice_id: invoice.id })
+    .eq('id', ticketId)
+
+  // Journal
+  await addSAVHistory(ticketId, userId, 'avoir_generated', `Avoir ${invoice.invoice_number} généré (${totalTTC.toFixed(2)} €)`)
+
+  return invoice
 }
 
 // ── Compter les tickets ouverts (pour badge sidebar) ──────────────────────────
