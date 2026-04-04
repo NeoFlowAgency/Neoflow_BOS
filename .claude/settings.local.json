@@ -14,7 +14,8 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//c/Users/Noakim Grelier/Desktop/PROJETS/NeoFlow Agnecy/NeoFlow BOS/Neoflow_BOS/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ls sql/v9_*.sql)"
     ]
   }
 }
