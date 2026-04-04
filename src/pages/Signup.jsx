@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
+import SocialAuthButtons from '../components/ui/SocialAuthButtons'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -261,6 +262,11 @@ export default function Signup() {
             ) : 'Créer mon compte'}
           </button>
         </form>
+
+        <SocialAuthButtons
+          redirectTo={`${window.location.origin}/onboarding/survey`}
+          onPhoneSuccess={() => navigate('/onboarding/survey')}
+        />
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Déjà un compte ?{' '}

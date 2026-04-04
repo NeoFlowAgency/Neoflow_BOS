@@ -554,7 +554,11 @@ export default function Settings() {
         body: { workspace_id: currentWorkspace.id, pack },
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
-      if (res.error) throw new Error(res.error.message)
+      if (res.error) {
+        // Extraire le vrai message d'erreur de la fonction
+        const body = res.error.context ? await res.error.context.json().catch(() => null) : null
+        throw new Error(body?.error || res.error.message)
+      }
       const { url } = res.data
       if (url) window.location.href = url
     } catch (err) {

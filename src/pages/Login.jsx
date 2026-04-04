@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { translateError } from '../lib/errorMessages'
 import BackgroundPattern from '../components/ui/BackgroundPattern'
+import SocialAuthButtons from '../components/ui/SocialAuthButtons'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -205,6 +206,10 @@ export default function Login() {
             ) : 'Se connecter'}
           </button>
         </form>
+
+        <SocialAuthButtons
+          redirectTo={`${window.location.origin}${searchParams.get('redirect') && searchParams.get('redirect').startsWith('/') ? searchParams.get('redirect') : '/dashboard'}`}
+        />
 
         <p className="text-center text-gray-500 text-sm mt-6">
           Pas encore de compte ?{' '}
