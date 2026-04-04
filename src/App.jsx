@@ -50,6 +50,8 @@ const ListeSAV = lazy(() => import('./pages/ListeSAV'))
 const CreerSAV = lazy(() => import('./pages/CreerSAV'))
 const ApercuSAV = lazy(() => import('./pages/ApercuSAV'))
 const LivraisonLivreur = lazy(() => import('./pages/LivraisonLivreur'))
+const EnterprisePage = lazy(() => import('./pages/EnterprisePage'))
+const AdminWorkspaces = lazy(() => import('./pages/AdminWorkspaces'))
 
 // Fallback affiché pendant le chargement des chunks
 function PageLoader() {
@@ -271,6 +273,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/cgu" element={<CGU />} />
+            <Route path="/entreprise" element={<EnterprisePage />} />
             <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
             <Route path="/vente-rapide" element={<ProtectedLayout><RoleGuard allowedRoles={SALES_ROLES}><VenteRapide /></RoleGuard></ProtectedLayout>} />
             <Route path="/commandes/nouvelle" element={<ProtectedLayout><RoleGuard allowedRoles={SALES_ROLES}><CreerCommande /></RoleGuard></ProtectedLayout>} />
@@ -301,6 +304,7 @@ function App() {
             <Route path="/documentation/admin" element={<ProtectedLayout><RoleGuard allowedRoles={['proprietaire']}><DocumentationAdmin /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
+            <Route path="/admin-workspaces" element={<ProtectedLayout><AdminWorkspaces /></ProtectedLayout>} />
             <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
             <Route
               path="/onboarding/survey"

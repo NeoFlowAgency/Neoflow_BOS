@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
@@ -16,11 +16,15 @@ const COUNTRIES = ['France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada', 'Autr
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { workspaces, currentWorkspace, isAdmin, isOwner, role: myRole, switchWorkspace, refreshWorkspaces, planType, neoCredits, neoCreditsBalance, isUnlimitedCredits } = useWorkspace()
+  const [searchParams] = useSearchParams()
+  const { workspaces, currentWorkspace, isAdmin, isOwner, role: myRole, switchWorkspace, refreshWorkspaces, planType, neoCredits, neoCreditsBalance, isUnlimitedCredits, refreshNeoCredits } = useWorkspace()
   const toast = useToast()
-  const [activeTab, setActiveTab] = useState('compte')
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'compte')
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // Buy credits
+  const [buyingCredits, setBuyingCredits] = useState(false)
 
   // Account form
   const [fullName, setFullName] = useState('')
@@ -540,6 +544,35 @@ export default function Settings() {
     }
   }
 
+  const handleBuyCredits = async (pack) => {
+    if (!currentWorkspace?.id) return
+    setBuyingCredits(pack)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Non authentifié')
+      const res = await supabase.functions.invoke('buy-credits', {
+        body: { workspace_id: currentWorkspace.id, pack },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.error) throw new Error(res.error.message)
+      const { url } = res.data
+      if (url) window.location.href = url
+    } catch (err) {
+      console.error('[buy-credits]', err)
+      toast.error(err.message || 'Erreur lors de l\'achat de crédits')
+    } finally {
+      setBuyingCredits(false)
+    }
+  }
+
+  // Détecter retour Stripe après achat crédits
+  useEffect(() => {
+    if (searchParams.get('credits') === 'success') {
+      toast.success('Crédits ajoutés à votre compte !')
+      refreshNeoCredits()
+    }
+  }, [])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/login')
@@ -551,39 +584,43 @@ export default function Settings() {
 
   const tabs = [
     {
-      key: 'compte', label: 'Compte',
+      key: 'compte', label: 'Mon compte',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />,
-      desc: 'Profil et mot de passe'
+      desc: 'Profil, mot de passe, push'
     },
-    {
-      key: 'workspace', label: 'Workspace',
+    ...(isAdmin ? [{
+      key: 'magasin', label: 'Magasin',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />,
-      desc: 'Informations et facturation'
-    },
-    {
-      key: 'membres', label: 'Membres',
+      desc: 'Infos légales, logo, IBAN'
+    }] : []),
+    ...(isAdmin ? [{
+      key: 'equipe', label: 'Équipe',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />,
-      desc: 'Equipe et invitations'
-    },
+      desc: 'Membres, rôles, invitations'
+    }] : [{
+      key: 'equipe', label: 'Équipe',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />,
+      desc: 'Membres'
+    }]),
+    ...(isAdmin ? [{
+      key: 'documents', label: 'Documents',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
+      desc: 'Préfixes, TVA, pieds de page'
+    }] : []),
+    ...(isAdmin ? [{
+      key: 'stock', label: 'Stock',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1.795 9.857A2 2 0 008.764 20h6.472a2 2 0 001.969-2.143L19 8" />,
+      desc: "Seuils d'alerte"
+    }] : []),
     ...(isOwner ? [{
       key: 'abonnement', label: 'Abonnement',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />,
-      desc: 'Plan et facturation Stripe'
+      desc: 'Plan, crédits Neo, Stripe'
     }] : []),
-    ...(isAdmin || isOwner ? [{
-      key: 'preferences', label: 'Préférences',
-      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />,
-      desc: 'TVA, numérotation, stock'
-    }] : []),
-    {
-      key: 'notifications', label: 'Notifications',
-      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />,
-      desc: 'Alertes et notifications push'
-    },
     {
       key: 'support', label: 'Support',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
-      desc: 'Aide et documentation'
+      desc: 'Aide et signalement bug'
     },
   ]
 
@@ -704,7 +741,7 @@ export default function Settings() {
       {activeTab === 'compte' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#040741] mb-6">Informations du compte</h2>
+            <h2 className="text-xl font-bold text-[#040741] mb-6">Mon compte</h2>
             <div className="space-y-4">
               <div>
                 <label className={labelClass}>Nom complet</label>
@@ -755,6 +792,50 @@ export default function Settings() {
               </svg>
               {passwordResetSending ? 'Envoi...' : passwordResetCooldown > 0 ? `Renvoyer dans ${passwordResetCooldown}s` : 'Modifier mon mot de passe'}
             </button>
+          </div>
+
+          {/* Notifications push — intégrées dans Mon compte */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-xl font-bold text-[#040741] mb-1">Notifications push</h2>
+            <p className="text-gray-500 text-sm mb-5">Recevez des alertes en temps réel sur cet appareil.</p>
+            {!('Notification' in window) ? (
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-blue-800 text-sm font-medium">Installation requise sur iPhone / iPad</p>
+                  <ol className="text-blue-700 text-sm mt-1 space-y-0.5 list-decimal list-inside">
+                    <li>Ouvrez le site dans <strong>Safari</strong></li>
+                    <li>Appuyez sur Partager <strong>⎋</strong> → <strong>Sur l'écran d'accueil</strong></li>
+                    <li>Rouvrez depuis l'icône installée</li>
+                  </ol>
+                </div>
+              </div>
+            ) : Notification.permission === 'denied' ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                Notifications bloquées — autorisez-les dans les paramètres du navigateur puis rechargez.
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${pushEnabled ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <svg className={`w-5 h-5 ${pushEnabled ? 'text-green-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#040741] text-sm">{pushEnabled ? 'Activées sur cet appareil' : 'Désactivées'}</p>
+                    <p className="text-xs text-gray-400">{pushEnabled ? 'Vous recevrez les alertes' : 'Cliquez pour activer'}</p>
+                  </div>
+                </div>
+                <button onClick={handleTogglePush} disabled={pushLoading || !pushChecked}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${pushEnabled ? 'bg-[#313ADF]' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Danger zone */}
@@ -1027,7 +1108,7 @@ export default function Settings() {
       )}
 
       {/* Tab: Membres */}
-      {activeTab === 'membres' && (
+      {activeTab === 'equipe' && (
         <div className="space-y-6">
           {/* Members list */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
@@ -1213,7 +1294,7 @@ export default function Settings() {
       )}
 
       {/* Tab: Workspace */}
-      {activeTab === 'workspace' && (
+      {activeTab === 'magasin' && (
         <div className="space-y-6">
           {/* Workspace info */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
@@ -1664,6 +1745,40 @@ export default function Settings() {
               )}
             </div>
 
+            {/* Acheter des crédits supplémentaires (Basic/Pro uniquement) */}
+            {!isUnlimitedCredits && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Crédits supplémentaires</p>
+                <p className="text-sm text-gray-500 mb-4">Achetez des crédits en plus de votre quota mensuel. Valables jusqu'à la fin du mois.</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { pack: '500',  credits: '500',   price: '4,99 €',  popular: false },
+                    { pack: '1000', credits: '1 000', price: '8,99 €',  popular: true  },
+                    { pack: '2000', credits: '2 000', price: '14,99 €', popular: false },
+                  ].map(({ pack, credits, price, popular }) => (
+                    <button
+                      key={pack}
+                      onClick={() => handleBuyCredits(pack)}
+                      disabled={!!buyingCredits}
+                      className={`relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:border-[#313ADF] hover:bg-[#313ADF]/5 disabled:opacity-50 disabled:cursor-not-allowed ${popular ? 'border-[#313ADF] bg-[#313ADF]/5' : 'border-gray-200'}`}
+                    >
+                      {popular && (
+                        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold px-2 py-0.5 bg-[#313ADF] text-white rounded-full whitespace-nowrap">
+                          Meilleur rapport
+                        </span>
+                      )}
+                      <span className="text-lg font-bold text-[#040741]">{credits}</span>
+                      <span className="text-xs text-gray-400 mb-2">crédits</span>
+                      <span className="text-sm font-semibold text-[#313ADF]">
+                        {buyingCredits === pack ? '...' : price}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-3">Les crédits achetés ne se reportent pas au mois suivant.</p>
+              </div>
+            )}
+
             <p className="text-xs text-gray-400 text-center">
               Gérez votre moyen de paiement, annulez ou réactivez depuis le portail Stripe.
             </p>
@@ -1672,12 +1787,12 @@ export default function Settings() {
       })()}
 
       {/* Tab: Préférences */}
-      {activeTab === 'preferences' && (
+      {/* Tab: Documents */}
+      {activeTab === 'documents' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#040741] mb-1">Préférences métier</h2>
-            <p className="text-sm text-gray-400 mb-6">Valeurs par défaut utilisées lors de la création de documents et commandes.</p>
-
+            <h2 className="text-xl font-bold text-[#040741] mb-1">Documents</h2>
+            <p className="text-sm text-gray-400 mb-6">Numérotation, TVA par défaut et pieds de page des documents.</p>
             <div className="space-y-6">
               {/* TVA et paiement */}
               <div>
@@ -1717,16 +1832,13 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-
               {/* Numérotation */}
               <div>
                 <h3 className="text-sm font-semibold text-[#040741] uppercase tracking-wide mb-3">Numérotation</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe factures</label>
-                    <input
-                      type="text" maxLength={6}
-                      value={prefForm.prefixe_facture}
+                    <input type="text" maxLength={6} value={prefForm.prefixe_facture}
                       onChange={e => setPrefForm(f => ({ ...f, prefixe_facture: e.target.value.toUpperCase() }))}
                       placeholder="FAC"
                       className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
@@ -1735,9 +1847,7 @@ export default function Settings() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe devis</label>
-                    <input
-                      type="text" maxLength={6}
-                      value={prefForm.prefixe_devis}
+                    <input type="text" maxLength={6} value={prefForm.prefixe_devis}
                       onChange={e => setPrefForm(f => ({ ...f, prefixe_devis: e.target.value.toUpperCase() }))}
                       placeholder="DEV"
                       className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
@@ -1746,9 +1856,7 @@ export default function Settings() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Préfixe commandes</label>
-                    <input
-                      type="text" maxLength={6}
-                      value={prefForm.prefixe_commande}
+                    <input type="text" maxLength={6} value={prefForm.prefixe_commande}
                       onChange={e => setPrefForm(f => ({ ...f, prefixe_commande: e.target.value.toUpperCase() }))}
                       placeholder="CMD"
                       className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] font-mono"
@@ -1757,45 +1865,64 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-
-              {/* Stock */}
-              <div>
-                <h3 className="text-sm font-semibold text-[#040741] uppercase tracking-wide mb-3">Stock</h3>
-                <div className="md:w-1/2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Seuil d'alerte stock (unités)</label>
-                  <input
-                    type="number" min="0"
-                    value={prefForm.seuil_stock_alerte}
-                    onChange={e => setPrefForm(f => ({ ...f, seuil_stock_alerte: parseInt(e.target.value) || 0 }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Alerte orange quand le stock passe sous ce seuil.</p>
-                </div>
-              </div>
             </div>
-
             <div className="flex justify-end mt-6 pt-6 border-t border-gray-100">
-              <button
-                onClick={handleSavePreferences}
-                disabled={prefSaving}
+              <button onClick={handleSavePreferences} disabled={prefSaving}
                 className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
               >
-                {prefSaving ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Enregistrement...
-                  </>
-                ) : 'Enregistrer les préférences'}
+                {prefSaving ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tab: Notifications */}
+      {/* Tab: Stock */}
+      {activeTab === 'stock' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-xl font-bold text-[#040741] mb-1">Stock</h2>
+            <p className="text-sm text-gray-400 mb-6">Seuils d'alerte par défaut et paramètres de gestion des stocks.</p>
+            <div className="space-y-4">
+              <div className="md:w-1/2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Seuil d'alerte stock global (unités)</label>
+                <input
+                  type="number" min="0"
+                  value={prefForm.seuil_stock_alerte}
+                  onChange={e => setPrefForm(f => ({ ...f, seuil_stock_alerte: parseInt(e.target.value) || 0 }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
+                />
+                <p className="text-xs text-gray-400 mt-1">Alerte orange quand le stock d'un emplacement passe sous ce seuil.</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm font-medium text-blue-800 mb-1">Alertes par emplacement</p>
+                <p className="text-xs text-blue-600">Les alertes sont déclenchées par emplacement — si un magasin a 0 unités et un autre en a 20, vous recevez quand même l'alerte pour le magasin à 0.</p>
+              </div>
+            </div>
+            <div className="flex justify-end mt-6 pt-6 border-t border-gray-100">
+              <button onClick={handleSavePreferences} disabled={prefSaving}
+                className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
+              >
+                {prefSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
+            <h2 className="text-base font-bold text-[#040741] mb-3">Gérer les emplacements</h2>
+            <p className="text-sm text-gray-400 mb-4">Créez et gérez vos entrepôts et points de vente depuis la page stock.</p>
+            <button onClick={() => navigate('/stock/emplacements')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#313ADF]/10 text-[#313ADF] rounded-xl font-medium text-sm hover:bg-[#313ADF]/20 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              </svg>
+              Gérer les emplacements →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Notifications — déplacé dans Mon compte ci-dessus, garde le fallback pour compatibilité */}
       {activeTab === 'notifications' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6">

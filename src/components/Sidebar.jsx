@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [stockAlertCount, setStockAlertCount] = useState(0)
   const [savAlertCount, setSavAlertCount] = useState(0)
   const wsDropdownRef = useRef(null)
-  const { currentWorkspace, workspaces, switchWorkspace, role } = useWorkspace()
+  const { currentWorkspace, workspaces, switchWorkspace, role, planType } = useWorkspace()
 
   // Auto-expand groups when on related routes
   const ventesRoutes = ['/vente-rapide', '/commandes', '/factures', '/devis']
@@ -209,6 +209,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       { to: '/produits',    label: 'Produits',     icon: ICONS.products },
       { to: '/stock',       label: 'Stock',        icon: ICONS.stock, badge: stockAlertCount },
       ...(canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
+      ...(planType === 'enterprise' ? [{ to: '/admin-workspaces', label: 'Mes magasins', icon: ICONS.suppliers }] : []),
       { to: '/settings',    label: 'Paramètres',   icon: ICONS.settings },
       ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ICONS.admin }] : []),
     ]
@@ -730,6 +731,19 @@ export default function Sidebar({ isOpen, setIsOpen }) {
                 </svg>
               }
               label="Statistiques"
+            />
+          )}
+
+          {/* Multi-workspace Enterprise */}
+          {planType === 'enterprise' && (
+            <NavItem
+              to="/admin-workspaces"
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              }
+              label="Mes magasins"
             />
           )}
         </nav>

@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS neo_credits (
 -- RLS
 ALTER TABLE neo_credits ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "neo_credits_select" ON neo_credits;
+DROP POLICY IF EXISTS "neo_credits_update_service" ON neo_credits;
+
 CREATE POLICY "neo_credits_select" ON neo_credits
   FOR SELECT USING (
     workspace_id IN (
@@ -95,6 +98,8 @@ CREATE TABLE IF NOT EXISTS credit_purchases (
 );
 
 ALTER TABLE credit_purchases ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "credit_purchases_select" ON credit_purchases;
 
 CREATE POLICY "credit_purchases_select" ON credit_purchases
   FOR SELECT USING (
@@ -196,6 +201,26 @@ BEGIN
   WHERE workspace_id = p_workspace_id;
 
   RETURN TRUE;
+END;
+$$;
+
+-- ============================================================
+-- PART 6b : Fonction pour ajouter des crédits achetés (Stripe one-time)
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION add_neo_credits(
+  p_workspace_id UUID,
+  p_credits INTEGER
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE neo_credits SET
+    credits_balance = CASE WHEN monthly_allowance = -1 THEN -1 ELSE credits_balance + p_credits END,
+    extra_credits = extra_credits + p_credits,
+    updated_at = NOW()
+  WHERE workspace_id = p_workspace_id;
 END;
 $$;
 

@@ -26,6 +26,7 @@ export default function WorkspaceOnboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [billing, setBilling] = useState('monthly')
+  const [selectedPlan, setSelectedPlan] = useState('pro')
 
   const [form, setForm] = useState({
     // Step 1
@@ -172,7 +173,7 @@ export default function WorkspaceOnboarding() {
       localStorage.setItem('current_workspace_id', workspace.id)
 
       if (isStripeEnabled()) {
-        const { url } = await createCheckoutSession(workspace.id, undefined, undefined, billing)
+        const { url } = await createCheckoutSession(workspace.id, undefined, undefined, billing, selectedPlan)
         window.location.href = url
       } else {
         window.location.href = '/dashboard'
@@ -438,58 +439,95 @@ export default function WorkspaceOnboarding() {
           {/* ── STEP 5 : Abonnement ── */}
           {step === 5 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-bold text-[#040741] mb-4">Finaliser et s'abonner</h2>
+              <h2 className="text-xl font-bold text-[#040741] mb-4">Choisir votre plan</h2>
 
               {/* Billing toggle */}
               <div className="flex bg-gray-100 rounded-2xl p-1">
-                <button
-                  type="button"
-                  onClick={() => setBilling('monthly')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${billing === 'monthly' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}
-                >
+                <button type="button" onClick={() => setBilling('monthly')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${billing === 'monthly' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}>
                   Mensuel
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setBilling('annual')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${billing === 'annual' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}
-                >
+                <button type="button" onClick={() => setBilling('annual')}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${billing === 'annual' ? 'bg-white text-[#313ADF] shadow-sm' : 'text-gray-500'}`}>
                   Annuel
                   <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${billing === 'annual' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-300 text-gray-500'}`}>-2 mois</span>
                 </button>
               </div>
 
-              <div className="bg-gradient-to-br from-[#040741] to-[#313ADF] rounded-2xl p-6 text-white">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl font-bold">N</span>
+              {/* Plan cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Basic */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlan('basic')}
+                  className={`text-left rounded-2xl border-2 p-5 transition-all ${selectedPlan === 'basic' ? 'border-[#313ADF] bg-[#313ADF]/5' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-[#040741] text-base">Basic</span>
+                    {selectedPlan === 'basic' && (
+                      <span className="w-5 h-5 bg-[#313ADF] rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-bold text-lg">NeoFlow BOS</p>
-                    <p className="text-white/70 text-sm">Système de gestion complet</p>
+                  <div className="text-2xl font-bold text-[#040741] mb-0.5">
+                    {billing === 'annual' ? '190 €' : '19 €'}
+                    <span className="text-sm font-normal text-gray-400">/{billing === 'annual' ? 'an' : 'mois'}</span>
                   </div>
-                </div>
-                {billing === 'monthly' ? (
-                  <>
-                    <div className="text-3xl font-bold mb-1">49,99 €<span className="text-lg font-normal text-white/70">/mois</span></div>
-                    <p className="text-white/70 text-sm">7 jours d'essai gratuit · Sans engagement · CB requise</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-3xl font-bold mb-1">499,90 €<span className="text-lg font-normal text-white/70">/an</span></div>
-                    <p className="text-white/70 text-sm">Soit 41,66 €/mois · 2 mois offerts · 7 jours d'essai gratuit</p>
-                  </>
-                )}
-                <ul className="mt-4 space-y-2">
-                  {['Commandes & factures illimitées', 'Gestion des stocks', 'Livraisons & clients', 'Neo IA assistant', 'Statistiques avancées'].map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <svg className="w-4 h-4 text-emerald-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                  {billing === 'annual' && <p className="text-xs text-emerald-600 font-medium mb-2">2 mois offerts</p>}
+                  <ul className="mt-3 space-y-1.5 text-xs text-gray-600">
+                    {['Commandes, factures, devis', 'Clients, produits, stock', 'Livraisons kanban', 'Neo IA (200 crédits/mois)', '2 membres max'].map(f => (
+                      <li key={f} className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+
+                {/* Pro */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlan('pro')}
+                  className={`text-left rounded-2xl border-2 p-5 transition-all relative overflow-hidden ${selectedPlan === 'pro' ? 'border-[#313ADF] bg-gradient-to-br from-[#040741] to-[#313ADF] text-white' : 'border-gray-200 bg-white hover:border-[#313ADF]/40'}`}
+                >
+                  <span className="absolute top-3 right-10 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-amber-900">Populaire</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`font-bold text-base ${selectedPlan === 'pro' ? 'text-white' : 'text-[#040741]'}`}>Pro</span>
+                    {selectedPlan === 'pro' && (
+                      <span className="w-5 h-5 bg-white/30 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  <div className={`text-2xl font-bold mb-0.5 ${selectedPlan === 'pro' ? 'text-white' : 'text-[#040741]'}`}>
+                    {billing === 'annual' ? '490 €' : '49 €'}
+                    <span className={`text-sm font-normal ${selectedPlan === 'pro' ? 'text-white/60' : 'text-gray-400'}`}>/{billing === 'annual' ? 'an' : 'mois'}</span>
+                  </div>
+                  {billing === 'annual' && <p className={`text-xs font-medium mb-2 ${selectedPlan === 'pro' ? 'text-emerald-300' : 'text-emerald-600'}`}>2 mois offerts</p>}
+                  <ul className="mt-3 space-y-1.5 text-xs">
+                    {[
+                      'Tout ce qui est dans Basic',
+                      'Agent IA (function calling)',
+                      'App livreur mobile + GPS',
+                      'Neo IA (2000 crédits/mois)',
+                      '10 membres max',
+                    ].map(f => (
+                      <li key={f} className={`flex items-center gap-1.5 ${selectedPlan === 'pro' ? 'text-white/90' : 'text-gray-600'}`}>
+                        <svg className={`w-3.5 h-3.5 flex-shrink-0 ${selectedPlan === 'pro' ? 'text-emerald-300' : 'text-emerald-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600">
@@ -497,6 +535,8 @@ export default function WorkspaceOnboarding() {
                 <p>Workspace : <span className="font-medium">{form.name}</span></p>
                 {form.siret && <p>SIRET : <span className="font-medium">{form.siret}</span></p>}
                 <p>Ville : <span className="font-medium">{form.city}, {form.country}</span></p>
+                <p>Plan : <span className="font-medium capitalize">{selectedPlan}</span> · {billing === 'annual' ? (selectedPlan === 'basic' ? '190 €/an' : '490 €/an') : (selectedPlan === 'basic' ? '19 €/mois' : '49 €/mois')}</p>
+                <p className="text-xs text-gray-400 mt-1">7 jours d'essai gratuit · CB requise · Sans engagement</p>
               </div>
 
               {!isStripeEnabled() && (

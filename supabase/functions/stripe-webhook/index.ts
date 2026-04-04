@@ -37,6 +37,30 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const workspaceId = session.metadata?.workspace_id
+
+        // ── Achat NeoCredits (one-time payment) ──────────────
+        if (session.metadata?.type === 'neo_credits' && workspaceId) {
+          const creditsToAdd = parseInt(session.metadata.credits_to_add || '0', 10)
+          if (creditsToAdd > 0) {
+            await supabase.rpc('add_neo_credits', {
+              p_workspace_id: workspaceId,
+              p_credits: creditsToAdd,
+            })
+
+            // Enregistrer dans l'historique
+            await supabase.from('credit_purchases').insert({
+              workspace_id: workspaceId,
+              user_id: session.metadata.user_id || null,
+              credits_purchased: creditsToAdd,
+              amount_eur: session.amount_total ? session.amount_total / 100 : null,
+              stripe_payment_intent: session.payment_intent as string || null,
+            })
+
+            console.log(`[stripe-webhook] neo_credits purchased: workspace=${workspaceId} credits=${creditsToAdd}`)
+          }
+          break
+        }
+
         const subscriptionId = session.subscription as string
 
         if (workspaceId && subscriptionId) {

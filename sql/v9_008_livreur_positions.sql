@@ -29,6 +29,13 @@ CREATE INDEX IF NOT EXISTS idx_livreur_positions_updated ON livreur_positions(up
 -- ============================================================
 ALTER TABLE livreur_positions ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies if they already exist (idempotent re-run)
+DROP POLICY IF EXISTS "livreur_positions_own_select" ON livreur_positions;
+DROP POLICY IF EXISTS "livreur_positions_own_insert" ON livreur_positions;
+DROP POLICY IF EXISTS "livreur_positions_own_update" ON livreur_positions;
+DROP POLICY IF EXISTS "livreur_positions_managers_select" ON livreur_positions;
+DROP POLICY IF EXISTS "livreur_positions_service_role" ON livreur_positions;
+
 -- Le livreur peut voir/modifier sa propre position
 CREATE POLICY "livreur_positions_own_select" ON livreur_positions
   FOR SELECT USING (auth.uid() = user_id);
