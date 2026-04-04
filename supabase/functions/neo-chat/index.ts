@@ -574,10 +574,10 @@ serve(async (req) => {
     const wd = await fetchWorkspaceData(supabase, workspaceId)
     const systemPrompt = buildSystemPrompt(context, wd, isPro)
 
-    // ── Routage : OpenRouter (Pro) ou Ollama (Basic) ──────────────────────────
+    // ── Routage : OpenRouter pour tous les plans (si clé dispo), Ollama en fallback ──
 
     const openRouterKey = Deno.env.get('OPENROUTER_API_KEY')
-    const useOpenRouter = isPro && !!openRouterKey
+    const useOpenRouter = !!openRouterKey
 
     const encoder = new TextEncoder()
     const decoder = new TextDecoder()
@@ -589,7 +589,10 @@ serve(async (req) => {
     if (useOpenRouter) {
       // ── OpenRouter avec function calling ─────────────────────────────────────
 
-      const openRouterModel = Deno.env.get('OPENROUTER_MODEL') || 'openai/gpt-4o-mini'
+      // Basic → modèle rapide et économique. Pro/Enterprise → modèle plus capable.
+      const openRouterModel = isPro
+        ? (Deno.env.get('OPENROUTER_MODEL') || 'openai/gpt-4o-mini')
+        : (Deno.env.get('OPENROUTER_MODEL_BASIC') || 'google/gemini-flash-1.5')
 
       // Construire les messages pour OpenRouter
       const messages: unknown[] = [

@@ -25,13 +25,13 @@ function getCorsHeaders(req: Request) {
 // Le client envoie { workspace_id, pack } où pack = '500' | '1000' | '2000'
 // On utilise le même price ID Stripe et on ajuste la quantité
 
-// Packs de tokens : quantity = nombre d'unités de 500 tokens (1 unité Stripe = 500 tokens)
-// price_id unique, on ajuste la quantity
-const CREDIT_PACKS: Record<string, { credits: number; label: string; quantity: number }> = {
-  '500':   { credits: 500,   label: '500 Tokens',    quantity: 1  },
-  '2000':  { credits: 2000,  label: '2 000 Tokens',  quantity: 4  },
-  '5000':  { credits: 5000,  label: '5 000 Tokens',  quantity: 10 },
-  '10000': { credits: 10000, label: '10 000 Tokens', quantity: 20 },
+// Packs de tokens — chaque pack a son propre price ID Stripe (one-time)
+// Les price IDs sont ceux du produit "Token" dans Stripe
+const CREDIT_PACKS: Record<string, { credits: number; label: string; priceId: string }> = {
+  '500':   { credits: 500,   label: '500 Tokens',    priceId: 'price_1TIOtVATgHeWcCdmTKcsOQSB' },
+  '2000':  { credits: 2000,  label: '2 000 Tokens',  priceId: 'price_1TIXx2ATgHeWcCdm2VmFPlgG' },
+  '5000':  { credits: 5000,  label: '5 000 Tokens',  priceId: 'price_1TIXx2ATgHeWcCdm9X3xAFPN' },
+  '10000': { credits: 10000, label: '10 000 Tokens', priceId: 'price_1TIXx2ATgHeWcCdmxPMXwWgA' },
 }
 
 serve(async (req) => {
@@ -40,10 +40,7 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    const creditsPriceId = Deno.env.get('STRIPE_CREDITS_PRICE_ID')
-
     if (!stripeKey) throw new Error('Stripe non configuré')
-    if (!creditsPriceId) throw new Error('STRIPE_CREDITS_PRICE_ID non configuré')
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) throw new Error('Non authentifié')
@@ -105,8 +102,8 @@ serve(async (req) => {
       payment_method_types: ['card'],
       mode: 'payment',
       line_items: [{
-        price: creditsPriceId,
-        quantity: packInfo.quantity, // 1 unité Stripe = 500 tokens
+        price: packInfo.priceId,
+        quantity: 1,
       }],
       metadata: {
         workspace_id: workspace.id,

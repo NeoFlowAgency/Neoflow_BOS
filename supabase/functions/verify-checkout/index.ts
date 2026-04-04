@@ -2,7 +2,21 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14?target=deno'
 
-import { getCorsHeaders } from '../_shared/cors.ts'
+const ALLOWED_ORIGINS = [
+  'https://bos.neoflow-agency.cloud',
+  'http://localhost:5173',
+  'http://localhost:3000',
+]
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
