@@ -141,6 +141,15 @@ ALTER TABLE sav_tickets  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sav_items    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sav_history  ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "sav_tickets_select"  ON sav_tickets;
+DROP POLICY IF EXISTS "sav_tickets_insert"  ON sav_tickets;
+DROP POLICY IF EXISTS "sav_tickets_update"  ON sav_tickets;
+DROP POLICY IF EXISTS "sav_items_select"    ON sav_items;
+DROP POLICY IF EXISTS "sav_items_insert"    ON sav_items;
+DROP POLICY IF EXISTS "sav_items_update"    ON sav_items;
+DROP POLICY IF EXISTS "sav_history_select"  ON sav_history;
+DROP POLICY IF EXISTS "sav_history_insert"  ON sav_history;
+
 -- sav_tickets : accès par workspace
 CREATE POLICY "sav_tickets_select" ON sav_tickets
   FOR SELECT USING (
