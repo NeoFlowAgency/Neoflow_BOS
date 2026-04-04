@@ -95,5 +95,6 @@ CREATE TABLE IF NOT EXISTS enterprise_contact_requests (
 
 -- Accès service_role uniquement (formulaire public → Edge Function)
 ALTER TABLE enterprise_contact_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "enterprise_contacts_service_role" ON enterprise_contact_requests;
 CREATE POLICY "enterprise_contacts_service_role" ON enterprise_contact_requests
   FOR ALL USING (auth.role() = 'service_role');

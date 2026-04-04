@@ -175,6 +175,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trigger_neo_message_updates_conversation ON neo_messages;
 CREATE TRIGGER trigger_neo_message_updates_conversation
   AFTER INSERT ON neo_messages
   FOR EACH ROW EXECUTE FUNCTION update_neo_conversation_timestamp();

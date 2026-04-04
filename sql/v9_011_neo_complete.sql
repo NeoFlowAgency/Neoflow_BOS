@@ -143,6 +143,10 @@ CREATE TABLE IF NOT EXISTS neo_conversations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Colonnes ajoutées en v9_011 (absentes si table créée par v9_006)
+ALTER TABLE neo_conversations ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
+ALTER TABLE neo_conversations ADD COLUMN IF NOT EXISTS last_message_at TIMESTAMPTZ DEFAULT NOW();
+
 ALTER TABLE neo_conversations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "neo_conversations_select" ON neo_conversations;
 DROP POLICY IF EXISTS "neo_conversations_insert" ON neo_conversations;

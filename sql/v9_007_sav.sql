@@ -83,6 +83,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trigger_sav_ticket_updated_at ON sav_tickets;
 CREATE TRIGGER trigger_sav_ticket_updated_at
   BEFORE UPDATE ON sav_tickets
   FOR EACH ROW EXECUTE FUNCTION update_sav_ticket_timestamp();
