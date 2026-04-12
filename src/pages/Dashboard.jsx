@@ -49,14 +49,14 @@ function StatCard({ icon, label, value, sub, color, bgColor, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-3xl p-5 shadow-sm border border-gray-100/80 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.01] active:scale-[0.99]' : ''}`}
+      className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : ''}`}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-2xl ${bgColor} flex items-center justify-center`}>
+        <div className={`w-11 h-11 rounded-xl ${bgColor} flex items-center justify-center`}>
           {icon}
         </div>
       </div>
-      <p className={`text-2xl font-bold ${color} leading-tight tracking-tight`}>{value}</p>
+      <p className={`text-2xl font-bold ${color} leading-tight`}>{value}</p>
       <p className="text-gray-500 text-sm font-medium mt-1">{label}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
@@ -67,13 +67,13 @@ function ActionCard({ icon, title, description, onClick, gradient }) {
   return (
     <button
       onClick={onClick}
-      className="w-full p-4 rounded-3xl text-left transition-all hover:scale-[1.01] active:scale-[0.99] hover:shadow-md bg-white border border-gray-100/80 shadow-sm"
+      className={`w-full p-5 rounded-2xl text-left transition-all hover:scale-[1.02] hover:shadow-lg ${gradient}`}
     >
-      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-3 ${gradient}`}>
+      <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3">
         {icon}
       </div>
-      <h3 className="text-sm font-semibold text-gray-900 mb-0.5">{title}</h3>
-      <p className="text-gray-400 text-xs">{description}</p>
+      <h3 className="text-base font-bold text-white mb-1">{title}</h3>
+      <p className="text-white/75 text-xs">{description}</p>
     </button>
   )
 }
@@ -369,7 +369,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen bg-[#f5f5f7]">
+      <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent" />
       </div>
     )
@@ -381,20 +381,20 @@ export default function Dashboard() {
   // ── Vue LIVREUR ──────────────────────────────────────────────────────────
   if (isLivreur) {
     return (
-      <div className="p-4 md:p-8 min-h-screen bg-[#f5f5f7]">
+      <div className="p-4 md:p-8 min-h-screen">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Bonjour, {userName} !</h1>
+          <h1 className="text-2xl font-bold text-[#040741]">Bonjour, {userName} !</h1>
           <p className="text-gray-500 text-sm mt-1">
             {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-4 max-w-sm">
           <StatCard
-            icon={<svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
+            icon={<svg className="w-5 h-5 text-[#040741]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
             label="Livraisons à faire"
             value={stats.livraisonsAFaire}
             bgColor="bg-[#040741]/10"
-            color="text-gray-900"
+            color="text-[#040741]"
             onClick={() => navigate('/livraisons/ma-journee')}
           />
         </div>
@@ -420,16 +420,15 @@ export default function Dashboard() {
 
   // ── Vue MANAGER / PROPRIÉTAIRE / VENDEUR ─────────────────────────────────
   return (
-    <div className="p-4 md:p-8 min-h-screen bg-[#f5f5f7]">
+    <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-          {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
-          Bonjour, {userName} 👋
+        <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
+          Bonjour, {userName} !
         </h1>
-        <p className="text-gray-400 text-sm mt-0.5">{workspace?.name}</p>
+        <p className="text-gray-500 text-sm mt-1">
+          {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {workspace?.name}
+        </p>
       </div>
 
       {/* ── Alertes critiques ────────────────────────────── */}
@@ -437,22 +436,22 @@ export default function Dashboard() {
 
       {/* ── Aujourd'hui ──────────────────────────────────── */}
       <div className="mb-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <h2 className="text-base font-bold text-[#040741] mb-3 flex items-center gap-2">
           <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
           Aujourd'hui
         </h2>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white border border-gray-100/80 rounded-3xl p-4 text-center shadow-sm">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-green-700">
               {todayStats.caToday.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
             </p>
             <p className="text-xs text-gray-500 mt-1">Encaissé</p>
           </div>
-          <div className="bg-white border border-gray-100/80 rounded-3xl p-4 text-center shadow-sm">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-[#313ADF]">{todayStats.ventesToday}</p>
             <p className="text-xs text-gray-500 mt-1">Ventes terminées</p>
           </div>
-          <div className="bg-white border border-gray-100/80 rounded-3xl p-4 text-center shadow-sm">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-orange-600">{todayStats.livraisonsToday}</p>
             <p className="text-xs text-gray-500 mt-1">Livraisons prévues</p>
           </div>
@@ -528,7 +527,7 @@ export default function Dashboard() {
 
       {/* ── Actions rapides ───────────────────────────────── */}
       <div className="mb-8" data-tour="quick-actions">
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Actions rapides</h2>
+        <h2 className="text-base font-bold text-[#040741] mb-3">Actions rapides</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
             icon={<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
@@ -563,10 +562,10 @@ export default function Dashboard() {
         {/* Dernières commandes (2/3) */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Dernières commandes</h2>
+            <h2 className="text-base font-bold text-[#040741]">Dernières commandes</h2>
             <button onClick={() => navigate('/commandes')} className="text-[#313ADF] text-xs font-medium hover:underline">Voir tout →</button>
           </div>
-          <div className="bg-white rounded-3xl border border-gray-100/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {recentOrders.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucune commande</p>
             ) : (
@@ -581,7 +580,7 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-bold text-gray-900 text-sm truncate">{o.order_number}</p>
+                          <p className="font-bold text-[#040741] text-sm truncate">{o.order_number}</p>
                           <p className="text-xs text-gray-400">{client} · {new Date(o.created_at).toLocaleDateString('fr-FR')}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -610,9 +609,9 @@ export default function Dashboard() {
         {/* Derniers paiements (1/3) */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Paiements récents</h2>
+            <h2 className="text-base font-bold text-[#040741]">Paiements récents</h2>
           </div>
-          <div className="bg-white rounded-3xl border border-gray-100/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {recentPayments.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucun paiement</p>
             ) : (
@@ -652,10 +651,10 @@ export default function Dashboard() {
         {/* Agenda livraisons de la semaine */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Livraisons cette semaine</h2>
+            <h2 className="text-base font-bold text-[#040741]">Livraisons cette semaine</h2>
             <button onClick={() => navigate('/livraisons')} className="text-[#313ADF] text-xs font-medium hover:underline">Gérer →</button>
           </div>
-          <div className="bg-white rounded-3xl border border-gray-100/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {weekDeliveries.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucune livraison planifiée cette semaine</p>
             ) : (
@@ -672,7 +671,7 @@ export default function Dashboard() {
                     >
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{client}</p>
+                        <p className="text-sm font-medium text-[#040741] truncate">{client}</p>
                         <p className="text-xs text-gray-400">
                           {new Date(d.scheduled_date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
                           {d.time_slot && ` · ${d.time_slot}`}
@@ -694,10 +693,10 @@ export default function Dashboard() {
         {isManager && teamPerf.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-gray-900">Performance équipe</h2>
+              <h2 className="text-base font-bold text-[#040741]">Performance équipe</h2>
               <span className="text-xs text-gray-400">Ce mois</span>
             </div>
-            <div className="bg-white rounded-3xl border border-gray-100/80 shadow-sm overflow-hidden p-4 space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-4 space-y-3">
               {teamPerf.map((member, i) => {
                 const maxCA = teamPerf[0].ca || 1
                 const pct = (member.ca / maxCA) * 100
@@ -708,7 +707,7 @@ export default function Dashboard() {
                         <div className="w-7 h-7 rounded-full bg-[#313ADF]/10 flex items-center justify-center text-xs font-bold text-[#313ADF]">
                           {(member.name || '?')[0].toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                        <span className="text-sm font-medium text-[#040741]">{member.name}</span>
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-bold text-[#313ADF]">{member.ca.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
@@ -728,21 +727,21 @@ export default function Dashboard() {
       </div>
 
       {/* Footer */}
-      <div className="bg-white border border-gray-100/80 rounded-3xl p-5 shadow-sm">
+      <div className="bg-gradient-to-r from-[#040741] to-[#313ADF] rounded-2xl p-5 text-white">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#313ADF]/10 rounded-2xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-sm text-gray-900">{workspace?.name}</p>
-              <p className="text-gray-400 text-xs">Propulsé par Neoflow Agency</p>
+              <p className="font-semibold text-sm">{workspace?.name}</p>
+              <p className="text-white/60 text-xs">Propulsé par Neoflow Agency</p>
             </div>
           </div>
           <button onClick={() => navigate('/documentation')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors text-xs font-medium text-gray-600 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 rounded-xl hover:bg-white/25 transition-colors text-xs font-medium flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
