@@ -193,14 +193,14 @@ function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <BackgroundPattern />
       <main
         className={`min-h-screen overflow-y-auto relative z-10 transition-all duration-200 ${
           isMobile
             ? 'ml-0'
-            : sidebarOpen ? 'ml-[240px]' : 'ml-[80px]'
+            : sidebarOpen ? 'ml-[240px]' : 'ml-[72px]'
         }`}
         style={{
           paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : undefined,
