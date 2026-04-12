@@ -13,9 +13,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@creativoma/liquid-glass": "^1.2.0",
     "@supabase/supabase-js": "^2.91.1",
     "dompurify": "^3.3.3",
     "leaflet": "^1.9.4",
+    "liquid-glass-react": "^1.1.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-leaflet": "^5.0.0",

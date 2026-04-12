@@ -49,7 +49,7 @@ function StatCard({ icon, label, value, sub, color, bgColor, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : ''}`}
+      className={`bg-white/75 backdrop-blur-sm rounded-2xl p-5 shadow-sm border border-white/70 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] hover:bg-white/90' : ''}`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`w-11 h-11 rounded-xl ${bgColor} flex items-center justify-center`}>
@@ -441,17 +441,17 @@ export default function Dashboard() {
           Aujourd'hui
         </h2>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+          <div className="bg-white/75 backdrop-blur-sm border border-white/70 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-green-700">
               {todayStats.caToday.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
             </p>
             <p className="text-xs text-gray-500 mt-1">Encaissé</p>
           </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+          <div className="bg-white/75 backdrop-blur-sm border border-white/70 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-[#313ADF]">{todayStats.ventesToday}</p>
             <p className="text-xs text-gray-500 mt-1">Ventes terminées</p>
           </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+          <div className="bg-white/75 backdrop-blur-sm border border-white/70 rounded-2xl p-4 text-center shadow-sm">
             <p className="text-2xl font-bold text-orange-600">{todayStats.livraisonsToday}</p>
             <p className="text-xs text-gray-500 mt-1">Livraisons prévues</p>
           </div>
@@ -565,7 +565,7 @@ export default function Dashboard() {
             <h2 className="text-base font-bold text-[#040741]">Dernières commandes</h2>
             <button onClick={() => navigate('/commandes')} className="text-[#313ADF] text-xs font-medium hover:underline">Voir tout →</button>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white/75 backdrop-blur-sm rounded-2xl border border-white/70 shadow-sm overflow-hidden">
             {recentOrders.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucune commande</p>
             ) : (
@@ -611,7 +611,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-bold text-[#040741]">Paiements récents</h2>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white/75 backdrop-blur-sm rounded-2xl border border-white/70 shadow-sm overflow-hidden">
             {recentPayments.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucun paiement</p>
             ) : (
@@ -654,7 +654,7 @@ export default function Dashboard() {
             <h2 className="text-base font-bold text-[#040741]">Livraisons cette semaine</h2>
             <button onClick={() => navigate('/livraisons')} className="text-[#313ADF] text-xs font-medium hover:underline">Gérer →</button>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white/75 backdrop-blur-sm rounded-2xl border border-white/70 shadow-sm overflow-hidden">
             {weekDeliveries.length === 0 ? (
               <p className="text-center text-gray-400 text-sm py-8">Aucune livraison planifiée cette semaine</p>
             ) : (
@@ -696,7 +696,7 @@ export default function Dashboard() {
               <h2 className="text-base font-bold text-[#040741]">Performance équipe</h2>
               <span className="text-xs text-gray-400">Ce mois</span>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-4 space-y-3">
+            <div className="bg-white/75 backdrop-blur-sm rounded-2xl border border-white/70 shadow-sm overflow-hidden p-4 space-y-3">
               {teamPerf.map((member, i) => {
                 const maxCA = teamPerf[0].ca || 1
                 const pct = (member.ca / maxCA) * 100

@@ -193,7 +193,7 @@ function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#f0f2ff] via-[#eef1ff] to-[#f5f0ff] relative overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <BackgroundPattern />
       <main
