@@ -496,12 +496,12 @@ export default function Livraisons() {
                   setPaymentAmountPaid(order.amount_paid || 0)
                   setShowPaymentModal(true)
                 }}
-                className="w-full py-2 bg-[#040741]/5 text-[#040741] rounded-lg text-xs font-medium hover:bg-[#040741]/10 transition-colors flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                Enregistrer un paiement
+                Encaisser ({(order.remaining_amount || 0).toFixed(2)} €)
               </button>
             )}
           </div>

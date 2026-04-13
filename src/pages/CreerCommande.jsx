@@ -42,9 +42,29 @@ export default function CreerCommande() {
   // Stock
   const [stockMap, setStockMap] = useState({}) // productId -> totalAvailable
 
+  // Clients récents
+  const [recentClients, setRecentClients] = useState([])
+
   useEffect(() => {
-    if (workspace?.id) loadProduits()
+    if (workspace?.id) {
+      loadProduits()
+      loadRecentClients()
+    }
   }, [workspace?.id])
+
+  const loadRecentClients = async () => {
+    try {
+      const { data } = await supabase
+        .from('customers')
+        .select('id, first_name, last_name, phone, email, address, customer_type, company_name, siret')
+        .eq('workspace_id', workspace.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      setRecentClients(data || [])
+    } catch (err) {
+      console.error('Erreur chargement clients récents:', err)
+    }
+  }
 
   const loadProduits = async () => {
     setProduitsLoading(true)
@@ -378,6 +398,41 @@ export default function CreerCommande() {
             </button>
           </div>
         </div>
+
+        {/* Clients récents */}
+        {recentClients.length > 0 && !client.id && (
+          <div className="mb-5">
+            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Clients récents</p>
+            <div className="flex flex-wrap gap-2">
+              {recentClients.slice(0, 3).map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => selectClient(c)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#313ADF]/8 border border-[#313ADF]/20 text-[#313ADF] rounded-full text-sm font-medium hover:bg-[#313ADF]/15 transition-colors sm:hidden"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {c.first_name} {c.last_name}
+                </button>
+              ))}
+              {recentClients.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => selectClient(c)}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#313ADF]/8 border border-[#313ADF]/20 text-[#313ADF] rounded-full text-sm font-medium hover:bg-[#313ADF]/15 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {c.first_name} {c.last_name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>

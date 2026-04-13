@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listOrders } from '../services/orderService'
+import { listOrders, updateOrderStatus } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { downloadCSV } from '../lib/csvExport'
@@ -14,6 +14,17 @@ const STATUS_BADGES = {
   livre: { bg: 'bg-purple-100', text: 'text-purple-600', label: 'Livré' },
   termine: { bg: 'bg-green-100', text: 'text-green-600', label: 'Terminé' },
   annule: { bg: 'bg-red-100', text: 'text-red-600', label: 'Annulé' }
+}
+
+const STATUS_FLOW = {
+  brouillon: ['confirme', 'annule'],
+  confirme: ['en_preparation', 'annule'],
+  en_preparation: ['en_livraison', 'annule'],
+  en_livraison: ['termine', 'annule'],
+  en_cours: ['livre', 'annule'],
+  livre: ['termine', 'annule'],
+  termine: [],
+  annule: []
 }
 
 const STATUS_FILTERS = [
@@ -35,6 +46,19 @@ export default function ListeCommandes() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusDropdown, setStatusDropdown] = useState(null) // order.id with open dropdown
+  const [statusUpdating, setStatusUpdating] = useState(null) // order.id being updated
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setStatusDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     if (workspace?.id) loadOrders()
@@ -65,6 +89,21 @@ export default function ListeCommandes() {
       order.customer?.phone?.includes(term)
     )
   })
+
+  const handleQuickStatusChange = async (e, orderId, newStatus) => {
+    e.stopPropagation()
+    setStatusDropdown(null)
+    setStatusUpdating(orderId)
+    try {
+      await updateOrderStatus(orderId, newStatus)
+      toast.success(`Statut mis à jour : ${STATUS_BADGES[newStatus]?.label || newStatus}`)
+      loadOrders()
+    } catch (err) {
+      toast.error(err.message || 'Erreur mise à jour statut')
+    } finally {
+      setStatusUpdating(null)
+    }
+  }
 
   const getStatusBadge = (status) => {
     const badge = STATUS_BADGES[status] || STATUS_BADGES.brouillon
@@ -235,7 +274,35 @@ export default function ListeCommandes() {
                         {(order.remaining_amount || 0).toFixed(2)} EUR
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">{getStatusBadge(order.status)}</td>
+                    <td className="py-4 px-4 text-center" onClick={e => e.stopPropagation()}>
+                      <div className="relative inline-block" ref={statusDropdown === order.id ? dropdownRef : null}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setStatusDropdown(statusDropdown === order.id ? null : order.id) }}
+                          disabled={statusUpdating === order.id || (STATUS_FLOW[order.status]?.length === 0)}
+                          className="flex items-center gap-1 group"
+                        >
+                          {getStatusBadge(order.status)}
+                          {STATUS_FLOW[order.status]?.length > 0 && (
+                            <svg className="w-3 h-3 text-gray-400 group-hover:text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          )}
+                        </button>
+                        {statusDropdown === order.id && STATUS_FLOW[order.status]?.length > 0 && (
+                          <div className="absolute z-50 top-full mt-1 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[160px]">
+                            {STATUS_FLOW[order.status].map(s => (
+                              <button
+                                key={s}
+                                onClick={e => handleQuickStatusChange(e, order.id, s)}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors ${s === 'annule' ? 'text-red-500' : 'text-[#040741]'}`}
+                              >
+                                {STATUS_BADGES[s]?.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-4 px-4 text-center">{getPaymentBadge(order)}</td>
                     <td className="py-4 px-4 text-center">
                       <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,39 +318,66 @@ export default function ListeCommandes() {
           {/* Vue Mobile */}
           <div className="md:hidden space-y-3">
             {filteredOrders.map(order => (
-              <button
+              <div
                 key={order.id}
-                onClick={() => navigate(`/commandes/${order.id}`)}
                 className="w-full bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-left hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <div>
+                  <button onClick={() => navigate(`/commandes/${order.id}`)} className="flex-1 text-left">
                     <span className="font-semibold text-[#313ADF] text-sm">{order.order_number}</span>
                     {order.order_type === 'quick_sale' && (
                       <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">Rapide</span>
                     )}
+                  </button>
+                  <div className="relative" ref={statusDropdown === order.id + '-mobile' ? dropdownRef : null}>
+                    <button
+                      onClick={e => { e.stopPropagation(); setStatusDropdown(statusDropdown === order.id + '-mobile' ? null : order.id + '-mobile') }}
+                      disabled={STATUS_FLOW[order.status]?.length === 0}
+                      className="flex items-center gap-1"
+                    >
+                      {getStatusBadge(order.status)}
+                      {STATUS_FLOW[order.status]?.length > 0 && (
+                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </button>
+                    {statusDropdown === order.id + '-mobile' && STATUS_FLOW[order.status]?.length > 0 && (
+                      <div className="absolute z-50 top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[160px]">
+                        {STATUS_FLOW[order.status].map(s => (
+                          <button
+                            key={s}
+                            onClick={e => handleQuickStatusChange(e, order.id, s)}
+                            className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors ${s === 'annule' ? 'text-red-500' : 'text-[#040741]'}`}
+                          >
+                            {STATUS_BADGES[s]?.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {getStatusBadge(order.status)}
                 </div>
-                {order.customer && (
-                  <p className="text-sm text-[#040741] font-medium">{order.customer.first_name} {order.customer.last_name}</p>
-                )}
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('fr-FR')}</span>
-                  <div className="flex items-center gap-2">
-                    {getPaymentBadge(order)}
-                    <span className="font-bold text-[#040741]">{(order.total_ttc || 0).toFixed(2)} EUR</span>
+                <button onClick={() => navigate(`/commandes/${order.id}`)} className="w-full text-left">
+                  {order.customer && (
+                    <p className="text-sm text-[#040741] font-medium">{order.customer.first_name} {order.customer.last_name}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('fr-FR')}</span>
+                    <div className="flex items-center gap-2">
+                      {getPaymentBadge(order)}
+                      <span className="font-bold text-[#040741]">{(order.total_ttc || 0).toFixed(2)} EUR</span>
+                    </div>
                   </div>
-                </div>
-                {(order.remaining_amount || 0) > 0 && (
-                  <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className="h-1.5 rounded-full bg-[#313ADF]"
-                      style={{ width: `${Math.min(100, ((order.amount_paid || 0) / (order.total_ttc || 1)) * 100)}%` }}
-                    />
-                  </div>
-                )}
-              </button>
+                  {(order.remaining_amount || 0) > 0 && (
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full bg-[#313ADF]"
+                        style={{ width: `${Math.min(100, ((order.amount_paid || 0) / (order.total_ttc || 1)) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         </>
