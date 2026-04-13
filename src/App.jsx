@@ -193,7 +193,7 @@ function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#f8f9fb] relative overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <BackgroundPattern />
       <main

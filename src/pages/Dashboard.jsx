@@ -9,10 +9,10 @@ import { getStockAlerts } from '../services/stockService'
 const ORDER_STATUS_MAP = {
   brouillon:      { label: 'Brouillon',      bg: 'bg-gray-100',   text: 'text-gray-600'   },
   confirme:       { label: 'Confirmé',       bg: 'bg-blue-100',   text: 'text-blue-600'   },
-  en_preparation: { label: 'En préparation', bg: 'bg-orange-100', text: 'text-orange-700' },
+  en_preparation: { label: 'En préparation', bg: 'bg-gray-100', text: 'text-orange-700' },
   en_livraison:   { label: 'En livraison',   bg: 'bg-yellow-100', text: 'text-yellow-700' },
   en_cours:       { label: 'En cours',       bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  livre:          { label: 'Livré',          bg: 'bg-indigo-100', text: 'text-indigo-600' },
+  livre:          { label: 'Livré',          bg: 'bg-[#313ADF]/10', text: 'text-[#313ADF]' },
   termine:        { label: 'Terminé',        bg: 'bg-green-100',  text: 'text-green-600'  },
   annule:         { label: 'Annulé',         bg: 'bg-red-100',    text: 'text-red-600'    },
 }
@@ -422,13 +422,25 @@ export default function Dashboard() {
   return (
     <div className="p-4 md:p-8 min-h-screen">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
-          Bonjour, {userName} !
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {workspace?.name}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
+            Bonjour, {userName} !
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {workspace?.name}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/vente-rapide')}
+          className="flex items-center gap-2 bg-[#313ADF] text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#040741] transition-colors shadow-sm flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span className="hidden sm:inline">Vente rapide</span>
+          <span className="sm:hidden">Vente</span>
+        </button>
       </div>
 
       {/* ── Alertes critiques ────────────────────────────── */}
@@ -452,7 +464,7 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">Ventes terminées</p>
           </div>
           <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-orange-600">{todayStats.livraisonsToday}</p>
+            <p className="text-2xl font-bold text-gray-600">{todayStats.livraisonsToday}</p>
             <p className="text-xs text-gray-500 mt-1">Livraisons prévues</p>
           </div>
         </div>
@@ -468,9 +480,9 @@ export default function Dashboard() {
         />
         {canViewMargins ? (
           <StatCard
-            icon={<svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+            icon={<svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
             label="Bénéfice du mois" value={`${stats.beneficeMois.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
-            sub={`Marge ${stats.margeMoyenne.toFixed(0)}%`} bgColor="bg-emerald-100" color="text-emerald-700"
+            sub={`Marge ${stats.margeMoyenne.toFixed(0)}%`} bgColor="bg-green-100" color="text-green-700"
             onClick={() => navigate('/dashboard-financier')}
           />
         ) : (
@@ -488,9 +500,9 @@ export default function Dashboard() {
           onClick={() => navigate('/commandes')}
         />
         <StatCard
-          icon={<svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
+          icon={<svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
           label="Livraisons à faire" value={stats.livraisonsAFaire}
-          sub="Non terminées" bgColor="bg-orange-100" color="text-orange-600"
+          sub="Non terminées" bgColor="bg-gray-100" color="text-gray-600"
           onClick={() => navigate('/livraisons')}
         />
       </div>
@@ -501,7 +513,7 @@ export default function Dashboard() {
           <StatCard
             icon={<svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             label="Acomptes en attente" value={`${stats.acomptesEnAttente.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`}
-            sub="Reste à encaisser" bgColor="bg-amber-100" color="text-amber-700"
+            sub="Reste à encaisser" bgColor="bg-[#313ADF]/10" color="text-[#313ADF]"
             onClick={() => navigate('/commandes')}
           />
           <StatCard
@@ -511,15 +523,15 @@ export default function Dashboard() {
             onClick={() => navigate('/commandes')}
           />
           <StatCard
-            icon={<svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+            icon={<svg className="w-5 h-5 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
             label="Taux conversion" value={`${stats.tauxConversion}%`}
-            sub="Devis → commandes" bgColor="bg-indigo-100" color="text-indigo-700"
+            sub="Devis → commandes" bgColor="bg-[#313ADF]/10" color="text-[#313ADF]"
             onClick={() => navigate('/devis')}
           />
           <StatCard
             icon={<svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>}
             label="Marge moyenne" value={`${stats.margeMoyenne.toFixed(1)}%`}
-            sub="Ce mois" bgColor="bg-purple-100" color="text-purple-700"
+            sub="Ce mois" bgColor="bg-green-100" color="text-green-700"
             onClick={() => navigate('/dashboard-financier')}
           />
         </div>
@@ -533,7 +545,7 @@ export default function Dashboard() {
             icon={<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
             title="Vente rapide" description="Encaisser maintenant"
             onClick={() => navigate('/vente-rapide')}
-            gradient="bg-gradient-to-br from-green-500 to-emerald-700"
+            gradient="bg-gradient-to-br from-[#16a34a] to-[#15803d]"
           />
           <ActionCard
             icon={<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
@@ -545,13 +557,13 @@ export default function Dashboard() {
             icon={<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
             title="Clients" description="Gérer le CRM"
             onClick={() => navigate('/clients')}
-            gradient="bg-gradient-to-br from-[#4f46e5] to-[#313ADF]"
+            gradient="bg-gradient-to-br from-gray-700 to-gray-900"
           />
           <ActionCard
             icon={<svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
             title="SAV" description={savUrgent > 0 ? `${savUrgent} ticket(s) urgent(s)` : 'Gérer les retours'}
             onClick={() => navigate('/sav')}
-            gradient={savUrgent > 0 ? 'bg-gradient-to-br from-red-500 to-red-700' : 'bg-gradient-to-br from-orange-500 to-orange-700'}
+            gradient={savUrgent > 0 ? 'bg-gradient-to-br from-red-500 to-red-700' : 'bg-gradient-to-br from-gray-700 to-gray-900'}
           />
         </div>
       </div>
@@ -587,7 +599,7 @@ export default function Dashboard() {
                           <div className="text-right">
                             <p className="font-bold text-[#313ADF] text-sm">{(o.total_ttc || 0).toFixed(0)} €</p>
                             {(o.remaining_amount || 0) > 0 && (
-                              <p className="text-xs text-orange-500">Reste {(o.remaining_amount || 0).toFixed(0)} €</p>
+                              <p className="text-xs text-gray-600">Reste {(o.remaining_amount || 0).toFixed(0)} €</p>
                             )}
                           </div>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${sc.bg} ${sc.text}`}>{sc.label}</span>
