@@ -275,37 +275,38 @@ function ActionApprovalCard({ action, onApprove, onReject, onOther, isProcessing
       </div>
 
       {/* Buttons */}
-      <div className="flex gap-2 px-4 pb-3">
-        <button
-          onClick={() => onApprove(action)}
-          disabled={isProcessing}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-          </svg>
-          {isProcessing ? 'Exécution…' : 'Approuver'}
-        </button>
-        <button
-          onClick={() => onReject(action)}
-          disabled={isProcessing}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-white hover:bg-red-50 text-red-500 hover:text-red-600 text-sm font-semibold py-2 px-4 rounded-lg border border-red-200 transition-colors disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Annuler
-        </button>
+      <div className="flex flex-col gap-2 px-4 pb-3">
+        <div className="flex gap-2">
+          <button
+            onClick={() => onApprove(action)}
+            disabled={isProcessing}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            {isProcessing ? 'Exécution…' : 'Approuver'}
+          </button>
+          <button
+            onClick={() => onReject(action)}
+            disabled={isProcessing}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-white hover:bg-red-50 text-red-500 hover:text-red-600 text-sm font-semibold py-2.5 px-4 rounded-lg border border-red-200 transition-colors disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Annuler
+          </button>
+        </div>
         <button
           onClick={() => setShowOtherInput(v => !v)}
           disabled={isProcessing}
-          className="flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold py-2 px-3 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
-          title="Corriger l'instruction"
+          className="w-full flex items-center justify-center gap-1.5 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold py-2 px-3 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          Autre
+          Corriger l'instruction
         </button>
       </div>
 

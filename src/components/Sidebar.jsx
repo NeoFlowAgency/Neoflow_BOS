@@ -197,6 +197,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     ventes:     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" /></svg>,
     more:       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" /></svg>,
     neo:        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+    sav:        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
   }
 
   // ── Navigation mobile par rôle ──
@@ -206,11 +207,14 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
     // PLUS sheet commun aux rôles avec gestion boutique
     const boutiqueSheet = [
-      { to: '/produits',    label: 'Produits',     icon: ICONS.products },
-      { to: '/stock',       label: 'Stock',        icon: ICONS.stock, badge: stockAlertCount },
+      { to: '/produits',             label: 'Produits',     icon: ICONS.products },
+      { to: '/stock',                label: 'Stock',        icon: ICONS.stock, badge: stockAlertCount },
+      { to: '/livraisons',           label: 'Livraisons',   icon: ICONS.delivery },
+      ...(canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
       ...(canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
+      { to: '/dashboard-financier',  label: 'Stats',        icon: ICONS.stats },
       ...(planType === 'enterprise' ? [{ to: '/admin-workspaces', label: 'Mes magasins', icon: ICONS.suppliers }] : []),
-      { to: '/settings',    label: 'Paramètres',   icon: ICONS.settings },
+      { to: '/settings',             label: 'Paramètres',   icon: ICONS.settings },
       ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ICONS.admin }] : []),
     ]
 
@@ -260,6 +264,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               { to: '/produits',  label: 'Produits',   icon: ICONS.products },
               { to: '/stock',     label: 'Stock',      icon: ICONS.stock, badge: stockAlertCount },
               { to: '/livraisons',label: 'Livraisons', icon: ICONS.delivery },
+              ...(canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
               { to: '/settings',  label: 'Paramètres', icon: ICONS.settings },
             ]
           },
@@ -270,16 +275,15 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     // manager & propriétaire — même structure
     return {
       tabs: [
-        { type: 'link',  to: '/dashboard',          label: 'Accueil',  icon: ICONS.home,
+        { type: 'link',  to: '/dashboard',  label: 'Accueil',  icon: ICONS.home,
           isActive: location.pathname === '/dashboard' },
-        { type: 'sheet', sheetKey: 'ventes',         label: 'Ventes',   icon: ICONS.ventes,
+        { type: 'sheet', sheetKey: 'ventes', label: 'Ventes',   icon: ICONS.ventes,
           isActive: ventesRoutes.some(r => location.pathname.startsWith(r)),
           sheet: ventesSheet },
-        { type: 'link',  to: '/clients',             label: 'Clients',  icon: ICONS.clients,
+        { type: 'link',  to: '/clients',    label: 'Clients',  icon: ICONS.clients,
           isActive: location.pathname.startsWith('/clients') },
-        { type: 'link',  to: '/dashboard-financier', label: 'Stats',    icon: ICONS.stats,
-          isActive: location.pathname.startsWith('/dashboard-financier') },
-        { type: 'sheet', sheetKey: 'plus',           label: 'Plus',     icon: ICONS.more,
+        { type: 'neo',   label: 'Neo IA',   icon: ICONS.neo },
+        { type: 'sheet', sheetKey: 'plus',  label: 'Plus',     icon: ICONS.more,
           sheet: boutiqueSheet },
       ]
     }

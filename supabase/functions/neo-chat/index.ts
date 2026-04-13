@@ -28,7 +28,7 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
       safe(supabase.from('quotes').select('quote_number,status,total_ttc,customers(first_name,last_name)').eq('workspace_id', workspaceId).not('status','in','(accepted,rejected,expired)').order('created_at',{ascending:false}).limit(5)),
       safe(supabase.from('deliveries').select('delivery_date,status,time_slot,customers(first_name,last_name)').eq('workspace_id', workspaceId).not('status','in','(livree,annulee)').order('delivery_date',{ascending:true}).limit(6)),
       safe(supabase.from('customers').select('first_name,last_name,phone,city').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(10)),
-      safe(supabase.from('products').select('name,price,category').eq('workspace_id', workspaceId).order('name',{ascending:true}).limit(20)),
+      safe(supabase.from('products').select('name,unit_price_ht,category').eq('workspace_id', workspaceId).order('name',{ascending:true}).limit(20)),
       safe(supabase.from('payments').select('amount').eq('workspace_id', workspaceId).gte('payment_date', firstOfMonth)),
     ])
 
@@ -109,7 +109,7 @@ function buildSystemPrompt(context: any, wd: any, isPro: boolean): string {
     `${cname(c)}${c.city?' ('+c.city+')':''}${c.phone?' — '+c.phone:''}`)
   // deno-lint-ignore no-explicit-any
   const produitsBlock = fmt(wd?.produits || [], 'Produits du catalogue', (p: any) =>
-    `${p.name}${p.category?' ['+p.category+']':''} — ${p.price}€`)
+    `${p.name}${p.category?' ['+p.category+']':''} — ${p.unit_price_ht}€`)
 
   const toolsBlock = isPro ? `
 ## Outils disponibles
@@ -402,37 +402,40 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
       case 'get_stock_alerts': {
         const { data, error } = await supabase
           .from('stock_levels')
-          .select('quantity_available,min_quantity,products(name,category),stock_locations(name)')
+          .select('quantity,reserved_quantity,products(name,category),stock_locations(name)')
           .eq('workspace_id', workspaceId)
 
         if (error) return `Erreur lecture stock: ${error.message}`
         if (!data || data.length === 0) return 'Aucune donnée de stock disponible.'
 
+        const ALERT_THRESHOLD = 3
         // deno-lint-ignore no-explicit-any
-        const alerts = data.filter((s: any) => s.quantity_available <= (s.min_quantity || 3))
+        const alerts = data.filter((s: any) => {
+          const avail = (s.quantity || 0) - (s.reserved_quantity || 0)
+          return avail <= ALERT_THRESHOLD
+        })
         if (alerts.length === 0) return 'Aucune alerte de stock. Tous les produits sont en quantité suffisante.'
 
         // deno-lint-ignore no-explicit-any
         return alerts.map((s: any) => {
           const productName = s.products?.name || '?'
           const location = s.stock_locations?.name || 'Stock principal'
-          const qty = s.quantity_available
-          const min = s.min_quantity || 3
-          const severity = qty === 0 ? '🔴 RUPTURE' : '🟡 Faible'
-          return `${severity} | ${productName} | ${location} | ${qty}/${min} unités`
+          const avail = (s.quantity || 0) - (s.reserved_quantity || 0)
+          const severity = avail <= 0 ? '🔴 RUPTURE' : '🟡 Faible'
+          return `${severity} | ${productName} | ${location} | ${avail} dispo (total: ${s.quantity||0}, réservé: ${s.reserved_quantity||0})`
         }).join('\n')
       }
 
       case 'search_products': {
         let query = supabase
           .from('products')
-          .select('name,price,category,description')
+          .select('name,unit_price_ht,category,description')
           .eq('workspace_id', workspaceId)
           .eq('is_archived', false)
           .ilike('name', `%${toolArgs.query}%`)
           .limit(8)
 
-        if (toolArgs.max_price) query = query.lte('price', toolArgs.max_price)
+        if (toolArgs.max_price) query = query.lte('unit_price_ht', toolArgs.max_price)
 
         const { data, error } = await query
         if (error) return `Erreur recherche produits: ${error.message}`
@@ -440,18 +443,18 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
           // Essayer par catégorie
           const { data: byCat } = await supabase
             .from('products')
-            .select('name,price,category')
+            .select('name,unit_price_ht,category')
             .eq('workspace_id', workspaceId)
             .eq('is_archived', false)
             .ilike('category', `%${toolArgs.query}%`)
             .limit(8)
           if (!byCat || byCat.length === 0) return `Aucun produit trouvé pour "${toolArgs.query}".`
           // deno-lint-ignore no-explicit-any
-          return byCat.map((p: any) => `${p.name} | ${p.price}€${p.category?' ['+p.category+']':''}`).join('\n')
+          return byCat.map((p: any) => `${p.name} | ${p.unit_price_ht}€${p.category?' ['+p.category+']':''}`).join('\n')
         }
 
         // deno-lint-ignore no-explicit-any
-        return data.map((p: any) => `${p.name} | ${p.price}€${p.category?' ['+p.category+']':''}`).join('\n')
+        return data.map((p: any) => `${p.name} | ${p.unit_price_ht}€${p.category?' ['+p.category+']':''}`).join('\n')
       }
 
       case 'get_order_details': {
@@ -483,7 +486,7 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
       case 'get_stock_levels': {
         const query = toolArgs.product_name
         let q = supabase.from('stock_levels')
-          .select('quantity,reserved_quantity,min_quantity,products(name,category),stock_locations(name)')
+          .select('quantity,reserved_quantity,products(name,category),stock_locations(name)')
           .eq('workspace_id', workspaceId)
         if (query) q = q.ilike('products.name', `%${query}%`)
         const { data } = await q.limit(15)
@@ -491,8 +494,8 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
         // deno-lint-ignore no-explicit-any
         return (data as any[]).map((s:any) => {
           const avail = (s.quantity||0) - (s.reserved_quantity||0)
-          const alert = avail <= (s.min_quantity||3) ? (avail===0?'🔴 RUPTURE':'🟡 Faible') : '🟢'
-          return `${alert} ${s.products?.name||'?'} | ${s.stock_locations?.name||'Principal'} | Dispo: ${avail} (total: ${s.quantity||0}, réservé: ${s.reserved_quantity||0}, min: ${s.min_quantity||3})`
+          const alert = avail <= 3 ? (avail<=0?'🔴 RUPTURE':'🟡 Faible') : '🟢'
+          return `${alert} ${s.products?.name||'?'} | ${s.stock_locations?.name||'Principal'} | Dispo: ${avail} (total: ${s.quantity||0}, réservé: ${s.reserved_quantity||0})`
         }).join('\n')
       }
 
@@ -952,14 +955,13 @@ async function executeApprovedActionInline(supabase: any, workspaceId: string, t
           tax_rate: parseFloat(toolArgs.tax_rate) || 20,
           category: toolArgs.category || null,
           description: toolArgs.description || null,
-          min_stock: parseInt(toolArgs.min_stock) || 3,
           is_archived: false, created_at: nowStr, updated_at: nowStr,
         }).select('id,name').single()
         if (error) return `Erreur création produit: ${error.message}`
         if (toolArgs.initial_stock && toolArgs.initial_stock > 0) {
           const { data: locs } = await supabase.from('stock_locations').select('id').eq('workspace_id', workspaceId).eq('is_default', true).limit(1)
           if (locs?.[0]) {
-            await supabase.from('stock_levels').insert({ workspace_id: workspaceId, product_id: prod.id, location_id: locs[0].id, quantity: toolArgs.initial_stock, min_quantity: toolArgs.min_stock || 3 })
+            await supabase.from('stock_levels').insert({ workspace_id: workspaceId, product_id: prod.id, location_id: locs[0].id, quantity: toolArgs.initial_stock, reserved_quantity: 0 })
           }
         }
         return `✅ Produit "${prod.name}" créé (${toolArgs.unit_price_ht}€ HT, TVA ${toolArgs.tax_rate||20}%).`
@@ -976,7 +978,6 @@ async function executeApprovedActionInline(supabase: any, workspaceId: string, t
         if (u.tax_rate !== undefined) updates.tax_rate = parseFloat(u.tax_rate)
         if (u.category !== undefined) updates.category = u.category
         if (u.description !== undefined) updates.description = u.description
-        if (u.min_stock !== undefined) updates.min_stock = parseInt(u.min_stock)
         const { error } = await supabase.from('products').update(updates).eq('id', prod.id)
         if (error) return `Erreur: ${error.message}`
         return `✅ Produit "${prod.name}" mis à jour.`
