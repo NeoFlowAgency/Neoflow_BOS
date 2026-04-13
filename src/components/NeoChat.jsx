@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { supabase, streamNeoChat } from '../lib/supabase'
@@ -218,7 +218,9 @@ function ConversationList({ chats, activeChatId, onSelect, onNew, onDelete, onCl
 
 // ─── Carte d'approbation d'action agent ───────────────────────────────────────
 
-function ActionApprovalCard({ action, onApprove, onReject, isProcessing }) {
+function ActionApprovalCard({ action, onApprove, onReject, onOther, isProcessing }) {
+  const [showOtherInput, setShowOtherInput] = useState(false)
+  const [otherText, setOtherText] = useState('')
   const toolIcons = {
     update_order_status: (
       <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -294,7 +296,42 @@ function ActionApprovalCard({ action, onApprove, onReject, isProcessing }) {
           </svg>
           Annuler
         </button>
+        <button
+          onClick={() => setShowOtherInput(v => !v)}
+          disabled={isProcessing}
+          className="flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold py-2 px-3 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
+          title="Corriger l'instruction"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Autre
+        </button>
       </div>
+
+      {/* Textarea "Autre" */}
+      {showOtherInput && (
+        <div className="px-4 pb-4 space-y-2">
+          <textarea
+            value={otherText}
+            onChange={e => setOtherText(e.target.value)}
+            placeholder="Ex: Le client c'est Dubois pas Gérard…"
+            rows={2}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF] text-gray-800 placeholder-gray-400"
+            autoFocus
+          />
+          <button
+            onClick={() => { if (otherText.trim()) { onOther(action, otherText.trim()); setOtherText(''); setShowOtherInput(false) } }}
+            disabled={!otherText.trim()}
+            className="w-full flex items-center justify-center gap-1.5 bg-[#313ADF] text-white text-sm font-semibold py-2 px-4 rounded-lg hover:bg-[#2730c4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+            Envoyer
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -303,6 +340,7 @@ function ActionApprovalCard({ action, onApprove, onReject, isProcessing }) {
 
 export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, isMobile }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { role, currentWorkspace, planType, neoCreditsBalance, isUnlimitedCredits, hasNeoCredits, refreshNeoCredits } = useWorkspace()
 
   const isOpen = neoOpen
@@ -523,9 +561,20 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
         if (meta.tool_executing) {
           setToolExecuting(meta.tool_executing)
         }
+        if ('tool_executing' in meta && meta.tool_executing === null) {
+          setToolExecuting(null)
+        }
+        if (meta.navigate) {
+          navigate(meta.navigate)
+          if (meta.section) {
+            setTimeout(() => {
+              document.getElementById(meta.section)?.scrollIntoView({ behavior: 'smooth' })
+            }, 300)
+          }
+        }
       },
     )
-  }, [input, activeChatId, isStreaming, chats, location, role, currentWorkspace, saveToStorage])
+  }, [input, activeChatId, isStreaming, chats, location, role, currentWorkspace, saveToStorage, navigate])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -609,6 +658,17 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
       abortRef.current.signal,
       (meta) => {
         if (meta.credits_remaining !== undefined) setLocalCredits(meta.credits_remaining)
+        if (meta.navigate) {
+          navigate(meta.navigate)
+          if (meta.section) {
+            setTimeout(() => {
+              document.getElementById(meta.section)?.scrollIntoView({ behavior: 'smooth' })
+            }, 300)
+          }
+        }
+        if ('tool_executing' in meta && meta.tool_executing === null) {
+          setToolExecuting(null)
+        }
       },
     )
 
@@ -636,6 +696,14 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
       return updated
     })
   }, [activeChatId, saveToStorage])
+
+  const handleOther = useCallback((action, text) => {
+    setPendingAction(null)
+    if (!activeChatId || !text.trim()) return
+    const argsStr = Object.entries(action.tool_args || {}).map(([k, v]) => `${k}: ${v}`).join(', ')
+    const contextMsg = `[Action refusée: ${action.tool_name} — ${argsStr}]\nInstruction corrigée : ${text.trim()}`
+    sendMessage(contextMsg)
+  }, [activeChatId, sendMessage])
 
   // ── Bouton flottant ──
   if (!isOpen) {
@@ -800,6 +868,7 @@ export default function NeoChat({ neoOpen, setNeoOpen, neoWidth, setNeoWidth, is
                       action={pendingAction}
                       onApprove={handleApproveAction}
                       onReject={handleRejectAction}
+                      onOther={handleOther}
                       isProcessing={actionProcessing}
                     />
                   </div>

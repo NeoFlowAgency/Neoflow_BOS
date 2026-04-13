@@ -128,6 +128,8 @@ export async function streamNeoChat(payload, onToken, onDone, onError, signal, o
           if (parsed.credits_remaining !== undefined && onMeta) onMeta({ credits_remaining: parsed.credits_remaining })
           if (parsed.pending_action && onMeta) onMeta({ pending_action: parsed.pending_action })
           if (parsed.tool_executing && onMeta) onMeta({ tool_executing: parsed.tool_executing })
+          if (parsed.tool_executing === null && onMeta) onMeta({ tool_executing: null })
+          if (parsed.__navigate && onMeta) onMeta({ navigate: parsed.__navigate, section: parsed.__section || null })
         } catch { /* skip invalid JSON */ }
       }
     }
