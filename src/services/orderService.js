@@ -33,7 +33,12 @@ export async function createOrder(workspaceId, userId, customerId, items, orderD
       remaining_amount: orderData.total_ttc,
       requires_delivery: orderData.requires_delivery || false,
       delivery_type: orderData.delivery_type || 'none',
-      notes: orderData.notes || ''
+      notes: orderData.notes || '',
+      wished_delivery_date: orderData.wished_delivery_date || null,
+      max_delivery_date: orderData.max_delivery_date || null,
+      old_furniture_option: orderData.old_furniture_option || 'keep',
+      sms_consent: orderData.sms_consent || false,
+      sms_partner_consent: orderData.sms_partner_consent || false
     })
     .select()
     .single()
@@ -52,7 +57,10 @@ export async function createOrder(workspaceId, userId, customerId, items, orderD
     discount_item: item.discount_item || 0,
     discount_item_type: item.discount_item_type || 'percent',
     total_ht: item.total_ht,
-    position: item.position || i + 1
+    position: item.position || i + 1,
+    variant_id: item.variant_id || null,
+    eco_participation: item.eco_participation || 0,
+    eco_participation_tva_rate: item.eco_participation_tva_rate || item.tax_rate || 20
   }))
 
   const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert)
@@ -70,7 +78,7 @@ export async function getOrder(orderId) {
     .select(`
       *,
       customer:customers(*),
-      items:order_items(*, product:products(name, reference)),
+      items:order_items(*, product:products(name, reference), variant:product_variants(size, comfort)),
       payments(*),
       deliveries(*),
       invoices(id, invoice_number, invoice_category, status),
