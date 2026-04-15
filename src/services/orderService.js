@@ -80,6 +80,7 @@ export async function getOrder(orderId) {
       customer:customers(*),
       items:order_items(*, product:products(name, reference), variant:product_variants(size, comfort)),
       payments(*),
+      order_payments(*),
       deliveries(*),
       invoices(id, invoice_number, invoice_category, status),
       quote:quotes(id, quote_number, status)
