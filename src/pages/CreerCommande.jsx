@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { createOrder } from '../services/orderService'
 import { getStockLevels } from '../services/stockService'
+import { listVariants } from '../services/variantService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { sendPushToWorkspace } from '../lib/pushNotifications'
@@ -27,10 +28,13 @@ export default function CreerCommande() {
 
   // Produits
   const [lignes, setLignes] = useState([
-    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, cost_price: null, tax_rate: 20, discount_item: 0, discount_item_type: 'percent' }
+    { id: 1, produit_id: null, product_name: '', quantity: 1, unit_price: 0, cost_price: null, tax_rate: 20, discount_item: 0, discount_item_type: 'percent', variant_id: null, eco_participation: 0 }
   ])
   const [produits, setProduits] = useState([])
   const [produitsLoading, setProduitsLoading] = useState(false)
+
+  // Map productId → liste de variantes disponibles
+  const [variantsMap, setVariantsMap] = useState({})
 
   // Options
   const [remiseType, setRemiseType] = useState('percent')
@@ -138,6 +142,16 @@ export default function CreerCommande() {
   const handleProduitChange = (ligneId, produitId) => {
     const produit = produits.find(p => p.id === produitId)
     if (!produit) return
+
+    // Si le produit a des variantes, les charger dans le cache
+    if (produit.has_variants) {
+      if (!variantsMap[produit.id]) {
+        listVariants(produit.id).then(variants => {
+          setVariantsMap(prev => ({ ...prev, [produit.id]: variants }))
+        })
+      }
+    }
+
     setLignes(prev => prev.map(l =>
       l.id === ligneId ? {
         ...l,
@@ -146,6 +160,8 @@ export default function CreerCommande() {
         unit_price: produit.unit_price_ht || 0,
         cost_price: produit.cost_price_ht || null,
         tax_rate: produit.tax_rate || 20,
+        variant_id: null,
+        eco_participation: produit.eco_participation_amount || 0,
       } : l
     ))
   }
@@ -172,7 +188,7 @@ export default function CreerCommande() {
 
   const ajouterLigne = () => {
     const newId = Math.max(...lignes.map(l => l.id), 0) + 1
-    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, cost_price: null, tax_rate: 20, discount_item: 0, discount_item_type: 'percent' }])
+    setLignes([...lignes, { id: newId, produit_id: null, product_name: '', quantity: 1, unit_price: 0, cost_price: null, tax_rate: 20, discount_item: 0, discount_item_type: 'percent', variant_id: null, eco_participation: 0 }])
   }
 
   const supprimerLigne = (ligneId) => {
@@ -311,7 +327,10 @@ export default function CreerCommande() {
         discount_item: l.discount_item || 0,
         discount_item_type: l.discount_item_type || 'percent',
         total_ht: lineTotal(l),
-        position: i + 1
+        position: i + 1,
+        variant_id: l.variant_id || null,
+        eco_participation: l.eco_participation || 0,
+        eco_participation_tva_rate: l.tax_rate || 20,
       }))
 
       const order = await createOrder(workspace.id, user.id, clientId || null, items, {
@@ -577,6 +596,37 @@ export default function CreerCommande() {
                       {stockMap[ligne.produit_id] <= 0 ? 'Rupture de stock' : `Stock faible: ${stockMap[ligne.produit_id]} dispo.`}
                     </p>
                   )}
+                  {/* Select variante si le produit en a */}
+                  {(() => {
+                    const produit = produits.find(p => p.id === ligne.produit_id)
+                    if (!produit?.has_variants) return null
+                    const variantsList = variantsMap[produit.id] || []
+                    return (
+                      <select
+                        value={ligne.variant_id || ''}
+                        onChange={e => {
+                          const variant = variantsList.find(v => v.id === e.target.value)
+                          setLignes(prev => prev.map(l =>
+                            l.id === ligne.id
+                              ? {
+                                  ...l,
+                                  variant_id: e.target.value || null,
+                                  unit_price: variant ? (variant.price / 1.2) : l.unit_price
+                                }
+                              : l
+                          ))
+                        }}
+                        className="border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1 w-full bg-white focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
+                      >
+                        <option value="">— Choisir taille / confort —</option>
+                        {variantsList.map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.size}{v.comfort ? ` — ${v.comfort}` : ''} — {Number(v.price).toFixed(2)} €
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  })()}
                 </div>
 
                 <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`md:hidden p-2 rounded-lg transition-colors mt-5 ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
@@ -772,6 +822,12 @@ export default function CreerCommande() {
               <span>TVA</span>
               <span>{totaux.totalTva.toFixed(2)} EUR</span>
             </div>
+            {lignes.some(l => l.eco_participation > 0) && (
+              <div className="flex justify-between text-white/70">
+                <span>Éco-participation</span>
+                <span>{lignes.reduce((s, l) => s + (l.eco_participation || 0) * (l.quantity || 1), 0).toFixed(2)} €</span>
+              </div>
+            )}
             {totaux.fraisLivraison > 0 && (
               <div className="flex justify-between text-white/70">
                 <span>Frais de livraison</span>
