@@ -26,23 +26,32 @@ CREATE TABLE IF NOT EXISTS product_variants (
 -- 3. RLS product_variants
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "product_variants_select" ON product_variants;
 CREATE POLICY "product_variants_select" ON product_variants FOR SELECT
   USING (workspace_id IN (
     SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid()
   ));
 
+DROP POLICY IF EXISTS "product_variants_insert" ON product_variants;
 CREATE POLICY "product_variants_insert" ON product_variants FOR INSERT
-  WITH CHECK (workspace_id IN (
-    SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid()
-      AND role IN ('proprietaire', 'manager', 'vendeur')
-  ));
+  WITH CHECK (
+    workspace_id IN (
+      SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid()
+        AND role IN ('proprietaire', 'manager', 'vendeur')
+    )
+    AND product_id IN (
+      SELECT id FROM products WHERE workspace_id = product_variants.workspace_id
+    )
+  );
 
+DROP POLICY IF EXISTS "product_variants_update" ON product_variants;
 CREATE POLICY "product_variants_update" ON product_variants FOR UPDATE
   USING (workspace_id IN (
     SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid()
       AND role IN ('proprietaire', 'manager')
   ));
 
+DROP POLICY IF EXISTS "product_variants_delete" ON product_variants;
 CREATE POLICY "product_variants_delete" ON product_variants FOR DELETE
   USING (workspace_id IN (
     SELECT workspace_id FROM workspace_users WHERE user_id = auth.uid()
@@ -53,7 +62,7 @@ CREATE POLICY "product_variants_delete" ON product_variants FOR DELETE
 ALTER TABLE stock_levels ADD COLUMN IF NOT EXISTS variant_id UUID REFERENCES product_variants(id) ON DELETE CASCADE;
 
 -- 5. Extension order_items pour variantes + éco-participation
-ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id UUID REFERENCES product_variants(id);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS eco_participation DECIMAL(10,2) DEFAULT 0;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS eco_participation_tva_rate DECIMAL(5,2) DEFAULT 20;
 
