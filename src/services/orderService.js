@@ -33,6 +33,7 @@ export async function createOrder(workspaceId, userId, customerId, items, orderD
       remaining_amount: orderData.total_ttc,
       requires_delivery: orderData.requires_delivery || false,
       delivery_type: orderData.delivery_type || 'none',
+      delivery_fees: orderData.delivery_fees || 0,
       notes: orderData.notes || '',
       wished_delivery_date: orderData.wished_delivery_date || null,
       max_delivery_date: orderData.max_delivery_date || null,
