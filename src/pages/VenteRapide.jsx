@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { createOrder, createPayment, generateInvoiceFromOrder } from '../services/orderService'
 import { getStockLevels, listStockLocations, debitStock } from '../services/stockService'
+import { listVariants } from '../services/variantService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -33,6 +34,11 @@ export default function VenteRapide() {
   const [stockMap, setStockMap] = useState({}) // productId -> totalAvailable
   const [defaultLocationId, setDefaultLocationId] = useState(null)
   const [stockWarning, setStockWarning] = useState(null) // { produit } pending confirmation
+
+  // Variant picker
+  const [variantPickerProduct, setVariantPickerProduct] = useState(null)
+  const [variantsForPicker, setVariantsForPicker] = useState([])
+  const [variantPickerLoading, setVariantPickerLoading] = useState(false)
 
   // Mobile tab: 'produits' | 'panier'
   const [mobileTab, setMobileTab] = useState('produits')
@@ -100,23 +106,33 @@ export default function VenteRapide() {
     p.reference?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const doAddToCart = (produit) => {
+  const doAddToCart = (produit, variantOverride = null) => {
     setPanier(prev => {
-      const existing = prev.find(item => item.product_id === produit.id)
+      // Clé unique : variant_id si variante, sinon product_id
+      const cartKey = variantOverride ? `variant_${variantOverride.id}` : `product_${produit.id}`
+      const existing = prev.find(item => item.cart_key === cartKey)
       if (existing) {
         return prev.map(item =>
-          item.product_id === produit.id
+          item.cart_key === cartKey
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
       }
       // Premier article : basculer vers l'onglet panier sur mobile
       if (prev.length === 0) setMobileTab('panier')
+      const label = variantOverride
+        ? `${produit.name} — ${variantOverride.size}${variantOverride.comfort ? ' / ' + variantOverride.comfort : ''}`
+        : produit.name
+      const unitPriceHt = variantOverride
+        ? Number(variantOverride.price) / (1 + (produit.tax_rate || 20) / 100)
+        : (produit.unit_price_ht || 0)
       return [...prev, {
+        cart_key: cartKey,
         product_id: produit.id,
-        description: produit.name,
+        variant_id: variantOverride?.id || null,
+        description: label,
         quantity: 1,
-        unit_price_ht: produit.unit_price_ht || 0,
+        unit_price_ht: unitPriceHt,
         cost_price_ht: produit.cost_price_ht || null,
         tax_rate: produit.tax_rate || 20,
         discount_item: 0,
@@ -136,9 +152,21 @@ export default function VenteRapide() {
     doAddToCart(produit)
   }
 
-  const modifierQuantite = (productId, delta) => {
+  const handleAddProduct = async (produit) => {
+    if (produit.has_variants) {
+      setVariantPickerLoading(true)
+      const variants = await listVariants(produit.id)
+      setVariantsForPicker(variants)
+      setVariantPickerProduct(produit)
+      setVariantPickerLoading(false)
+      return
+    }
+    ajouterAuPanier(produit)
+  }
+
+  const modifierQuantite = (cartKey, delta) => {
     setPanier(prev => prev.map(item => {
-      if (item.product_id === productId) {
+      if (item.cart_key === cartKey) {
         const newQty = Math.max(1, item.quantity + delta)
         return { ...item, quantity: newQty }
       }
@@ -146,13 +174,13 @@ export default function VenteRapide() {
     }))
   }
 
-  const supprimerDuPanier = (productId) => {
-    setPanier(prev => prev.filter(item => item.product_id !== productId))
+  const supprimerDuPanier = (cartKey) => {
+    setPanier(prev => prev.filter(item => item.cart_key !== cartKey))
   }
 
-  const updateLineDiscount = (productId, field, value) => {
+  const updateLineDiscount = (cartKey, field, value) => {
     setPanier(prev => prev.map(item =>
-      item.product_id === productId ? { ...item, [field]: value } : item
+      item.cart_key === cartKey ? { ...item, [field]: value } : item
     ))
   }
 
@@ -425,7 +453,7 @@ export default function VenteRapide() {
                 {filteredProduits.map(produit => (
                   <button
                     key={produit.id}
-                    onClick={() => ajouterAuPanier(produit)}
+                    onClick={() => handleAddProduct(produit)}
                     className="bg-gray-50 hover:bg-[#313ADF]/5 border border-gray-200 hover:border-[#313ADF]/30 rounded-xl p-3 text-left transition-all group"
                   >
                     <p className="font-semibold text-[#040741] text-sm truncate group-hover:text-[#313ADF]">
@@ -525,17 +553,17 @@ export default function VenteRapide() {
             ) : (
               <div className="space-y-2 max-h-[30vh] overflow-y-auto">
                 {panier.map(item => (
-                  <div key={item.product_id} className="bg-gray-50 rounded-xl p-2.5 space-y-1.5">
+                  <div key={item.cart_key} className="bg-gray-50 rounded-xl p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0 mr-2">
                         <p className="font-medium text-[#040741] text-sm truncate">{item.description}</p>
                         <p className="text-xs text-gray-400">{item.unit_price_ht.toFixed(2)} EUR HT x {item.quantity}</p>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => modifierQuantite(item.product_id, -1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">-</button>
+                        <button onClick={() => modifierQuantite(item.cart_key, -1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">-</button>
                         <span className="w-8 text-center font-semibold text-sm text-[#040741]">{item.quantity}</span>
-                        <button onClick={() => modifierQuantite(item.product_id, 1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">+</button>
-                        <button onClick={() => supprimerDuPanier(item.product_id)} className="w-7 h-7 ml-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center">
+                        <button onClick={() => modifierQuantite(item.cart_key, 1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">+</button>
+                        <button onClick={() => supprimerDuPanier(item.cart_key)} className="w-7 h-7 ml-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
@@ -545,7 +573,7 @@ export default function VenteRapide() {
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-400">Remise ligne</span>
                       <button
-                        onClick={() => updateLineDiscount(item.product_id, 'discount_item_type', item.discount_item_type === 'percent' ? 'euro' : 'percent')}
+                        onClick={() => updateLineDiscount(item.cart_key, 'discount_item_type', item.discount_item_type === 'percent' ? 'euro' : 'percent')}
                         className="text-xs bg-white border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium hover:bg-gray-100"
                       >
                         {item.discount_item_type === 'percent' ? '%' : '€'}
@@ -553,7 +581,7 @@ export default function VenteRapide() {
                       <input
                         type="number" min={0} max={item.discount_item_type === 'percent' ? 100 : item.unit_price_ht * item.quantity}
                         value={item.discount_item || ''}
-                        onChange={e => updateLineDiscount(item.product_id, 'discount_item', parseFloat(e.target.value) || 0)}
+                        onChange={e => updateLineDiscount(item.cart_key, 'discount_item', parseFloat(e.target.value) || 0)}
                         className="w-14 bg-white border border-gray-200 rounded px-2 py-0.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-[#313ADF]/30"
                         placeholder="0"
                       />
@@ -677,6 +705,41 @@ export default function VenteRapide() {
           </div>
         </div>
       </div>
+
+      {/* Modale choix variante */}
+      {variantPickerProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl p-5 w-full sm:max-w-sm">
+            <h3 className="font-semibold mb-1">Choisir la taille / le confort</h3>
+            <p className="text-sm text-gray-500 mb-4">{variantPickerProduct.name}</p>
+            {variantPickerLoading ? (
+              <p className="text-sm text-gray-400 text-center py-4">Chargement...</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {variantsForPicker.map(v => (
+                  <button key={v.id}
+                    onClick={() => {
+                      doAddToCart(variantPickerProduct, v)
+                      setVariantPickerProduct(null)
+                      setVariantsForPicker([])
+                    }}
+                    className="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-blue-50 text-sm transition-colors">
+                    <span>{v.size}{v.comfort ? ` — ${v.comfort}` : ''}</span>
+                    <span className="font-semibold">{Number(v.price).toFixed(2)} €</span>
+                  </button>
+                ))}
+                {variantsForPicker.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">Aucune variante disponible</p>
+                )}
+              </div>
+            )}
+            <button onClick={() => { setVariantPickerProduct(null); setVariantsForPicker([]) }}
+              className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-gray-700">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal: stock = 0 */}
       {stockWarning && (
