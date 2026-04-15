@@ -43,6 +43,7 @@ export default function ApercuCommande() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // Livraison creation
   const [showCreateDelivery, setShowCreateDelivery] = useState(false)
@@ -233,6 +234,39 @@ export default function ApercuCommande() {
       toast.error(err.message || 'Erreur confirmation')
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const handlePrintBonCommande = async () => {
+    try {
+      setPdfLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Non authentifié')
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            document_type: 'order',
+            document_id: order.id,
+          }),
+        }
+      )
+
+      const data = await response.json()
+      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
+
+      window.open(data.pdf_url, '_blank')
+    } catch (err) {
+      console.error('Erreur PDF bon de commande:', err)
+      toast.error(err.message || 'Erreur lors de la génération du bon de commande')
+    } finally {
+      setPdfLoading(false)
     }
   }
 
@@ -537,6 +571,22 @@ export default function ApercuCommande() {
                   )}
                 </>
               )}
+
+              {/* Bon de commande PDF */}
+              <button
+                onClick={handlePrintBonCommande}
+                disabled={pdfLoading}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-medium text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {pdfLoading ? (
+                  <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                )}
+                Bon de commande
+              </button>
 
               {/* Supprimer */}
               {(role === 'proprietaire' || role === 'manager') && order.status !== 'termine' && (
