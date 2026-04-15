@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { canViewMargins } from '../lib/permissions'
+import { listVariants, createVariant, archiveVariant } from '../services/variantService'
 
 const CATEGORIES = [
   { value: '', label: 'Sans catégorie' },
@@ -36,6 +37,13 @@ export default function Produits() {
   })
   const [saveLoading, setSaveLoading] = useState(false)
 
+  // Variantes
+  const [hasVariants, setHasVariants] = useState(false)
+  const [variants, setVariants] = useState([])
+  const [variantForm, setVariantForm] = useState({ size: '', comfort: 'medium', price: '', purchase_price: '', sku_supplier: '' })
+  const [variantsLoading, setVariantsLoading] = useState(false)
+  const [addingVariant, setAddingVariant] = useState(false)
+
   // Delete confirmation
   const [deleteId, setDeleteId] = useState(null)
 
@@ -67,12 +75,21 @@ export default function Produits() {
     }
   }
 
+  const resetVariantState = () => {
+    setHasVariants(false)
+    setVariants([])
+    setVariantForm({ size: '', comfort: 'medium', price: '', purchase_price: '', sku_supplier: '' })
+    setAddingVariant(false)
+  }
+
   const openCreate = () => {
     setEditingProduct(null)
     setForm({
       name: '', description: '', unit_price_ht: '', tax_rate: '20',
-      reference: '', cost_price_ht: '', technical_sheet: '', category: ''
+      reference: '', cost_price_ht: '', technical_sheet: '', category: '',
+      eco_participation_amount: '', warranty_years: ''
     })
+    resetVariantState()
     setShowModal(true)
   }
 
@@ -86,8 +103,16 @@ export default function Produits() {
       reference: product.reference || '',
       cost_price_ht: product.cost_price_ht?.toString() || '',
       technical_sheet: product.technical_sheet || '',
-      category: product.category || ''
+      category: product.category || '',
+      eco_participation_amount: product.eco_participation_amount?.toString() || '',
+      warranty_years: product.warranty_years?.toString() || ''
     })
+    resetVariantState()
+    setHasVariants(product.has_variants || false)
+    if (product.has_variants && product.id) {
+      setVariantsLoading(true)
+      listVariants(product.id).then(v => { setVariants(v); setVariantsLoading(false) })
+    }
     setShowModal(true)
   }
 
@@ -112,7 +137,10 @@ export default function Produits() {
         reference: form.reference.trim() || null,
         cost_price_ht: form.cost_price_ht ? parseFloat(form.cost_price_ht) : null,
         technical_sheet: form.technical_sheet.trim() || null,
-        category: form.category || null
+        category: form.category || null,
+        has_variants: hasVariants,
+        eco_participation_amount: parseFloat(form.eco_participation_amount) || 0,
+        warranty_years: parseInt(form.warranty_years) || 0
       }
 
       if (editingProduct) {
@@ -411,7 +439,7 @@ export default function Produits() {
               <h2 className="text-xl font-bold text-[#040741]">
                 {editingProduct ? 'Modifier le produit' : 'Nouveau produit'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={() => { setShowModal(false); resetVariantState() }} className="text-gray-400 hover:text-gray-600 p-1">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -556,6 +584,138 @@ export default function Produits() {
                         })()}
                       </div>
                     </>
+                  )}
+                </div>
+              )}
+
+              {/* Éco-participation */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Éco-participation (€)
+                  <span className="text-xs text-gray-400 ml-1">obligatoire literie</span>
+                </label>
+                <input
+                  type="number" step="0.01" min="0"
+                  value={form.eco_participation_amount}
+                  onChange={e => setForm(f => ({ ...f, eco_participation_amount: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  placeholder="ex: 5.50"
+                />
+              </div>
+
+              {/* Garantie */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Garantie constructeur (années)</label>
+                <input
+                  type="number" min="0" max="25"
+                  value={form.warranty_years}
+                  onChange={e => setForm(f => ({ ...f, warranty_years: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  placeholder="ex: 5"
+                />
+              </div>
+
+              {/* Toggle variantes */}
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="has_variants"
+                  checked={hasVariants}
+                  onChange={e => setHasVariants(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="has_variants" className="text-sm font-medium text-gray-700">
+                  Ce produit a des tailles / conforts différents
+                </label>
+              </div>
+
+              {/* Section variantes */}
+              {hasVariants && (
+                <div className="border-t pt-4 mt-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-gray-700">Variantes</p>
+                    <button
+                      type="button"
+                      onClick={() => setAddingVariant(true)}
+                      className="text-xs text-[#313ADF] font-medium hover:underline"
+                    >
+                      + Ajouter une taille
+                    </button>
+                  </div>
+
+                  {variantsLoading && <p className="text-xs text-gray-400">Chargement...</p>}
+
+                  {variants.map(v => (
+                    <div key={v.id} className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg text-sm">
+                      <span className="font-medium w-20">{v.size}</span>
+                      <span className="text-gray-500 w-16">{v.comfort || '—'}</span>
+                      <span className="flex-1">{Number(v.price).toFixed(2)} €</span>
+                      <button
+                        type="button"
+                        onClick={() => archiveVariant(v.id).then(() => setVariants(vv => vv.filter(x => x.id !== v.id)))}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                      >
+                        Suppr.
+                      </button>
+                    </div>
+                  ))}
+
+                  {addingVariant && (
+                    <div className="bg-blue-50 rounded-xl p-3 mt-2 space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          placeholder="Taille (ex: 160x200)"
+                          value={variantForm.size}
+                          onChange={e => setVariantForm(f => ({ ...f, size: e.target.value }))}
+                          className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+                        />
+                        <select
+                          value={variantForm.comfort}
+                          onChange={e => setVariantForm(f => ({ ...f, comfort: e.target.value }))}
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                        >
+                          <option value="">Sans</option>
+                          <option value="souple">Souple</option>
+                          <option value="medium">Medium</option>
+                          <option value="ferme">Ferme</option>
+                          <option value="tres_souple">Très souple</option>
+                          <option value="tres_ferme">Très ferme</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          placeholder="Prix TTC (€)"
+                          type="number" step="0.01"
+                          value={variantForm.price}
+                          onChange={e => setVariantForm(f => ({ ...f, price: e.target.value }))}
+                          className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+                        />
+                        <input
+                          placeholder="Réf. fournisseur"
+                          value={variantForm.sku_supplier}
+                          onChange={e => setVariantForm(f => ({ ...f, sku_supplier: e.target.value }))}
+                          className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button type="button" onClick={() => setAddingVariant(false)}
+                          className="text-xs text-gray-500 hover:underline">Annuler</button>
+                        <button
+                          type="button"
+                          disabled={!variantForm.size || !variantForm.price}
+                          onClick={async () => {
+                            if (!editingProduct?.id) return
+                            const v = await createVariant(workspace.id, editingProduct.id, variantForm)
+                            setVariants(vv => [...vv, v])
+                            setVariantForm({ size: '', comfort: 'medium', price: '', purchase_price: '', sku_supplier: '' })
+                            setAddingVariant(false)
+                          }}
+                          className="text-xs bg-[#313ADF] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
