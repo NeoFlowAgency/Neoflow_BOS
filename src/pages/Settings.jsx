@@ -38,7 +38,7 @@ export default function Settings() {
   // Workspace form
   const [wsForm, setWsForm] = useState({
     name: '', description: '', address: '', postal_code: '', city: '',
-    country: 'France', currency: 'EUR', siret: '', vat_number: '', legal_form: 'SAS',
+    country: 'France', currency: 'EUR', siret: '', vat_number: '', legal_form: 'SAS', ape_code: '', legal_capital: '',
     phone: '', email: '', website: '',
     bank_iban: '', bank_bic: '', bank_account_holder: '',
     payment_terms: '', invoice_footer: '', quote_footer: ''
@@ -107,6 +107,8 @@ export default function Settings() {
         siret: currentWorkspace.siret || '',
         vat_number: currentWorkspace.vat_number || '',
         legal_form: currentWorkspace.legal_form || 'SAS',
+        ape_code: currentWorkspace.ape_code || '',
+        legal_capital: currentWorkspace.legal_capital || '',
         phone: currentWorkspace.phone || '',
         email: currentWorkspace.email || '',
         website: currentWorkspace.website || '',
@@ -389,6 +391,8 @@ export default function Settings() {
         siret: wsForm.siret.replace(/\s/g, '') || null,
         vat_number: wsForm.vat_number.replace(/\s/g, '') || null,
         legal_form: wsForm.legal_form,
+        ape_code: wsForm.ape_code || null,
+        legal_capital: wsForm.legal_capital || null,
         phone: wsForm.phone.trim() || null,
         email: wsForm.email.trim() || null,
         website: wsForm.website.trim() || null,
@@ -1403,6 +1407,33 @@ export default function Settings() {
                   disabled={!isAdmin}
                   className={isAdmin ? inputClass : inputDisabledClass}
                 />
+              </div>
+              {/* Code APE */}
+              <div>
+                <label className={labelClass}>Code APE</label>
+                <input
+                  type="text"
+                  value={wsForm.ape_code}
+                  onChange={e => setWsForm(f => ({ ...f, ape_code: e.target.value }))}
+                  disabled={!isAdmin}
+                  className={isAdmin ? inputClass : inputDisabledClass}
+                  placeholder="ex: 4759A"
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-400 mt-1">Activité principale exercée (ex: 4759A — Commerce de meubles)</p>
+              </div>
+              {/* Capital social */}
+              <div>
+                <label className={labelClass}>Capital social</label>
+                <input
+                  type="text"
+                  value={wsForm.legal_capital}
+                  onChange={e => setWsForm(f => ({ ...f, legal_capital: e.target.value }))}
+                  disabled={!isAdmin}
+                  className={isAdmin ? inputClass : inputDisabledClass}
+                  placeholder="ex: 10 000 € ou SAS au capital de 10 000 €"
+                />
+                <p className="text-xs text-gray-400 mt-1">Apparaît sur les bons de commande et factures</p>
               </div>
               <div>
                 <label className={labelClass}>Forme juridique</label>
