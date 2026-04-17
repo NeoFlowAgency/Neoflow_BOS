@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { sendEmail } from '../services/edgeFunctionService'
+import { sendEmail, generatePdf } from '../services/edgeFunctionService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -14,6 +14,7 @@ export default function ApercuFacture() {
   const [lignes, setLignes] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
@@ -86,8 +87,23 @@ export default function ApercuFacture() {
     }
   }
 
-  const handleDownloadPdf = () => {
-    window.print()
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true)
+    setActionMessage({ type: '', text: '' })
+    try {
+      const result = await generatePdf('invoice', factureId)
+      if (!result?.pdf_url) throw new Error('Réponse PDF invalide')
+
+      // Téléchargement automatique depuis le base64
+      const link = document.createElement('a')
+      link.href = result.pdf_url
+      link.download = `facture-${facture.invoice_number || factureId}.pdf`
+      link.click()
+    } catch (err) {
+      setActionMessage({ type: 'error', text: err.message || 'Erreur lors de la génération du PDF' })
+    } finally {
+      setPdfLoading(false)
+    }
   }
 
   const handleCreateLivraison = async () => {
@@ -223,10 +239,10 @@ export default function ApercuFacture() {
 
           <button
             onClick={handleDownloadPdf}
-            disabled={actionLoading === 'pdf'}
+            disabled={pdfLoading}
             className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-[#313ADF] text-[#313ADF] rounded-xl font-medium hover:bg-[#313ADF]/5 transition-colors disabled:opacity-50"
           >
-            {actionLoading === 'pdf' ? (
+            {pdfLoading ? (
               <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
