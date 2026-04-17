@@ -248,11 +248,12 @@ export async function listOrdersReadyToDeliver(workspaceId) {
 
   const ids = readyIds.map((r) => r.order_id)
 
-  // 2. Charger les détails de ces commandes
+  // 2. Charger les détails de ces commandes (workspace_id en defense-in-depth)
   const { data, error } = await supabase
     .from('orders')
     .select('id, order_number, total_ttc, status, created_at, customer:customers(first_name, last_name)')
     .in('id', ids)
+    .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false })
 
   if (error) throw error

@@ -659,7 +659,7 @@ serve(async (req) => {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .select(`
-          id, order_number,
+          id, order_number, workspace_id,
           customer:customers(first_name, last_name),
           items:order_items(
             id, description, quantity,
@@ -672,6 +672,14 @@ serve(async (req) => {
 
       if (orderError || !order) {
         return new Response(JSON.stringify({ error: 'Commande introuvable' }), { status: 404, headers: corsHeaders })
+      }
+
+      // Verify membership
+      if ((order as any).workspace_id) {
+        const { data: membership } = await supabase.from('workspace_users').select('id').eq('workspace_id', (order as any).workspace_id).eq('user_id', user.id).single()
+        if (!membership) {
+          return new Response(JSON.stringify({ error: 'Acces refuse' }), { status: 403, headers: corsHeaders })
+        }
       }
 
       const NAVY_LB = rgb(4/255, 7/255, 65/255)

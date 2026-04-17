@@ -69,9 +69,29 @@ export default function ApercuCommande() {
   const showMargins = canViewMargins(role)
 
   useEffect(() => {
-    if (workspace?.id && commandeId) {
-      loadOrder()
+    if (!workspace?.id || !commandeId) return
+    let cancelled = false
+    const fetch = async () => {
+      try {
+        const data = await getOrder(commandeId)
+        const paymentList = await listPayments(commandeId)
+        const [cmqs, suppList] = await Promise.all([
+          listContremarquesByOrder(commandeId),
+          suppliers.length === 0 ? listSuppliers(workspace.id) : Promise.resolve(suppliers),
+        ])
+        if (cancelled) return
+        setOrder(data)
+        setPayments(paymentList)
+        setContremarques(cmqs)
+        if (suppList.length > 0) setSuppliers(suppList)
+      } catch (err) {
+        if (!cancelled) toast.error('Erreur lors du chargement de la commande')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
+    fetch()
+    return () => { cancelled = true }
   }, [workspace?.id, commandeId])
 
   const loadOrder = async () => {
@@ -87,7 +107,6 @@ export default function ApercuCommande() {
       setContremarques(cmqs)
       if (suppList.length > 0) setSuppliers(suppList)
     } catch (err) {
-      console.error('Erreur chargement commande:', err)
       toast.error('Erreur lors du chargement de la commande')
     } finally {
       setLoading(false)
@@ -124,7 +143,7 @@ export default function ApercuCommande() {
             await debitStock(workspace.id, commandeId, orderItems, defaultLoc.id, user.id)
           }
         } catch (stockErr) {
-          console.warn('Debit stock non effectue:', stockErr.message)
+          // Débit stock non bloquant — la commande est confirmée même si le stock échoue
         }
       }
 
@@ -284,7 +303,6 @@ export default function ApercuCommande() {
 
       window.open(data.pdf_url, '_blank')
     } catch (err) {
-      console.error('Erreur PDF bon de commande:', err)
       toast.error(err.message || 'Erreur lors de la génération du bon de commande')
     } finally {
       setPdfLoading(false)

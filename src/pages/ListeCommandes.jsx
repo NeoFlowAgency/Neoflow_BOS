@@ -62,28 +62,29 @@ export default function ListeCommandes() {
   }, [])
 
   useEffect(() => {
-    if (workspace?.id) loadOrders()
-  }, [workspace?.id, statusFilter])
-
-  const loadOrders = async () => {
+    if (!workspace?.id) return
+    let cancelled = false
     setLoading(true)
-    try {
-      let data
-      if (statusFilter === 'pret_a_livrer') {
-        data = await listOrdersReadyToDeliver(workspace.id)
-      } else {
-        const filters = {}
-        if (statusFilter) filters.status = statusFilter
-        data = await listOrders(workspace.id, filters)
+    const fetch = async () => {
+      try {
+        let data
+        if (statusFilter === 'pret_a_livrer') {
+          data = await listOrdersReadyToDeliver(workspace.id)
+        } else {
+          const filters = {}
+          if (statusFilter) filters.status = statusFilter
+          data = await listOrders(workspace.id, filters)
+        }
+        if (!cancelled) setOrders(data)
+      } catch (err) {
+        if (!cancelled) toast.error('Erreur lors du chargement des commandes')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setOrders(data)
-    } catch (err) {
-      console.error('Erreur chargement commandes:', err)
-      toast.error('Erreur lors du chargement des commandes')
-    } finally {
-      setLoading(false)
     }
-  }
+    fetch()
+    return () => { cancelled = true }
+  }, [workspace?.id, statusFilter])
 
   const filteredOrders = orders.filter(order => {
     if (!searchTerm) return true
