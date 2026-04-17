@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listOrders, updateOrderStatus } from '../services/orderService'
+import { listOrders, updateOrderStatus, listOrdersReadyToDeliver } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { downloadCSV } from '../lib/csvExport'
@@ -29,6 +29,7 @@ const STATUS_FLOW = {
 
 const STATUS_FILTERS = [
   { value: '', label: 'Tous' },
+  { value: 'pret_a_livrer', label: '✓ Prêt à livrer', special: true },
   { value: 'confirme', label: 'Confirmé' },
   { value: 'en_preparation', label: 'En préparation' },
   { value: 'en_livraison', label: 'En livraison' },
@@ -67,9 +68,14 @@ export default function ListeCommandes() {
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const filters = {}
-      if (statusFilter) filters.status = statusFilter
-      const data = await listOrders(workspace.id, filters)
+      let data
+      if (statusFilter === 'pret_a_livrer') {
+        data = await listOrdersReadyToDeliver(workspace.id)
+      } else {
+        const filters = {}
+        if (statusFilter) filters.status = statusFilter
+        data = await listOrders(workspace.id, filters)
+      }
       setOrders(data)
     } catch (err) {
       console.error('Erreur chargement commandes:', err)
@@ -189,8 +195,8 @@ export default function ListeCommandes() {
               onClick={() => setStatusFilter(f.value)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 statusFilter === f.value
-                  ? 'bg-[#313ADF] text-white shadow-md'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  ? f.special ? 'bg-green-600 text-white shadow-md' : 'bg-[#313ADF] text-white shadow-md'
+                  : f.special ? 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
               {f.label}

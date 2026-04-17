@@ -232,3 +232,29 @@ export async function generateInvoiceFromOrder(orderId, invoiceCategory = 'stand
   if (error) throw new Error('Erreur generation facture: ' + error.message)
   return data
 }
+
+/**
+ * Retourne les commandes prêtes à livrer dans un workspace.
+ * Utilise la RPC batch list_orders_ready_to_deliver pour éviter les N+1 requêtes
+ * (1 seul appel DB au lieu d'un appel par commande).
+ */
+export async function listOrdersReadyToDeliver(workspaceId) {
+  // 1. Récupérer les IDs via RPC batch (1 seule requête DB)
+  const { data: readyIds, error: rpcError } = await supabase
+    .rpc('list_orders_ready_to_deliver', { p_workspace_id: workspaceId })
+
+  if (rpcError) throw rpcError
+  if (!readyIds || readyIds.length === 0) return []
+
+  const ids = readyIds.map((r) => r.order_id)
+
+  // 2. Charger les détails de ces commandes
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_number, total_ttc, status, created_at, customer:customers(first_name, last_name)')
+    .in('id', ids)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
