@@ -49,6 +49,7 @@ const OnboardingSurvey = lazy(() => import('./pages/OnboardingSurvey'))
 const ListeSAV = lazy(() => import('./pages/ListeSAV'))
 const CreerSAV = lazy(() => import('./pages/CreerSAV'))
 const ApercuSAV = lazy(() => import('./pages/ApercuSAV'))
+const ListeContremarques = lazy(() => import('./pages/ListeContremarques'))
 const LivraisonLivreur = lazy(() => import('./pages/LivraisonLivreur'))
 const EnterprisePage = lazy(() => import('./pages/EnterprisePage'))
 const AdminWorkspaces = lazy(() => import('./pages/AdminWorkspaces'))
@@ -301,6 +302,13 @@ function App() {
             <Route path="/sav/nouveau" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><CreerSAV /></RoleGuard></ProtectedLayout>} />
             <Route path="/sav/:savId" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ApercuSAV /></RoleGuard></ProtectedLayout>} />
             <Route path="/sav" element={<ProtectedLayout><RoleGuard allowedRoles={BUSINESS_ROLES}><ListeSAV /></RoleGuard></ProtectedLayout>} />
+            <Route path="/contremarques" element={
+              <ProtectedRoute>
+                <RoleGuard allowedRoles={SALES_ROLES}>
+                  <Layout><ListeContremarques /></Layout>
+                </RoleGuard>
+              </ProtectedRoute>
+            } />
             <Route path="/dashboard-financier" element={<ProtectedLayout><RoleGuard allowedRoles={MANAGEMENT_ROLES}><DashboardFinancier /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation/admin" element={<ProtectedLayout><RoleGuard allowedRoles={['proprietaire']}><DocumentationAdmin /></RoleGuard></ProtectedLayout>} />
             <Route path="/documentation" element={<ProtectedLayout><Documentation /></ProtectedLayout>} />
