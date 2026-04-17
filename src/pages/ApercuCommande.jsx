@@ -7,6 +7,8 @@ import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { canViewMargins } from '../lib/permissions'
 import PaymentModal from '../components/PaymentModal'
+import { listContremarquesByOrder, createContremarque, updateContremarqueStatus, deleteContremarque } from '../services/contremarqueService'
+import { listSuppliers } from '../services/supplierService'
 
 const STATUS_BADGES = {
   brouillon: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Brouillon' },
@@ -45,6 +47,17 @@ export default function ApercuCommande() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
+  const [contremarques, setContremarques] = useState([])
+  const [showAddContremarque, setShowAddContremarque] = useState(false)
+  const [contremarqueForm, setContremarqueForm] = useState({
+    orderItemId: '',
+    supplierId: '',
+    expectedDate: '',
+    notes: '',
+  })
+  const [contremarqueLoading, setContremarqueLoading] = useState(false)
+  const [suppliers, setSuppliers] = useState([])
+
   // Livraison creation
   const [showCreateDelivery, setShowCreateDelivery] = useState(false)
   const [deliveryForm, setDeliveryForm] = useState({ scheduled_date: '', delivery_address: '', time_slot: '', assigned_to: '', notes: '' })
@@ -65,6 +78,12 @@ export default function ApercuCommande() {
       setOrder(data)
       const paymentList = await listPayments(commandeId)
       setPayments(paymentList)
+      const [cmqs, suppList] = await Promise.all([
+        listContremarquesByOrder(commandeId),
+        suppliers.length === 0 ? listSuppliers(workspace.id) : Promise.resolve(suppliers),
+      ])
+      setContremarques(cmqs)
+      if (suppList.length > 0) setSuppliers(suppList)
     } catch (err) {
       console.error('Erreur chargement commande:', err)
       toast.error('Erreur lors du chargement de la commande')
@@ -281,6 +300,68 @@ export default function ApercuCommande() {
     } finally {
       setActionLoading(null)
       setShowDeleteConfirm(false)
+    }
+  }
+
+  const CONTREMARQUE_STATUS = {
+    en_attente:  { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'En attente' },
+    commandee:   { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Commandée' },
+    recue:       { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Reçue' },
+    allouee:     { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Allouée' },
+    livree:      { bg: 'bg-green-100',  text: 'text-green-700',  label: 'Livrée' },
+  }
+
+  const CONTREMARQUE_TRANSITIONS = {
+    en_attente: ['commandee'],
+    commandee:  ['recue'],
+    recue:      ['allouee'],
+    allouee:    ['livree'],
+    livree:     [],
+  }
+
+  const handleAddContremarque = async () => {
+    if (!contremarqueForm.orderItemId) {
+      toast.error('Sélectionnez une ligne de commande')
+      return
+    }
+    setContremarqueLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await createContremarque(workspace.id, user.id, {
+        orderId: commandeId,
+        orderItemId: contremarqueForm.orderItemId,
+        supplierId: contremarqueForm.supplierId || null,
+        expectedDate: contremarqueForm.expectedDate || null,
+        notes: contremarqueForm.notes || null,
+      })
+      toast.success('Contremarque créée')
+      setShowAddContremarque(false)
+      setContremarqueForm({ orderItemId: '', supplierId: '', expectedDate: '', notes: '' })
+      loadOrder()
+    } catch (err) {
+      toast.error(err.message || 'Erreur création contremarque')
+    } finally {
+      setContremarqueLoading(false)
+    }
+  }
+
+  const handleContremarqueStatus = async (contremarqueId, newStatus) => {
+    try {
+      await updateContremarqueStatus(contremarqueId, newStatus)
+      toast.success('Statut mis à jour')
+      loadOrder()
+    } catch (err) {
+      toast.error(err.message || 'Erreur mise à jour')
+    }
+  }
+
+  const handleDeleteContremarque = async (contremarqueId) => {
+    try {
+      await deleteContremarque(contremarqueId)
+      toast.success('Contremarque supprimée')
+      loadOrder()
+    } catch (err) {
+      toast.error(err.message || 'Erreur suppression')
     }
   }
 
@@ -512,6 +593,164 @@ export default function ApercuCommande() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ── Section Contremarques ── */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">
+                Contremarques
+                {contremarques.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({contremarques.length})
+                  </span>
+                )}
+              </h3>
+              {['proprietaire', 'manager', 'vendeur'].includes(role) && (
+                <button
+                  onClick={() => setShowAddContremarque(v => !v)}
+                  className="text-sm text-[#313ADF] hover:underline font-medium"
+                >
+                  + Ajouter
+                </button>
+              )}
+            </div>
+
+            {showAddContremarque && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Ligne de commande *</label>
+                  <select
+                    value={contremarqueForm.orderItemId}
+                    onChange={e => setContremarqueForm(f => ({ ...f, orderItemId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">Sélectionner une ligne</option>
+                    {(order?.items || []).map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.description || item.product?.name || 'Article'}
+                        {item.variant ? ` — ${item.variant.size}${item.variant.comfort ? ' ' + item.variant.comfort : ''}` : ''}
+                        {` (×${item.quantity})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Fournisseur</label>
+                    <select
+                      value={contremarqueForm.supplierId}
+                      onChange={e => setContremarqueForm(f => ({ ...f, supplierId: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="">Aucun</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Date livraison prévue</label>
+                    <input
+                      type="date"
+                      value={contremarqueForm.expectedDate}
+                      onChange={e => setContremarqueForm(f => ({ ...f, expectedDate: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Notes</label>
+                  <input
+                    type="text"
+                    value={contremarqueForm.notes}
+                    onChange={e => setContremarqueForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Référence fournisseur, observations..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddContremarque}
+                    disabled={contremarqueLoading}
+                    className="flex-1 bg-[#313ADF] text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+                  >
+                    {contremarqueLoading ? 'Création...' : 'Créer la contremarque'}
+                  </button>
+                  <button
+                    onClick={() => setShowAddContremarque(false)}
+                    className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {contremarques.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Aucune contremarque</p>
+            ) : (
+              <div className="space-y-3">
+                {contremarques.map(cm => {
+                  const st = CONTREMARQUE_STATUS[cm.status] || CONTREMARQUE_STATUS.en_attente
+                  const nextStatuses = CONTREMARQUE_TRANSITIONS[cm.status] || []
+                  return (
+                    <div key={cm.id} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.bg} ${st.text}`}>
+                            {st.label}
+                          </span>
+                          {cm.supplier?.name && (
+                            <span className="text-xs text-gray-500">{cm.supplier.name}</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700 truncate">
+                          {cm.order_item?.product?.name || 'Article'}
+                          {cm.order_item?.variant?.size ? ` — ${cm.order_item.variant.size}` : ''}
+                          {cm.order_item?.variant?.comfort ? ` ${cm.order_item.variant.comfort}` : ''}
+                        </p>
+                        {cm.expected_date && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Prévu : {new Date(cm.expected_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                        {cm.received_date && (
+                          <p className="text-xs text-green-600 mt-0.5">
+                            Reçu le : {new Date(cm.received_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                        {cm.notes && (
+                          <p className="text-xs text-gray-500 mt-0.5 italic">{cm.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
+                        {nextStatuses.map(ns => {
+                          const nextSt = CONTREMARQUE_STATUS[ns]
+                          return (
+                            <button
+                              key={ns}
+                              onClick={() => handleContremarqueStatus(cm.id, ns)}
+                              className="text-xs text-[#313ADF] hover:underline whitespace-nowrap"
+                            >
+                              → {nextSt?.label}
+                            </button>
+                          )
+                        })}
+                        {cm.status === 'en_attente' && ['proprietaire', 'manager'].includes(role) && (
+                          <button
+                            onClick={() => handleDeleteContremarque(cm.id)}
+                            className="text-xs text-red-400 hover:text-red-600 mt-1"
+                          >
+                            Supprimer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Notes */}
