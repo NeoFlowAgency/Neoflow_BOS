@@ -38,31 +38,25 @@ export default function ListeContremarques() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('en_attente')
   const [updatingId, setUpdatingId] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    if (workspace?.id) load()
-  }, [workspace?.id, statusFilter])
-
-  const load = async () => {
+    if (!workspace?.id) return
+    let cancelled = false
     setLoading(true)
-    try {
-      const data = await listContremarques(workspace.id, {
-        status: statusFilter || undefined,
-      })
-      setContremarques(data)
-    } catch (err) {
-      toast.error('Erreur chargement contremarques')
-    } finally {
-      setLoading(false)
-    }
-  }
+    listContremarques(workspace.id, { status: statusFilter || undefined })
+      .then(data => { if (!cancelled) setContremarques(data) })
+      .catch(() => { if (!cancelled) toast.error('Erreur chargement contremarques') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [workspace?.id, statusFilter, refreshKey])
 
   const handleStatusChange = async (contremarqueId, newStatus) => {
     setUpdatingId(contremarqueId)
     try {
       await updateContremarqueStatus(contremarqueId, newStatus)
       toast.success('Statut mis à jour')
-      load()
+      setRefreshKey(k => k + 1)
     } catch (err) {
       toast.error(err.message || 'Erreur mise à jour')
     } finally {
