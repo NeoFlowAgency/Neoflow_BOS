@@ -64,6 +64,7 @@ CREATE OR REPLACE FUNCTION is_order_ready_to_deliver(order_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   RETURN (
@@ -90,8 +91,17 @@ CREATE OR REPLACE FUNCTION list_orders_ready_to_deliver(p_workspace_id UUID)
 RETURNS TABLE(order_id UUID)
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
+  -- Verify caller is a member of this workspace
+  IF NOT EXISTS (
+    SELECT 1 FROM workspace_users
+    WHERE workspace_users.workspace_id = p_workspace_id AND user_id = auth.uid()
+  ) THEN
+    RETURN;
+  END IF;
+
   RETURN QUERY
   SELECT o.id
   FROM orders o
