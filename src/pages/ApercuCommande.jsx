@@ -46,6 +46,8 @@ export default function ApercuCommande() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [bonLivraisonLoading, setBonLivraisonLoading] = useState(false)
+  const [etiquettesLoading, setEtiquettesLoading] = useState(false)
 
   const [contremarques, setContremarques] = useState([])
   const [showAddContremarque, setShowAddContremarque] = useState(false)
@@ -286,6 +288,52 @@ export default function ApercuCommande() {
       toast.error(err.message || 'Erreur lors de la génération du bon de commande')
     } finally {
       setPdfLoading(false)
+    }
+  }
+
+  const handlePrintBonLivraison = async () => {
+    try {
+      setBonLivraisonLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Non authentifié')
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ document_type: 'delivery_note', document_id: order.id }),
+        }
+      )
+      const data = await response.json()
+      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
+      window.open(data.pdf_url, '_blank')
+    } catch (err) {
+      toast.error(err.message || 'Erreur lors de la génération du bon de livraison')
+    } finally {
+      setBonLivraisonLoading(false)
+    }
+  }
+
+  const handlePrintEtiquettes = async () => {
+    try {
+      setEtiquettesLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Non authentifié')
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ document_type: 'label', document_id: order.id }),
+        }
+      )
+      const data = await response.json()
+      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
+      window.open(data.pdf_url, '_blank')
+    } catch (err) {
+      toast.error(err.message || 'Erreur lors de la génération des étiquettes')
+    } finally {
+      setEtiquettesLoading(false)
     }
   }
 
@@ -825,6 +873,38 @@ export default function ApercuCommande() {
                   </svg>
                 )}
                 Bon de commande
+              </button>
+
+              {/* Bon de livraison PDF */}
+              <button
+                onClick={handlePrintBonLivraison}
+                disabled={bonLivraisonLoading}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-medium text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {bonLivraisonLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                )}
+                Bon de livraison
+              </button>
+
+              {/* Étiquettes produits PDF */}
+              <button
+                onClick={handlePrintEtiquettes}
+                disabled={etiquettesLoading}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-medium text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {etiquettesLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z" />
+                  </svg>
+                )}
+                Étiquettes produits
               </button>
 
               {/* Supprimer */}

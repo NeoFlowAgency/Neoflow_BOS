@@ -453,6 +453,287 @@ serve(async (req) => {
       )
     }
 
+    // ─── Bon de livraison (type 'delivery_note') ─────────────────────────
+    if (document_type === 'delivery_note') {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          id, order_number, status, created_at,
+          total_ttc, amount_paid, remaining_amount,
+          old_furniture_option, delivered_at,
+          wished_delivery_date, max_delivery_date,
+          customer:customers(first_name, last_name, phone, address, city, postal_code),
+          items:order_items(
+            id, description, quantity, unit_price_ht, tax_rate, total_ht,
+            eco_participation,
+            product:products(id, name, reference),
+            variant:product_variants(id, size, comfort)
+          ),
+          order_payments(id, payment_type, mode, amount),
+          workspace:workspaces(
+            name, address, city, postal_code, phone, email, siret, ape_code, legal_capital,
+            logo_url
+          )
+        `)
+        .eq('id', document_id)
+        .single()
+
+      if (orderError || !order) {
+        return new Response(JSON.stringify({ error: 'Commande introuvable' }), { status: 404, headers: corsHeaders })
+      }
+
+      // Verify membership
+      if ((order as any).workspace_id) {
+        const { data: membership } = await supabase.from('workspace_users').select('id').eq('workspace_id', (order as any).workspace_id).eq('user_id', user.id).single()
+        if (!membership) {
+          return new Response(JSON.stringify({ error: 'Acces refuse' }), { status: 403, headers: corsHeaders })
+        }
+      }
+
+      const { data: delivery } = await supabase
+        .from('deliveries')
+        .select('id, scheduled_date, time_slot, assigned_to, delivery_address, notes')
+        .eq('order_id', document_id)
+        .not('status', 'eq', 'annulee')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const payments = (order as any).order_payments || []
+      const totalAcompte = payments
+        .filter((p: any) => p.payment_type === 'acompte')
+        .reduce((s: number, p: any) => s + Number(p.amount), 0)
+      const soldeRestant = Math.max(0, Number((order as any).total_ttc || 0) - totalAcompte)
+
+      const NAVY_DN = rgb(4/255, 7/255, 65/255)
+      const BLUE_DN = rgb(49/255, 58/255, 223/255)
+      const LIGHT_DN = rgb(245/255, 246/255, 255/255)
+
+      const pdfDoc_dn = await PDFDocument.create()
+      const font_dn     = await pdfDoc_dn.embedFont(StandardFonts.Helvetica)
+      const fontBold_dn = await pdfDoc_dn.embedFont(StandardFonts.HelveticaBold)
+
+      const page_dn = pdfDoc_dn.addPage([595.28, 841.89])
+      const { width: w_dn, height: h_dn } = page_dn.getSize()
+      let y_dn = h_dn
+
+      const ws_dn = (order as any).workspace as any
+      const customer_dn = (order as any).customer as any
+      const customerName_dn = customer_dn ? `${customer_dn.first_name || ''} ${customer_dn.last_name || ''}`.trim() : ''
+
+      page_dn.drawRectangle({ x: 0, y: h_dn - 8, width: w_dn, height: 8, color: BLUE_DN })
+      y_dn = h_dn - 8
+
+      page_dn.drawText(ws_dn?.name || 'Magasin', { x: 40, y: y_dn - 28, size: 14, font: fontBold_dn, color: NAVY_DN })
+      const wsInfoLines_dn = [
+        ws_dn?.address, [ws_dn?.postal_code, ws_dn?.city].filter(Boolean).join(' '),
+        ws_dn?.phone, ws_dn?.email,
+      ].filter(Boolean) as string[]
+      wsInfoLines_dn.forEach((line, i) => {
+        page_dn.drawText(line, { x: 40, y: y_dn - 44 - i * 12, size: 8, font: font_dn, color: rgb(0.4, 0.4, 0.4) })
+      })
+      y_dn = y_dn - 44 - wsInfoLines_dn.length * 12 - 8
+
+      page_dn.drawRectangle({ x: 0, y: y_dn - 34, width: w_dn, height: 34, color: NAVY_DN })
+      page_dn.drawText('BON DE LIVRAISON', { x: 40, y: y_dn - 23, size: 14, font: fontBold_dn, color: rgb(1, 1, 1) })
+      const dateStr_dn = (delivery as any)?.scheduled_date
+        ? new Date((delivery as any).scheduled_date).toLocaleDateString('fr-FR')
+        : new Date((order as any).created_at).toLocaleDateString('fr-FR')
+      page_dn.drawText(`N\u00b0 ${(order as any).order_number}  |  Date : ${dateStr_dn}`, {
+        x: w_dn - 240, y: y_dn - 23, size: 9, font: font_dn, color: rgb(0.8, 0.8, 0.8)
+      })
+      y_dn -= 50
+
+      page_dn.drawRectangle({ x: 40, y: y_dn - 80, width: 250, height: 80, color: LIGHT_DN })
+      page_dn.drawText('CLIENT', { x: 50, y: y_dn - 14, size: 8, font: fontBold_dn, color: BLUE_DN })
+      page_dn.drawText(customerName_dn, { x: 50, y: y_dn - 28, size: 10, font: fontBold_dn, color: NAVY_DN })
+      const addr_dn = (delivery as any)?.delivery_address || [customer_dn?.address, customer_dn?.postal_code, customer_dn?.city].filter(Boolean).join(', ')
+      if (addr_dn) {
+        const words_dn = addr_dn.split(' ')
+        let line_dn = ''
+        let lineY_dn = y_dn - 42
+        words_dn.forEach((w: string) => {
+          const test = line_dn ? `${line_dn} ${w}` : w
+          if (font_dn.widthOfTextAtSize(test, 8) > 230) {
+            page_dn.drawText(line_dn, { x: 50, y: lineY_dn, size: 8, font: font_dn, color: NAVY_DN })
+            lineY_dn -= 11
+            line_dn = w
+          } else { line_dn = test }
+        })
+        if (line_dn) page_dn.drawText(line_dn, { x: 50, y: lineY_dn, size: 8, font: font_dn, color: NAVY_DN })
+      }
+      if (customer_dn?.phone) {
+        page_dn.drawText(`T\u00e9l : ${customer_dn.phone}`, { x: 50, y: y_dn - 72, size: 8, font: font_dn, color: rgb(0.4, 0.4, 0.4) })
+      }
+
+      if ((delivery as any)?.time_slot || (delivery as any)?.scheduled_date) {
+        page_dn.drawRectangle({ x: 310, y: y_dn - 80, width: 245, height: 80, color: LIGHT_DN })
+        page_dn.drawText('CR\u00c9NEAU DE LIVRAISON', { x: 320, y: y_dn - 14, size: 8, font: fontBold_dn, color: BLUE_DN })
+        if ((delivery as any).scheduled_date) {
+          page_dn.drawText(new Date((delivery as any).scheduled_date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            { x: 320, y: y_dn - 28, size: 9, font: fontBold_dn, color: NAVY_DN })
+        }
+        if ((delivery as any).time_slot) {
+          page_dn.drawText((delivery as any).time_slot, { x: 320, y: y_dn - 42, size: 12, font: fontBold_dn, color: BLUE_DN })
+        }
+      }
+      y_dn -= 96
+
+      const items_dn = ((order as any).items || []) as any[]
+      page_dn.drawRectangle({ x: 40, y: y_dn - 18, width: w_dn - 80, height: 18, color: NAVY_DN })
+      const headers_dn = ['D\u00e9signation', 'Qt\u00e9', 'P.U. TTC', 'Total TTC']
+      const colX_dn = [50, 360, 420, 500]
+      headers_dn.forEach((h, i) => {
+        page_dn.drawText(h, { x: colX_dn[i], y: y_dn - 13, size: 8, font: fontBold_dn, color: rgb(1, 1, 1) })
+      })
+      y_dn -= 18
+
+      items_dn.forEach((item: any) => {
+        if (y_dn < 120) return
+        const itemHeight = 22
+        const ttcUnit = Number(item.unit_price_ht || 0) * (1 + Number(item.tax_rate || 20) / 100)
+        const ttcTotal = ttcUnit * Number(item.quantity || 1)
+        const label = item.description || item.product?.name || 'Article'
+        const variantSuffix = item.variant
+          ? ` \u2014 ${item.variant.size}${item.variant.comfort ? ' ' + item.variant.comfort : ''}`
+          : ''
+        page_dn.drawText(label + variantSuffix, { x: colX_dn[0], y: y_dn - 14, size: 9, font: fontBold_dn, color: NAVY_DN, maxWidth: 290 })
+        page_dn.drawText(String(item.quantity || 1), { x: colX_dn[1], y: y_dn - 14, size: 9, font: font_dn, color: NAVY_DN })
+        page_dn.drawText(`${ttcUnit.toFixed(2)} \u20ac`, { x: colX_dn[2], y: y_dn - 14, size: 9, font: font_dn, color: NAVY_DN })
+        page_dn.drawText(`${ttcTotal.toFixed(2)} \u20ac`, { x: colX_dn[3], y: y_dn - 14, size: 9, font: fontBold_dn, color: NAVY_DN })
+        if (Number(item.eco_participation) > 0) {
+          page_dn.drawText(`  \u00c9co-participation DEA : ${Number(item.eco_participation).toFixed(2)} \u20ac`,
+            { x: colX_dn[0], y: y_dn - 25, size: 7, font: font_dn, color: rgb(0.5, 0.5, 0.5) })
+          y_dn -= 11
+        }
+        y_dn -= itemHeight
+        page_dn.drawLine({ start: { x: 40, y: y_dn }, end: { x: w_dn - 40, y: y_dn }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) })
+      })
+
+      y_dn -= 16
+      const totalTTC_dn = Number((order as any).total_ttc || 0)
+      page_dn.drawRectangle({ x: w_dn - 230, y: y_dn - 60, width: 190, height: 60, color: LIGHT_DN })
+      page_dn.drawText('Total TTC', { x: w_dn - 220, y: y_dn - 14, size: 9, font: font_dn, color: NAVY_DN })
+      page_dn.drawText(`${totalTTC_dn.toFixed(2)} \u20ac`, { x: w_dn - 60, y: y_dn - 14, size: 9, font: fontBold_dn, color: NAVY_DN })
+      if (totalAcompte > 0) {
+        page_dn.drawText('Acompte vers\u00e9', { x: w_dn - 220, y: y_dn - 28, size: 9, font: font_dn, color: rgb(0.4, 0.4, 0.4) })
+        page_dn.drawText(`- ${totalAcompte.toFixed(2)} \u20ac`, { x: w_dn - 70, y: y_dn - 28, size: 9, font: font_dn, color: rgb(0.4, 0.4, 0.4) })
+      }
+      page_dn.drawLine({ start: { x: w_dn - 225, y: y_dn - 35 }, end: { x: w_dn - 50, y: y_dn - 35 }, thickness: 1, color: BLUE_DN })
+      page_dn.drawText('SOLDE \u00c0 ENCAISSER', { x: w_dn - 220, y: y_dn - 50, size: 9, font: fontBold_dn, color: BLUE_DN })
+      page_dn.drawText(`${soldeRestant.toFixed(2)} \u20ac`, { x: w_dn - 75, y: y_dn - 50, size: 12, font: fontBold_dn, color: BLUE_DN })
+      y_dn -= 80
+
+      const OLD_FURNITURE_LABELS_DN: Record<string, string> = {
+        keep: 'Client conserve ses anciens meubles',
+        ess: 'Don ESS (association)',
+        dechetterie: 'D\u00e9chetterie / point de collecte',
+        reprise: 'Reprise gratuite par le magasin',
+      }
+      if ((order as any).old_furniture_option) {
+        page_dn.drawRectangle({ x: 40, y: y_dn - 28, width: w_dn - 80, height: 28, color: LIGHT_DN })
+        page_dn.drawText('REPRISE ANCIENS MEUBLES :', { x: 50, y: y_dn - 18, size: 9, font: fontBold_dn, color: NAVY_DN })
+        page_dn.drawText(OLD_FURNITURE_LABELS_DN[(order as any).old_furniture_option] || (order as any).old_furniture_option, { x: 215, y: y_dn - 18, size: 9, font: font_dn, color: NAVY_DN })
+        y_dn -= 42
+      }
+
+      y_dn -= 20
+      page_dn.drawLine({ start: { x: 40, y: y_dn }, end: { x: 280, y: y_dn }, thickness: 0.5, color: rgb(0.6, 0.6, 0.6) })
+      page_dn.drawLine({ start: { x: 310, y: y_dn }, end: { x: w_dn - 40, y: y_dn }, thickness: 0.5, color: rgb(0.6, 0.6, 0.6) })
+      page_dn.drawText('Signature livreur', { x: 40, y: y_dn - 12, size: 8, font: font_dn, color: rgb(0.5, 0.5, 0.5) })
+      page_dn.drawText('Signature client (bon pour accord)', { x: 310, y: y_dn - 12, size: 8, font: font_dn, color: rgb(0.5, 0.5, 0.5) })
+
+      const footerParts_dn = [ws_dn?.siret ? `SIRET : ${ws_dn.siret}` : '', ws_dn?.ape_code ? `APE : ${ws_dn.ape_code}` : '', ws_dn?.legal_capital ? `Capital : ${ws_dn.legal_capital}` : ''].filter(Boolean)
+      page_dn.drawRectangle({ x: 0, y: 0, width: w_dn, height: 24, color: NAVY_DN })
+      page_dn.drawText(footerParts_dn.join('   \u00b7   '), { x: 40, y: 8, size: 7, font: font_dn, color: rgb(0.7, 0.7, 0.8) })
+
+      const pdfBytes_dn = await pdfDoc_dn.save()
+      const base64_dn = btoa(String.fromCharCode(...new Uint8Array(pdfBytes_dn)))
+      return new Response(JSON.stringify({ pdf_url: `data:application/pdf;base64,${base64_dn}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // ─── Étiquettes produits (type 'label') ──────────────────────────────
+    if (document_type === 'label') {
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          id, order_number,
+          customer:customers(first_name, last_name),
+          items:order_items(
+            id, description, quantity,
+            product:products(id, name, reference),
+            variant:product_variants(id, size, comfort)
+          )
+        `)
+        .eq('id', document_id)
+        .single()
+
+      if (orderError || !order) {
+        return new Response(JSON.stringify({ error: 'Commande introuvable' }), { status: 404, headers: corsHeaders })
+      }
+
+      const NAVY_LB = rgb(4/255, 7/255, 65/255)
+      const BLUE_LB = rgb(49/255, 58/255, 223/255)
+
+      const pdfDoc_lb = await PDFDocument.create()
+      const font_lb     = await pdfDoc_lb.embedFont(StandardFonts.Helvetica)
+      const fontBold_lb = await pdfDoc_lb.embedFont(StandardFonts.HelveticaBold)
+
+      const customer_lb = (order as any).customer as any
+      const customerName_lb = customer_lb ? `${customer_lb.first_name || ''} ${customer_lb.last_name || ''}`.trim() : ''
+      const orderNumber_lb = (order as any).order_number || ''
+      const items_lb = ((order as any).items || []) as any[]
+
+      const LABEL_W = 250
+      const LABEL_H = 160
+      const COL_POSITIONS = [40, 310]
+      const ROW_POSITIONS = [690, 510, 330, 150]
+
+      let page_lb = pdfDoc_lb.addPage([595.28, 841.89])
+      let labelIndex = 0
+
+      const drawLabel = (p: any, x: number, y: number, item: any) => {
+        p.drawRectangle({ x, y, width: LABEL_W, height: LABEL_H, borderColor: BLUE_LB, borderWidth: 1.5, color: rgb(1, 1, 1) })
+        p.drawRectangle({ x, y: y + LABEL_H - 24, width: LABEL_W, height: 24, color: NAVY_LB })
+        p.drawText('NEOFLOW BOS', { x: x + 8, y: y + LABEL_H - 17, size: 8, font: fontBold_lb, color: rgb(1, 1, 1) })
+        p.drawText(orderNumber_lb, { x: x + LABEL_W - 70, y: y + LABEL_H - 17, size: 8, font: fontBold_lb, color: rgb(0.8, 0.8, 1) })
+        const ref = item.product?.reference || ''
+        if (ref) {
+          p.drawText(ref, { x: x + 8, y: y + LABEL_H - 38, size: 9, font: font_lb, color: rgb(0.5, 0.5, 0.5) })
+        }
+        const name = item.description || item.product?.name || 'Article'
+        p.drawText(name, { x: x + 8, y: y + LABEL_H - 54, size: 11, font: fontBold_lb, color: NAVY_LB, maxWidth: LABEL_W - 16 })
+        if (item.variant) {
+          const variantLabel = [item.variant.size, item.variant.comfort].filter(Boolean).join(' \u2014 ')
+          p.drawText(variantLabel, { x: x + 8, y: y + LABEL_H - 72, size: 12, font: fontBold_lb, color: BLUE_LB })
+        }
+        p.drawLine({ start: { x: x + 8, y: y + 48 }, end: { x: x + LABEL_W - 8, y: y + 48 }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
+        p.drawText('CLIENT', { x: x + 8, y: y + 36, size: 7, font: fontBold_lb, color: rgb(0.5, 0.5, 0.5) })
+        p.drawText(customerName_lb, { x: x + 8, y: y + 22, size: 10, font: fontBold_lb, color: NAVY_LB, maxWidth: LABEL_W - 16 })
+        p.drawText(`QT\u00c9 : ${item.quantity || 1}`, { x: x + LABEL_W - 55, y: y + 10, size: 9, font: fontBold_lb, color: BLUE_LB })
+      }
+
+      for (const item of items_lb) {
+        const colIdx = labelIndex % 2
+        const rowIdx = Math.floor(labelIndex / 2) % 4
+        const x = COL_POSITIONS[colIdx]
+        const y = ROW_POSITIONS[rowIdx]
+        if (labelIndex > 0 && colIdx === 0 && rowIdx === 0) {
+          page_lb = pdfDoc_lb.addPage([595.28, 841.89])
+        }
+        drawLabel(page_lb, x, y, item)
+        labelIndex++
+      }
+
+      const pdfBytes_lb = await pdfDoc_lb.save()
+      const base64_lb = btoa(String.fromCharCode(...new Uint8Array(pdfBytes_lb)))
+      return new Response(JSON.stringify({ pdf_url: `data:application/pdf;base64,${base64_lb}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const isInvoice = document_type === 'invoice'
     const table      = isInvoice ? 'invoices' : 'quotes'
     const itemsTable = isInvoice ? 'invoice_items' : 'quote_items'
