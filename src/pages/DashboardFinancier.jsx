@@ -754,7 +754,12 @@ export default function DashboardFinancier() {
                     <p className="font-bold text-[#040741] truncate">{v.name}</p>
                     <p className="text-sm text-gray-500">{v.nbCommandes} commande{v.nbCommandes > 1 ? 's' : ''}</p>
                   </div>
-                  <p className="font-bold text-[#313ADF] text-lg whitespace-nowrap">{formatCurrency(v.ca)}</p>
+                  <div className="text-right">
+                    <p className="font-bold text-[#313ADF] text-lg whitespace-nowrap">{formatCurrency(v.ca)}</p>
+                    {v.nbCommandes > 0 && (
+                      <p className="text-xs text-gray-400">moy. {formatCurrency(v.ca / v.nbCommandes)}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1129,7 +1134,12 @@ export default function DashboardFinancier() {
                       <p className="font-bold text-[#040741] text-lg truncate">{v.name}</p>
                       <p className="text-gray-500">{v.nbCommandes} commande{v.nbCommandes > 1 ? 's' : ''}</p>
                     </div>
-                    <p className="font-bold text-[#313ADF] text-xl whitespace-nowrap">{formatCurrency(v.ca)}</p>
+                    <div className="text-right">
+                      <p className="font-bold text-[#313ADF] text-xl whitespace-nowrap">{formatCurrency(v.ca)}</p>
+                      {v.nbCommandes > 0 && (
+                        <p className="text-sm text-gray-400">moy. {formatCurrency(v.ca / v.nbCommandes)}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

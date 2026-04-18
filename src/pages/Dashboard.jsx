@@ -301,6 +301,39 @@ export default function Dashboard() {
         })
       }
 
+      // Commandes confirmées sans acompte
+      try {
+        const { count: sansAcompte } = await supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('workspace_id', workspace.id)
+          .in('status', ['confirme', 'en_attente_stock', 'pret_a_livrer'])
+          .eq('amount_paid', 0)
+        if (sansAcompte > 0) {
+          newAlerts.push({
+            type: 'warning',
+            message: `${sansAcompte} commande${sansAcompte > 1 ? 's' : ''} confirmée${sansAcompte > 1 ? 's' : ''} sans acompte encaissé`,
+            onClick: () => navigate('/commandes'),
+          })
+        }
+      } catch (_) {}
+
+      // Contremarques reçues non allouées
+      try {
+        const { count: contremarquesRecues } = await supabase
+          .from('contremarques')
+          .select('id', { count: 'exact', head: true })
+          .eq('workspace_id', workspace.id)
+          .eq('status', 'recue')
+        if (contremarquesRecues > 0) {
+          newAlerts.push({
+            type: 'warning',
+            message: `${contremarquesRecues} contremarque${contremarquesRecues > 1 ? 's' : ''} reçue${contremarquesRecues > 1 ? 's' : ''} en attente d'allocation`,
+            onClick: () => navigate('/commandes'),
+          })
+        }
+      } catch (_) {}
+
       // Alertes stock (par emplacement)
       try {
         const stockAlerts = await getStockAlerts(workspace.id)
