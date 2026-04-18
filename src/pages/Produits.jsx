@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { canViewMargins } from '../lib/permissions'
+import { downloadCSV } from '../lib/csvExport'
 import { listVariants, createVariant, archiveVariant } from '../services/variantService'
 
 const CATEGORIES = [
@@ -214,15 +215,29 @@ export default function Produits() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#040741] mb-1">Produits</h1>
           <p className="text-gray-500">{produits.length} produit{produits.length > 1 ? 's' : ''} au total</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouveau produit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('produits', ['Référence', 'Nom', 'Catégorie', 'Prix HT', 'TVA %', "Prix d'achat HT", 'Garantie (ans)'],
+              produits.map(p => [p.reference || '', p.name || '', p.category || '', p.unit_price_ht ?? '', p.tax_rate ?? '', p.cost_price_ht ?? '', p.warranty_years ?? ''])
+            )}
+            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 bg-white text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors"
+            title="Exporter CSV"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exporter
+          </button>
+          <button
+            onClick={openCreate}
+            className="bg-gradient-to-r from-[#040741] to-[#313ADF] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau produit
+          </button>
+        </div>
       </div>
 
       {/* Recherche + Filtre categorie */}

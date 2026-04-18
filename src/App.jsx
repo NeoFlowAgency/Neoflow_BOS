@@ -55,6 +55,7 @@ const CarteLivraisons  = lazy(() => import('./pages/CarteLivraisons'))
 const EnterprisePage = lazy(() => import('./pages/EnterprisePage'))
 const AdminWorkspaces = lazy(() => import('./pages/AdminWorkspaces'))
 const Neo = lazy(() => import('./pages/Neo'))
+const Import = lazy(() => import('./pages/Import'))
 
 // Fallback affiché pendant le chargement des chunks
 function PageLoader() {
@@ -311,6 +312,7 @@ function App() {
             <Route path="/settings" element={<ProtectedLayout><Settings /></ProtectedLayout>} />
             <Route path="/admin-workspaces" element={<ProtectedLayout><AdminWorkspaces /></ProtectedLayout>} />
             <Route path="/neo" element={<ProtectedRoute><Neo /></ProtectedRoute>} />
+            <Route path="/import" element={<ProtectedRoute><Import /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
             <Route
               path="/onboarding/survey"

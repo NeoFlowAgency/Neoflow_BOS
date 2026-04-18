@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { listSuppliers, createSupplier, updateSupplier, archiveSupplier } from '../services/supplierService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
+import { downloadCSV } from '../lib/csvExport'
 
 export default function Fournisseurs() {
   const navigate = useNavigate()
@@ -107,15 +108,28 @@ export default function Fournisseurs() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">Fournisseurs</h1>
           <p className="text-gray-500">{filteredSuppliers.length} fournisseur{filteredSuppliers.length !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-[#313ADF] text-white px-5 py-3 rounded-xl font-semibold hover:bg-[#4149e8] transition-colors shadow-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Nouveau fournisseur
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCSV('fournisseurs', ['Nom', 'Contact', 'Email', 'Téléphone', 'Adresse', 'CP', 'Ville'],
+              filteredSuppliers.map(s => [s.name || '', s.contact_name || '', s.email || '', s.phone || '', s.address || '', s.postal_code || '', s.city || ''])
+            )}
+            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 bg-white text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exporter
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-[#313ADF] text-white px-5 py-3 rounded-xl font-semibold hover:bg-[#4149e8] transition-colors shadow-lg"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau fournisseur
+          </button>
+        </div>
       </div>
 
       {/* Recherche */}
