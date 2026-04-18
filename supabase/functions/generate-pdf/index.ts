@@ -2,7 +2,7 @@
 // NeoFlow BOS - Edge Function: generate-pdf
 // Deploy: supabase functions deploy generate-pdf --no-verify-jwt
 // ============================================================
-// Input:  { document_type: 'invoice'|'quote'|'order'|'delivery_note'|'label', document_id: uuid }
+// Input:  { document_type: 'invoice'|'quote'|'order'|'delivery_note'|'label'|'return_note', document_id: uuid }
 // Output: { pdf_url: "data:application/pdf;base64,..." }
 // ============================================================
 
@@ -835,6 +835,202 @@ serve(async (req) => {
       drawFooterBar(pages, fontR, fontB, 'Bon de livraison n\u00b0 ' + orderNumber_dn, legalInfo_dn)
 
       return new Response(JSON.stringify({ pdf_url: await pdfToBase64(pdfDoc) }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // ══════════════════════════════════════════════════════
+    // TYPE: return_note (bon de reprise SAV)
+    // ══════════════════════════════════════════════════════
+    if (document_type === 'return_note') {
+      const { data: ticket, error: ticketError } = await supabase
+        .from('sav_tickets')
+        .select(`
+          id, ticket_number, type, status, description, resolution,
+          refund_amount, created_at, resolved_at,
+          workspace_id,
+          customers(first_name, last_name, full_name, phone, email, address, city, postal_code),
+          orders(order_number),
+          workspaces(name, address, city, postal_code, phone, email, siret, ape_code, logo_url, vat_number)
+        `)
+        .eq('id', document_id)
+        .single()
+
+      if (ticketError || !ticket) {
+        return new Response(JSON.stringify({ error: 'Ticket SAV introuvable' }), { status: 404, headers: corsHeaders })
+      }
+
+      if (ticket.workspace_id) {
+        const { data: membership } = await supabase.from('workspace_users').select('id').eq('workspace_id', ticket.workspace_id).eq('user_id', user.id).single()
+        if (!membership) {
+          return new Response(JSON.stringify({ error: 'Acces refuse' }), { status: 403, headers: corsHeaders })
+        }
+      }
+
+      const { data: savItems } = await supabase
+        .from('sav_items')
+        .select('id, description, quantity, condition, action, product:products(name, reference)')
+        .eq('ticket_id', document_id)
+
+      const ws_rn  = (ticket.workspaces  || {}) as Record<string, unknown>
+      const cust   = (ticket.customers   || {}) as Record<string, unknown>
+      const order  = (ticket.orders      || {}) as Record<string, unknown>
+
+      const TYPE_LABELS_RN: Record<string, string> = {
+        retour: 'Retour produit', reclamation: 'Réclamation',
+        garantie: 'Garantie', avoir: 'Avoir', echange_confort: 'Échange confort (100 nuits)',
+      }
+      const COND_LABELS: Record<string, string> = {
+        neuf: 'Neuf', bon: 'Bon état', abime: 'Abîmé',
+        hors_service: 'Hors service', inconnu: 'Inconnu',
+      }
+      const ACTION_LABELS: Record<string, string> = {
+        remboursement: 'Remboursement', echange: 'Échange', reparation: 'Réparation',
+        rejet: 'Rejet', en_attente: 'À définir',
+      }
+
+      const pdfDoc_rn = await PDFDocument.create()
+      const fontR_rn  = await pdfDoc_rn.embedFont(StandardFonts.Helvetica)
+      const fontB_rn  = await pdfDoc_rn.embedFont(StandardFonts.HelveticaBold)
+      const logoImage_rn = await fetchLogo(pdfDoc_rn, ws_rn.logo_url as string)
+
+      const pages_rn: ReturnType<PDFDocument['addPage']>[] = []
+      const page_rn = pdfDoc_rn.addPage([PAGE_W, PAGE_H])
+      pages_rn.push(page_rn)
+      const d_rn = makeD(page_rn, fontR_rn, fontB_rn)
+
+      // Top bar
+      d_rn.rect(0, 0, PAGE_W, 6, BLUE)
+
+      // Logo ou nom
+      let logoBottom_rn = 18
+      if (logoImage_rn) {
+        const maxW = 120, maxH = 55
+        const ratio = logoImage_rn.width / logoImage_rn.height
+        let lw = maxW, lh = maxW / ratio
+        if (lh > maxH) { lh = maxH; lw = maxH * ratio }
+        d_rn.image(logoImage_rn, MARGIN, 16, lw, lh)
+        logoBottom_rn = 16 + lh + 4
+      } else {
+        d_rn.text(truncate(safe(ws_rn.name), 35), MARGIN, 22, 14, fontB_rn, NAVY)
+        logoBottom_rn = 40
+      }
+
+      // Workspace info (droite)
+      const wsX_rn = PAGE_W - MARGIN
+      let wsY_rn = 16
+      d_rn.textRight(safe(ws_rn.name), wsX_rn, wsY_rn, 10, fontB_rn, NAVY); wsY_rn += 13
+      const wsAddr_rn = [safe(ws_rn.address), [safe(ws_rn.postal_code), safe(ws_rn.city)].filter(Boolean).join(' ')].filter(Boolean)
+      for (const ln of wsAddr_rn) { d_rn.textRight(ln, wsX_rn, wsY_rn, 8, fontR_rn, GRAY); wsY_rn += 11 }
+      if (ws_rn.phone) { d_rn.textRight(safe(ws_rn.phone), wsX_rn, wsY_rn, 8, fontR_rn, GRAY); wsY_rn += 11 }
+      if (ws_rn.siret) { d_rn.textRight('SIRET\u00a0: ' + safe(ws_rn.siret), wsX_rn, wsY_rn, 8, fontR_rn, GRAY); wsY_rn += 11 }
+
+      // Bandeau titre
+      const titleTop_rn = Math.max(logoBottom_rn, wsY_rn) + 8
+      d_rn.rect(MARGIN, titleTop_rn, CW, 30, NAVY)
+      d_rn.text('BON DE REPRISE', MARGIN + 12, titleTop_rn + 10, 14, fontB_rn, WHITE)
+      d_rn.text('N\u00b0\u00a0' + safe(ticket.ticket_number), MARGIN + 12, titleTop_rn + 23, 8, fontR_rn, rgb(0.7, 0.75, 1))
+      d_rn.textRight('Date\u00a0: ' + fmtD(ticket.created_at), PAGE_W - MARGIN - 10, titleTop_rn + 16, 8, fontR_rn, WHITE)
+
+      let y_rn = titleTop_rn + 46
+
+      // Bloc client (gauche) + infos ticket (droite)
+      const clientName_rn = safe(cust.full_name || [cust.first_name, cust.last_name].filter(Boolean).join(' '))
+      d_rn.text('CLIENT', MARGIN, y_rn, 7, fontB_rn, GRAY)
+      y_rn += 12
+      d_rn.text(clientName_rn, MARGIN, y_rn, 10, fontB_rn, DARK);
+      const midX_rn = MARGIN + CW * 0.55
+      d_rn.text('Type\u00a0:', midX_rn, y_rn - 12, 7, fontB_rn, GRAY)
+      d_rn.text(TYPE_LABELS_RN[ticket.type as string] || safe(ticket.type), midX_rn + 50, y_rn - 12, 9, fontB_rn, DARK)
+      y_rn += 12
+      if (cust.phone) { d_rn.text(safe(cust.phone), MARGIN, y_rn, 9, fontR_rn, DARK); y_rn += 12 }
+      if (cust.address) { d_rn.text(safe(cust.address), MARGIN, y_rn, 9, fontR_rn, DARK); y_rn += 12 }
+      const cityLine_rn = [safe(cust.postal_code), safe(cust.city)].filter(Boolean).join(' ')
+      if (cityLine_rn) { d_rn.text(cityLine_rn, MARGIN, y_rn, 9, fontR_rn, DARK); y_rn += 12 }
+      if (order.order_number) {
+        d_rn.text('Commande liée\u00a0: ' + safe(order.order_number), midX_rn, y_rn - 24, 8, fontR_rn, DARK)
+      }
+      if (ticket.refund_amount && (ticket.refund_amount as number) > 0) {
+        d_rn.text('Montant remboursé\u00a0: ' + fmt(ticket.refund_amount as number), midX_rn, y_rn - 12, 8, fontR_rn, DARK)
+      }
+
+      y_rn += 8
+      d_rn.line(MARGIN, y_rn, MARGIN + CW, y_rn)
+      y_rn += 14
+
+      // Description
+      d_rn.text('MOTIF', MARGIN, y_rn, 7, fontB_rn, GRAY); y_rn += 12
+      const descLines_rn = safe(ticket.description).match(/.{1,90}/g) || ['']
+      for (const ln of descLines_rn.slice(0, 4)) {
+        d_rn.text(ln, MARGIN, y_rn, 9, fontR_rn, DARK); y_rn += 12
+      }
+
+      y_rn += 8
+      d_rn.line(MARGIN, y_rn, MARGIN + CW, y_rn)
+      y_rn += 16
+
+      // Table articles
+      d_rn.text('ARTICLES REPRIS', MARGIN, y_rn, 7, fontB_rn, GRAY); y_rn += 12
+
+      // En-tête tableau
+      const COL_RN = { desc: 240, qty: 40, cond: 90, action: 100 }
+      d_rn.rect(MARGIN, y_rn, CW, 18, NAVY)
+      d_rn.text('Désignation',  MARGIN + 6,                                                     y_rn + 5, 8, fontB_rn, WHITE)
+      d_rn.text('Qté',          MARGIN + COL_RN.desc + 6,                                       y_rn + 5, 8, fontB_rn, WHITE)
+      d_rn.text('État',         MARGIN + COL_RN.desc + COL_RN.qty + 6,                          y_rn + 5, 8, fontB_rn, WHITE)
+      d_rn.text('Action',       MARGIN + COL_RN.desc + COL_RN.qty + COL_RN.cond + 6,            y_rn + 5, 8, fontB_rn, WHITE)
+      y_rn += 18
+
+      const items_rn = savItems || []
+      for (let idx = 0; idx < items_rn.length; idx++) {
+        const item = items_rn[idx] as Record<string, unknown>
+        const bg = idx % 2 === 0 ? LGRAY : WHITE
+        d_rn.rect(MARGIN, y_rn, CW, 20, bg)
+        const prodName = (item.product as Record<string, unknown>)?.name
+        const desc_item = safe(prodName || item.description)
+        d_rn.text(truncate(desc_item, 38), MARGIN + 6, y_rn + 6, 8, fontR_rn, DARK)
+        d_rn.text(safe(item.quantity),     MARGIN + COL_RN.desc + 6, y_rn + 6, 8, fontR_rn, DARK)
+        d_rn.text(COND_LABELS[item.condition as string] || safe(item.condition), MARGIN + COL_RN.desc + COL_RN.qty + 6, y_rn + 6, 8, fontR_rn, DARK)
+        d_rn.text(ACTION_LABELS[item.action as string] || safe(item.action),     MARGIN + COL_RN.desc + COL_RN.qty + COL_RN.cond + 6, y_rn + 6, 8, fontR_rn, DARK)
+        y_rn += 20
+      }
+      if (items_rn.length === 0) {
+        d_rn.rect(MARGIN, y_rn, CW, 20, LGRAY)
+        d_rn.text('Aucun article enregistré', MARGIN + 6, y_rn + 6, 8, fontR_rn, GRAY)
+        y_rn += 20
+      }
+
+      y_rn += 14
+      d_rn.line(MARGIN, y_rn, MARGIN + CW, y_rn)
+      y_rn += 14
+
+      // Résolution (si disponible)
+      if (ticket.resolution) {
+        d_rn.text('RÉSOLUTION', MARGIN, y_rn, 7, fontB_rn, GRAY); y_rn += 12
+        const resLines = safe(ticket.resolution).match(/.{1,90}/g) || []
+        for (const ln of resLines.slice(0, 3)) {
+          d_rn.text(ln, MARGIN, y_rn, 9, fontR_rn, DARK); y_rn += 12
+        }
+        y_rn += 8
+      }
+
+      // Zone signature
+      y_rn = Math.max(y_rn, PAGE_H - 160)
+      d_rn.text('SIGNATURE CLIENT', MARGIN, y_rn, 7, fontB_rn, GRAY)
+      d_rn.text('SIGNATURE MAGASIN', MARGIN + CW * 0.55, y_rn, 7, fontB_rn, GRAY)
+      y_rn += 12
+      d_rn.text('Je reconnais avoir remis le(s) article(s) ci-dessus.', MARGIN, y_rn, 8, fontR_rn, DARK)
+      y_rn += 50
+      d_rn.line(MARGIN, y_rn, MARGIN + 160, y_rn)
+      d_rn.line(MARGIN + CW * 0.55, y_rn, MARGIN + CW * 0.55 + 160, y_rn)
+      y_rn += 10
+      d_rn.text('Date et signature', MARGIN, y_rn, 8, fontR_rn, GRAY)
+      d_rn.text('Nom et signature', MARGIN + CW * 0.55, y_rn, 8, fontR_rn, GRAY)
+
+      const legalInfo_rn = [safe(ws_rn.name), ws_rn.siret ? 'SIRET\u00a0: ' + safe(ws_rn.siret) : ''].filter(Boolean).join(' — ')
+      drawFooterBar(pages_rn, fontR_rn, fontB_rn, 'Bon de reprise n\u00b0 ' + safe(ticket.ticket_number), legalInfo_rn)
+
+      return new Response(JSON.stringify({ pdf_url: await pdfToBase64(pdfDoc_rn) }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }

@@ -12,10 +12,11 @@ const STATUS_BADGES = {
 }
 
 const TYPE_BADGES = {
-  retour:      { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Retour' },
-  reclamation: { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Réclamation' },
-  garantie:    { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Garantie' },
-  avoir:       { bg: 'bg-teal-100',   text: 'text-teal-700',   label: 'Avoir' },
+  retour:          { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Retour' },
+  reclamation:     { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Réclamation' },
+  garantie:        { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Garantie' },
+  avoir:           { bg: 'bg-teal-100',   text: 'text-teal-700',   label: 'Avoir' },
+  echange_confort: { bg: 'bg-amber-100',  text: 'text-amber-700',  label: 'Échange 100 nuits' },
 }
 
 const PRIORITY_BADGES = {

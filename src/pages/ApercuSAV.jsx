@@ -9,6 +9,7 @@ import {
   updateSAVItemAction,
   generateAvoir,
 } from '../services/savService'
+import { createContremarque } from '../services/contremarqueService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -20,10 +21,11 @@ const STATUS_BADGES = {
 }
 
 const TYPE_LABELS = {
-  retour:      'Retour produit',
-  reclamation: 'Réclamation',
-  garantie:    'Garantie',
-  avoir:       'Avoir',
+  retour:           'Retour produit',
+  reclamation:      'Réclamation',
+  garantie:         'Garantie',
+  avoir:            'Avoir',
+  echange_confort:  'Échange confort (100 nuits)',
 }
 
 const PRIORITY_COLORS = {
@@ -72,6 +74,8 @@ export default function ApercuSAV() {
 
   const [statusChanging, setStatusChanging] = useState(false)
   const [avoirLoading, setAvoirLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [contremarqueLoading, setContremarqueLoading] = useState(false)
 
   useEffect(() => {
     loadTicket()
@@ -157,6 +161,58 @@ export default function ApercuSAV() {
       toast.error(err.message || 'Erreur lors de la génération de l\'avoir')
     } finally {
       setAvoirLoading(false)
+    }
+  }
+
+  const handleDownloadReprise = async () => {
+    setPdfLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ document_type: 'return_note', document_id: id }),
+        }
+      )
+      if (!res.ok) throw new Error('Erreur génération PDF')
+      const { pdf_url } = await res.json()
+      if (!pdf_url) throw new Error('PDF non généré')
+      const a = document.createElement('a')
+      a.href = pdf_url
+      a.download = `bon-reprise-${ticket.ticket_number}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } catch (err) {
+      toast.error(err.message || 'Erreur téléchargement bon de reprise')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  const handleCreateContremarqueSAV = async () => {
+    if (!ticket.order_id) {
+      toast.error('Aucune commande liée à ce ticket')
+      return
+    }
+    setContremarqueLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await createContremarque(workspace.id, user.id, {
+        orderId: ticket.order_id,
+        notes: `Échange confort 100 nuits — SAV ${ticket.ticket_number}`,
+      })
+      toast.success('Contremarque créée — complétez le fournisseur dans Contremarques')
+      navigate('/contremarques')
+    } catch (err) {
+      toast.error(err.message || 'Erreur création contremarque')
+    } finally {
+      setContremarqueLoading(false)
     }
   }
 
@@ -267,6 +323,13 @@ export default function ApercuSAV() {
                 ✓ Avoir généré
               </span>
             )}
+            <button
+              onClick={handleDownloadReprise}
+              disabled={pdfLoading}
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              {pdfLoading ? 'Génération…' : '↓ Bon de reprise'}
+            </button>
           </div>
         )}
       </div>
@@ -515,6 +578,23 @@ export default function ApercuSAV() {
               )}
             </div>
           </div>
+
+          {/* Suggestion contremarque SAV pour échange confort */}
+          {ticket.type === 'echange_confort' && ticket.order_id && isAdmin && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">Échange confort</p>
+              <p className="text-xs text-amber-700 mb-3">
+                Ce ticket implique un échange produit. Créez une contremarque fournisseur pour déclencher la commande de remplacement.
+              </p>
+              <button
+                onClick={handleCreateContremarqueSAV}
+                disabled={contremarqueLoading}
+                className="w-full py-2 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50"
+              >
+                {contremarqueLoading ? 'Création…' : '+ Créer une contremarque'}
+              </button>
+            </div>
+          )}
 
           {/* Lien commande depuis SAV si créé depuis ApercuCommande */}
           {!isClosed && isAdmin && (
