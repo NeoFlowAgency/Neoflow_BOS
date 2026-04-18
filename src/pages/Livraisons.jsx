@@ -5,6 +5,7 @@ import { createPayment } from '../services/orderService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { sendPushToWorkspace } from '../lib/pushNotifications'
+import { sendSms } from '../services/edgeFunctionService'
 import PaymentModal from '../components/PaymentModal'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -310,6 +311,16 @@ export default function Livraisons() {
         currentUser?.id,
       )
 
+      // SMS post-livraison (non-bloquant)
+      const customerPhone = livraisonTarget.order?.customer?.phone || livraisonTarget.invoice?.customer?.phone
+      if (customerPhone && workspace.sms_api_key) {
+        const prenom = livraisonTarget.order?.customer?.first_name || livraisonTarget.invoice?.customer?.first_name || ''
+        sendSms(workspace.id, customerPhone, {
+          template: 'post_delivery',
+          variables: { prenom, lien_avis: workspace.google_review_link || '' },
+        }).catch(() => {})
+      }
+
       if (withPayment && livraisonTarget.order?.id) {
         setPaymentOrderId(livraisonTarget.order.id)
         setPaymentOrderTotal(livraisonTarget.order.total_ttc || 0)
@@ -323,6 +334,31 @@ export default function Livraisons() {
       toast.error(err.message || 'Erreur confirmation livraison')
     } finally {
       setLivraisonLoading(false)
+    }
+  }
+
+  // ── SMS rappel J-1 ───────────────────────────────
+  const [smsRappelLoading, setSmsRappelLoading] = useState(null)
+
+  const handleSendRappelSms = async (delivery) => {
+    const phone = delivery.order?.customer?.phone || delivery.invoice?.customer?.phone
+    if (!phone) return toast.error('Aucun téléphone client pour cette livraison')
+    if (!workspace.sms_api_key) return toast.error('Clé API SMS non configurée dans les paramètres')
+    setSmsRappelLoading(delivery.id)
+    try {
+      const prenom = delivery.order?.customer?.first_name || delivery.invoice?.customer?.first_name || ''
+      const date = delivery.scheduled_date
+        ? new Date(delivery.scheduled_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+        : ''
+      await sendSms(workspace.id, phone, {
+        template: 'delivery_reminder',
+        variables: { prenom, date, creneau: delivery.time_slot || '' },
+      })
+      toast.success('SMS de rappel envoyé !')
+    } catch (err) {
+      toast.error(err.message || 'Erreur envoi SMS')
+    } finally {
+      setSmsRappelLoading(null)
     }
   }
 
@@ -466,16 +502,30 @@ export default function Livraisons() {
               </button>
             )}
             {delivery.status === 'planifiee' && (
-              <button
-                onClick={() => handleSimpleStatusChange(delivery, 'en_cours')}
-                className="w-full py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Demarrer la livraison
-              </button>
+              <>
+                <button
+                  onClick={() => handleSimpleStatusChange(delivery, 'en_cours')}
+                  className="w-full py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Demarrer la livraison
+                </button>
+                {workspace.sms_api_key && (
+                  <button
+                    onClick={() => handleSendRappelSms(delivery)}
+                    disabled={smsRappelLoading === delivery.id}
+                    className="w-full py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    {smsRappelLoading === delivery.id ? 'Envoi...' : 'Rappel SMS J-1'}
+                  </button>
+                )}
+              </>
             )}
             {delivery.status === 'en_cours' && (
               <button

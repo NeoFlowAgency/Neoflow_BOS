@@ -1,38 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)",
-      "Bash(npm run dev:*)",
-      "Bash(timeout:*)",
-      "Bash(copy \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\logo avec texte neoflow agency.png\" \"C:\\\\Users\\\\Noakim Grelier\\\\Desktop\\\\NeoFlow Agnecy\\\\mvp maison de la literie v1\\\\public\\\\logo-neoflow.png\")",
-      "Bash(copy:*)",
-      "Bash(npm run build:*)",
-      "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: écran de chargement suppression compte, message confirmation login, bouton déconnexion onboarding\n\n- Écran plein pendant la suppression du compte \\(plus de latence visible\\)\n- Redirect vers /login?account_deleted=1 avec message de confirmation vert\n- Clear sessionStorage en plus de localStorage pour éviter session zombie\n- Bouton \"Se déconnecter\" sur la page de création workspace\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)",
-      "Bash(ls -la supabase/functions/*/index.ts)",
-      "Bash(for f:*)",
-      "Bash(do echo:*)",
-      "Read(//c/Users/Noakim Grelier/Desktop/PROJETS/NeoFlow Agnecy/NeoFlow BOS/Neoflow_BOS/**)",
-      "Bash(done)",
-      "Bash(ls sql/v9_*.sql)",
-      "WebFetch(domain:www.skara.fr)",
-      "Read(//c/Users/Noakim Grelier/Desktop/NeoFlow Agnecy/NoeFlow_BOS_site_web/**)",
-      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias=\"@/*\" --no-turbopack)",
-      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias=\"@/*\" --no-turbopack --yes)",
-      "Bash(npm init:*)",
-      "Bash(npm pkg:*)",
-      "Bash(npm install:*)",
-      "Bash(npm uninstall:*)",
-      "Bash(sed -i 's/Skara et ses semblables ont été conçus il y a 15 ans. Pas d'\\\\''IA, pas d'\\\\''automatisation, interface figée./Les solutions historiques du secteur ont été conçues il y a 15 ans. Pas d'\\\\''IA, pas d'\\\\''automatisation, interface figée./g' messages/fr.json)",
-      "Bash(sed -i 's/Skara and its peers were designed 15 years ago. No AI, no automation, frozen interface./The legacy solutions of the sector were designed 15 years ago. No AI, no automation, frozen interface./g' messages/en.json)",
-      "Bash(sed -i 's/\"Skara\"/\"Logiciels secteur\"/g' messages/fr.json)",
-      "Bash(sed -i 's/\"Skara\"/\"Sector Software\"/g' messages/en.json)",
-      "Bash(gh api:*)",
-      "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:api.github.com)",
-      "Bash(node -e \"const gsap = require\\('./node_modules/gsap'\\); console.log\\(Object.keys\\(gsap\\).filter\\(k => k.toLowerCase\\(\\).includes\\('scroll'\\)\\)\\)\")",
-      "Bash(supabase functions:*)"
+      "Edit",
+      "Write",
+      "Bash(*)"
     ]
   }
 }

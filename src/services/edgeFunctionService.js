@@ -18,3 +18,13 @@ export const generatePdf = (documentType, documentId) =>
  */
 export const sendEmail = (to, subject, html) =>
   invokeFunction('send-email', { to, subject, html })
+
+/**
+ * Send an SMS via Brevo
+ * @param {string} workspaceId - Workspace UUID (API key stored there)
+ * @param {string} to - Phone number (0612345678 or +33612345678)
+ * @param {Object} options - { message } or { template, variables }
+ * @returns {{ success: boolean, message_id?: string }}
+ */
+export const sendSms = (workspaceId, to, options) =>
+  invokeFunction('send-sms', { workspace_id: workspaceId, to, ...options })

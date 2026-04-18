@@ -8,6 +8,7 @@ import { listVariants } from '../services/variantService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 import { sendPushToWorkspace } from '../lib/pushNotifications'
+import { sendSms } from '../services/edgeFunctionService'
 import PhoneInput from '../components/ui/PhoneInput'
 import ToggleButton from '../components/ui/ToggleButton'
 
@@ -393,6 +394,17 @@ export default function CreerCommande() {
         },
         user.id,
       )
+
+      // SMS confirmation commande (non-bloquant)
+      if (smsConsent && client.telephone && workspace.sms_api_key) {
+        sendSms(workspace.id, client.telephone, {
+          template: 'order_confirm',
+          variables: {
+            prenom: client.prenom || '',
+            numero: order.order_number || order.id?.slice(0, 8),
+          },
+        }).catch(() => {})
+      }
 
       setWishedDeliveryDate('')
       setMaxDeliveryDate('')

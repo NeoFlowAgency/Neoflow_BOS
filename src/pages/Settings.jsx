@@ -41,7 +41,9 @@ export default function Settings() {
     country: 'France', currency: 'EUR', siret: '', vat_number: '', legal_form: 'SAS', ape_code: '', legal_capital: '',
     phone: '', email: '', website: '',
     bank_iban: '', bank_bic: '', bank_account_holder: '',
-    payment_terms: '', invoice_footer: '', quote_footer: ''
+    payment_terms: '', invoice_footer: '', quote_footer: '',
+    sms_api_key: '', sms_sender_name: 'NeoFlow', google_review_link: '',
+    sms_template_order_confirm: '', sms_template_delivery_reminder: '', sms_template_post_delivery: ''
   })
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState(null)
@@ -118,6 +120,12 @@ export default function Settings() {
         payment_terms: currentWorkspace.payment_terms || '',
         invoice_footer: currentWorkspace.invoice_footer || '',
         quote_footer: currentWorkspace.quote_footer || '',
+        sms_api_key: currentWorkspace.sms_api_key || '',
+        sms_sender_name: currentWorkspace.sms_sender_name || 'NeoFlow',
+        google_review_link: currentWorkspace.google_review_link || '',
+        sms_template_order_confirm: currentWorkspace.sms_template_order_confirm || '',
+        sms_template_delivery_reminder: currentWorkspace.sms_template_delivery_reminder || '',
+        sms_template_post_delivery: currentWorkspace.sms_template_post_delivery || '',
       })
       setLogoPreview(currentWorkspace.logo_url || null)
       const ws = currentWorkspace.workspace_settings || {}
@@ -402,6 +410,12 @@ export default function Settings() {
         payment_terms: wsForm.payment_terms.trim() || null,
         invoice_footer: wsForm.invoice_footer.trim() || null,
         quote_footer: wsForm.quote_footer.trim() || null,
+        sms_api_key: wsForm.sms_api_key.trim() || null,
+        sms_sender_name: wsForm.sms_sender_name.trim().slice(0, 11) || 'NeoFlow',
+        google_review_link: wsForm.google_review_link.trim() || null,
+        sms_template_order_confirm: wsForm.sms_template_order_confirm.trim() || null,
+        sms_template_delivery_reminder: wsForm.sms_template_delivery_reminder.trim() || null,
+        sms_template_post_delivery: wsForm.sms_template_post_delivery.trim() || null,
         logo_url: logoUrl,
       })
       setLogoFile(null)
@@ -1535,6 +1549,92 @@ export default function Settings() {
                 <div>
                   <label className={labelClass}>Pied de page devis</label>
                   <textarea value={wsForm.quote_footer} onChange={(e) => setWsForm({ ...wsForm, quote_footer: e.target.value })} disabled={!isAdmin} rows={2} className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`} placeholder="Texte en bas de vos devis..." />
+                </div>
+              </div>
+            </div>
+
+            {/* Communication SMS */}
+            <div className="border-t border-gray-100 mt-6 pt-6">
+              <h3 className="text-sm font-bold text-[#313ADF] uppercase tracking-wide mb-1">Communication SMS</h3>
+              <p className="text-xs text-gray-500 mb-4">Envoi de SMS via Brevo. Clé API stockée de façon sécurisée par workspace.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Clé API Brevo (SMS)</label>
+                  <input
+                    type="password"
+                    value={wsForm.sms_api_key}
+                    onChange={(e) => setWsForm({ ...wsForm, sms_api_key: e.target.value })}
+                    disabled={!isAdmin}
+                    className={isAdmin ? inputClass : inputDisabledClass}
+                    placeholder="xkeysib-..."
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Nom expéditeur SMS
+                    <span className="ml-1 text-gray-400 font-normal">({(wsForm.sms_sender_name || '').length}/11)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={wsForm.sms_sender_name}
+                    onChange={(e) => setWsForm({ ...wsForm, sms_sender_name: e.target.value.slice(0, 11) })}
+                    disabled={!isAdmin}
+                    className={isAdmin ? inputClass : inputDisabledClass}
+                    placeholder="NeoFlow"
+                    maxLength={11}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Lien Google Avis</label>
+                  <input
+                    type="url"
+                    value={wsForm.google_review_link}
+                    onChange={(e) => setWsForm({ ...wsForm, google_review_link: e.target.value })}
+                    disabled={!isAdmin}
+                    className={isAdmin ? inputClass : inputDisabledClass}
+                    placeholder="https://g.page/r/..."
+                  />
+                </div>
+              </div>
+              <div className="mt-4 space-y-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Templates SMS</p>
+                <p className="text-xs text-gray-400">Variables disponibles : <code className="bg-gray-100 px-1 rounded">{'{prenom}'}</code> <code className="bg-gray-100 px-1 rounded">{'{numero}'}</code> <code className="bg-gray-100 px-1 rounded">{'{magasin}'}</code> <code className="bg-gray-100 px-1 rounded">{'{date}'}</code> <code className="bg-gray-100 px-1 rounded">{'{creneau}'}</code> <code className="bg-gray-100 px-1 rounded">{'{lien_avis}'}</code></p>
+                <div>
+                  <label className={labelClass}>Confirmation commande</label>
+                  <textarea
+                    value={wsForm.sms_template_order_confirm}
+                    onChange={(e) => setWsForm({ ...wsForm, sms_template_order_confirm: e.target.value })}
+                    disabled={!isAdmin}
+                    rows={2}
+                    className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`}
+                    placeholder="Bonjour {prenom}, votre commande {numero} a bien été enregistrée..."
+                  />
+                  <p className="text-xs text-gray-400 mt-1">{(wsForm.sms_template_order_confirm || '').length}/160 caractères</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Rappel livraison J-1</label>
+                  <textarea
+                    value={wsForm.sms_template_delivery_reminder}
+                    onChange={(e) => setWsForm({ ...wsForm, sms_template_delivery_reminder: e.target.value })}
+                    disabled={!isAdmin}
+                    rows={2}
+                    className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`}
+                    placeholder="Bonjour {prenom}, votre livraison est prévue demain {date}..."
+                  />
+                  <p className="text-xs text-gray-400 mt-1">{(wsForm.sms_template_delivery_reminder || '').length}/160 caractères</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Post-livraison (avis client)</label>
+                  <textarea
+                    value={wsForm.sms_template_post_delivery}
+                    onChange={(e) => setWsForm({ ...wsForm, sms_template_post_delivery: e.target.value })}
+                    disabled={!isAdmin}
+                    rows={2}
+                    className={`${isAdmin ? inputClass : inputDisabledClass} resize-none`}
+                    placeholder="Bonjour {prenom}, merci pour votre confiance ! Votre avis : {lien_avis}..."
+                  />
+                  <p className="text-xs text-gray-400 mt-1">{(wsForm.sms_template_post_delivery || '').length}/160 caractères</p>
                 </div>
               </div>
             </div>
