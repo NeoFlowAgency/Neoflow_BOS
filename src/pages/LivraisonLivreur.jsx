@@ -47,6 +47,110 @@ function todayStr() {
   return new Date().toISOString().split('T')[0]
 }
 
+// ─── SignatureCanvas ──────────────────────────────────────────────────────────
+
+function SignatureCanvas({ onSave, onCancel }) {
+  const canvasRef = useRef(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [hasSignature, setHasSignature] = useState(false)
+
+  const getPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect()
+    const src = e.touches ? e.touches[0] : e
+    return {
+      x: (src.clientX - rect.left) * (canvas.width / rect.width),
+      y: (src.clientY - rect.top) * (canvas.height / rect.height),
+    }
+  }
+
+  const startDraw = (e) => {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const pos = getPos(e, canvas)
+    ctx.beginPath()
+    ctx.moveTo(pos.x, pos.y)
+    setIsDrawing(true)
+  }
+
+  const draw = (e) => {
+    if (!isDrawing) return
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#040741'
+    const pos = getPos(e, canvas)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(pos.x, pos.y)
+    setHasSignature(true)
+  }
+
+  const stopDraw = () => setIsDrawing(false)
+
+  const clear = () => {
+    const canvas = canvasRef.current
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+    setHasSignature(false)
+  }
+
+  const save = () => {
+    if (!hasSignature) return
+    onSave(canvasRef.current.toDataURL('image/png'))
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-[#040741]">Signature du client :</p>
+      <div className="border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 overflow-hidden relative">
+        <canvas
+          ref={canvasRef}
+          width={480}
+          height={180}
+          className="w-full touch-none cursor-crosshair"
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={stopDraw}
+          onMouseLeave={stopDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={stopDraw}
+        />
+        {!hasSignature && (
+          <p className="absolute inset-0 flex items-center justify-center text-gray-300 text-sm pointer-events-none">
+            Signez ici avec le doigt
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={clear}
+          className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl"
+        >
+          Effacer
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl"
+        >
+          Retour
+        </button>
+        <button
+          onClick={save}
+          disabled={!hasSignature}
+          className="flex-1 py-2.5 text-sm font-semibold text-white bg-green-600 rounded-xl disabled:opacity-40"
+        >
+          Valider ✓
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function LivraisonLivreur() {
@@ -72,6 +176,11 @@ export default function LivraisonLivreur() {
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [confirmLoading, setConfirmLoading] = useState(false)
+
+  // Signature
+  const [showSignature, setShowSignature] = useState(false)
+  const [signatureData, setSignatureData] = useState(null)
+  const [pendingWithPayment, setPendingWithPayment] = useState(false)
 
   // ── Init ──────────────────────────────────────────
   useEffect(() => {
@@ -171,23 +280,44 @@ export default function LivraisonLivreur() {
       const uid = user?.id
       if (!uid) return
 
-      const { data, error } = await supabase
+      // Livraisons directement assignées (assigned_to)
+      const { data: direct, error: e1 } = await supabase
         .from('deliveries')
-        .select(`
-          *,
-          order:orders(
-            id, order_number, total_ttc, remaining_amount, amount_paid, status,
-            customer:customers(first_name, last_name, phone, address, email)
-          )
-        `)
+        .select(`*, order:orders(id, order_number, total_ttc, remaining_amount, amount_paid, status, customer:customers(first_name, last_name, phone, address, email))`)
         .eq('workspace_id', workspace.id)
         .eq('assigned_to', uid)
         .neq('status', 'annulee')
-        .order('scheduled_date', { ascending: true, nullsFirst: true })
-        .order('time_slot', { ascending: true, nullsFirst: true })
 
-      if (error) throw error
-      setDeliveries(data || [])
+      if (e1) throw e1
+
+      // Livraisons via delivery_assignments (équipes)
+      const { data: assignments } = await supabase
+        .from('delivery_assignments')
+        .select('delivery_id')
+        .eq('workspace_id', workspace.id)
+        .eq('user_id', uid)
+
+      let extra = []
+      const assignedIds = (assignments || []).map(a => a.delivery_id)
+      const directIds = (direct || []).map(d => d.id)
+      const missingIds = assignedIds.filter(id => !directIds.includes(id))
+
+      if (missingIds.length > 0) {
+        const { data: extraData } = await supabase
+          .from('deliveries')
+          .select(`*, order:orders(id, order_number, total_ttc, remaining_amount, amount_paid, status, customer:customers(first_name, last_name, phone, address, email))`)
+          .in('id', missingIds)
+          .neq('status', 'annulee')
+        extra = extraData || []
+      }
+
+      const all = [...(direct || []), ...extra]
+      all.sort((a, b) => {
+        if (!a.scheduled_date) return 1
+        if (!b.scheduled_date) return -1
+        return a.scheduled_date.localeCompare(b.scheduled_date)
+      })
+      setDeliveries(all)
     } catch (err) {
       toast.error('Erreur chargement livraisons')
       console.error(err)
@@ -227,20 +357,40 @@ export default function LivraisonLivreur() {
     const remaining = remainingAmount(delivery)
     setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '')
     setPaymentMethod('cash')
+    setShowSignature(false)
+    setSignatureData(null)
+    setPendingWithPayment(false)
     setShowConfirmModal(true)
   }
 
-  const handleConfirmDelivery = async (withPayment) => {
+  const handleRequestSignature = (withPayment) => {
+    setPendingWithPayment(withPayment)
+    setShowSignature(true)
+  }
+
+  const handleSignatureSaved = (dataUrl) => {
+    setSignatureData(dataUrl)
+    setShowSignature(false)
+    handleConfirmDelivery(pendingWithPayment, dataUrl)
+  }
+
+  const handleConfirmDelivery = async (withPayment, sigData = null) => {
     if (!activeDelivery) return
     setConfirmLoading(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const deliveryUpdate = {
+        status: 'livree',
+        actual_date: new Date().toISOString().split('T')[0],
+        delivered_at: new Date().toISOString(),
+        confirmed_by: user?.id || null,
+      }
+      if (sigData) deliveryUpdate.signature_data = sigData
+
       // 1. Mettre à jour statut livraison
       const { error: deliveryError } = await supabase
         .from('deliveries')
-        .update({
-          status: 'livree',
-          actual_date: new Date().toISOString().split('T')[0],
-        })
+        .update(deliveryUpdate)
         .eq('id', activeDelivery.id)
       if (deliveryError) throw deliveryError
 
@@ -600,44 +750,60 @@ export default function LivraisonLivreur() {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <button
-                    onClick={() => handleConfirmDelivery(true)}
-                    disabled={confirmLoading}
-                    className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50"
-                  >
-                    {confirmLoading ? 'Confirmation...' : 'Livrer + encaisser le paiement'}
-                  </button>
-                  <button
-                    onClick={() => handleConfirmDelivery(false)}
-                    disabled={confirmLoading}
-                    className="w-full bg-gray-100 text-gray-700 rounded-xl py-3 font-medium"
-                  >
-                    Livrer sans encaisser
-                  </button>
-                </div>
+                {showSignature ? (
+                  <SignatureCanvas
+                    onSave={handleSignatureSaved}
+                    onCancel={() => setShowSignature(false)}
+                  />
+                ) : (
+                  <div className="space-y-2 pt-2">
+                    <button
+                      onClick={() => handleRequestSignature(true)}
+                      disabled={confirmLoading}
+                      className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50"
+                    >
+                      {confirmLoading ? 'Confirmation...' : 'Livrer + encaisser → Signer'}
+                    </button>
+                    <button
+                      onClick={() => handleRequestSignature(false)}
+                      disabled={confirmLoading}
+                      className="w-full bg-gray-100 text-gray-700 rounded-xl py-3 font-medium"
+                    >
+                      Livrer sans encaisser → Signer
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                   <p className="text-sm text-green-700">Commande déjà payée intégralement ✓</p>
                 </div>
-                <button
-                  onClick={() => handleConfirmDelivery(false)}
-                  disabled={confirmLoading}
-                  className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50"
-                >
-                  {confirmLoading ? 'Confirmation...' : 'Confirmer la livraison'}
-                </button>
+                {showSignature ? (
+                  <SignatureCanvas
+                    onSave={handleSignatureSaved}
+                    onCancel={() => setShowSignature(false)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => handleRequestSignature(false)}
+                    disabled={confirmLoading}
+                    className="w-full bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50"
+                  >
+                    {confirmLoading ? 'Confirmation...' : 'Confirmer → Faire signer'}
+                  </button>
+                )}
               </>
             )}
 
-            <button
-              onClick={() => setShowConfirmModal(false)}
-              className="w-full text-gray-500 py-2 text-sm"
-            >
-              Annuler
-            </button>
+            {!showSignature && (
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="w-full text-gray-500 py-2 text-sm"
+              >
+                Annuler
+              </button>
+            )}
           </div>
         </div>
       )}

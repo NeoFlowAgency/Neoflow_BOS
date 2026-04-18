@@ -243,8 +243,16 @@ export default function Livraisons() {
       scheduled_date: delivery.scheduled_date || '',
       time_slot: delivery.time_slot || '',
       assigned_to: delivery.assigned_to || (currentUserId || ''),
+      assigned_ids: [],
       delivery_fees: delivery.delivery_fees || ''
     })
+    // Pré-charger les assignations existantes
+    supabase.from('delivery_assignments').select('user_id').eq('delivery_id', delivery.id)
+      .then(({ data }) => {
+        if (data?.length) {
+          setPlanForm(f => ({ ...f, assigned_ids: data.map(a => a.user_id) }))
+        }
+      })
     setShowPlanModal(true)
   }
 
@@ -255,16 +263,32 @@ export default function Livraisons() {
     }
     setPlanLoading(true)
     try {
+      const primaryAssignee = planForm.assigned_ids?.[0] || planForm.assigned_to || null
       await supabase
         .from('deliveries')
         .update({
           status: 'planifiee',
           scheduled_date: planForm.scheduled_date,
           time_slot: planForm.time_slot || null,
-          assigned_to: planForm.assigned_to || null,
+          assigned_to: primaryAssignee,
           delivery_fees: parseFloat(planForm.delivery_fees) || null
         })
         .eq('id', planTarget.id)
+
+      // Synchroniser delivery_assignments
+      await supabase.from('delivery_assignments').delete().eq('delivery_id', planTarget.id)
+      const assignIds = planForm.assigned_ids?.length ? planForm.assigned_ids : (primaryAssignee ? [primaryAssignee] : [])
+      if (assignIds.length > 0) {
+        await supabase.from('delivery_assignments').insert(
+          assignIds.map(uid => ({
+            workspace_id: workspace.id,
+            delivery_id: planTarget.id,
+            user_id: uid,
+            assigned_by: currentUserId,
+          }))
+        )
+      }
+
       toast.success('Livraison planifiee !')
       setShowPlanModal(false)
       loadDeliveries()
@@ -589,6 +613,18 @@ export default function Livraisons() {
               Vue mobile
             </button>
           )}
+          {/* Bouton Carte temps réel (manager) */}
+          {isManager && (
+            <button
+              onClick={() => navigate('/livraisons/carte')}
+              className="flex items-center gap-2 px-4 py-2 bg-[#040741] text-white rounded-xl font-semibold text-sm hover:bg-[#0a0f5e] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              Carte temps réel
+            </button>
+          )}
           {/* Onglets Kanban / Carte (manager uniquement) */}
           {isManager && (
             <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
@@ -853,26 +889,44 @@ export default function Livraisons() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-[#040741] mb-2">Assigner a</label>
-                <div className="relative">
-                  <select
-                    value={planForm.assigned_to}
-                    onChange={(e) => setPlanForm({ ...planForm, assigned_to: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] appearance-none focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30"
-                  >
-                    <option value="">Non assigne</option>
-                    {workspaceMembers.map(m => (
-                      <option key={m.user_id} value={m.user_id}>
-                        {m.full_name || 'Membre'} ({m.role})
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
+                <label className="block text-sm font-semibold text-[#040741] mb-2">
+                  Livreurs assignés
+                  <span className="ml-1.5 text-xs font-normal text-gray-400">(plusieurs possible — équipe)</span>
+                </label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-2 bg-gray-50">
+                  {workspaceMembers.length === 0 && (
+                    <p className="text-xs text-gray-400 px-2 py-1">Aucun membre</p>
+                  )}
+                  {workspaceMembers.map(m => {
+                    const isChecked = (planForm.assigned_ids || []).includes(m.user_id)
+                    return (
+                      <label key={m.user_id} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#313ADF]/10 border border-[#313ADF]/20' : 'hover:bg-gray-100'}`}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            const cur = planForm.assigned_ids || []
+                            const next = isChecked ? cur.filter(id => id !== m.user_id) : [...cur, m.user_id]
+                            setPlanForm({ ...planForm, assigned_ids: next })
+                          }}
+                          className="w-4 h-4 accent-[#313ADF]"
+                        />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-full bg-[#313ADF]/15 flex items-center justify-center text-xs font-bold text-[#313ADF] flex-shrink-0">
+                            {(m.full_name || 'M').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-sm font-medium text-[#040741] truncate">{m.full_name || 'Membre'}</span>
+                          <span className="text-xs text-gray-400 flex-shrink-0">{m.role}</span>
+                        </div>
+                      </label>
+                    )
+                  })}
                 </div>
+                {(planForm.assigned_ids || []).length > 1 && (
+                  <p className="mt-1.5 text-xs text-[#313ADF] font-medium">
+                    Équipe de {planForm.assigned_ids.length} livreurs
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#040741] mb-2">Frais de livraison (optionnel)</label>
