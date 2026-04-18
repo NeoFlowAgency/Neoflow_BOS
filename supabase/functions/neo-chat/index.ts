@@ -1,7 +1,12 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-import { getCorsHeaders } from '../_shared/cors.ts'
+const ALLOWED_ORIGINS = ['https://bos.neoflow-agency.cloud', 'http://localhost:5173', 'http://localhost:3000']
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return { 'Access-Control-Allow-Origin': allowedOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
+}
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
@@ -20,7 +25,7 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
   const now = new Date()
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  const [commandes, factures, factures_payees, devis, livraisons, clients, produits, payments] =
+  const [commandes, factures, factures_payees, devis, livraisons, clients, produits, payments, contremarques] =
     await Promise.all([
       safe(supabase.from('orders').select('order_number,status,total_ttc,remaining_amount,customers(first_name,last_name)').eq('workspace_id', workspaceId).not('status','in','(termine,annule)').order('created_at',{ascending:false}).limit(8)),
       safe(supabase.from('invoices').select('invoice_number,status,total_ttc,issue_date,customers(first_name,last_name)').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(6)),
@@ -30,6 +35,7 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
       safe(supabase.from('customers').select('first_name,last_name,phone,city').eq('workspace_id', workspaceId).order('created_at',{ascending:false}).limit(10)),
       safe(supabase.from('products').select('name,unit_price_ht,category').eq('workspace_id', workspaceId).order('name',{ascending:true}).limit(20)),
       safe(supabase.from('payments').select('amount').eq('workspace_id', workspaceId).gte('payment_date', firstOfMonth)),
+      safe(supabase.from('contremarques').select('id,status,notes,orders(order_number,customers(first_name,last_name))').eq('workspace_id', workspaceId).in('status',['en_attente','commandee']).order('created_at',{ascending:false}).limit(8)),
     ])
 
   // deno-lint-ignore no-explicit-any
@@ -41,19 +47,21 @@ async function fetchWorkspaceData(supabase: any, workspaceId: string) {
   const soldes = (commandes ?? []).reduce((s: number, c: any) => s + (c.remaining_amount || 0), 0)
 
   return {
-    commandes:  commandes  ?? [],
-    factures:   factures   ?? [],
-    devis:      devis      ?? [],
-    livraisons: livraisons ?? [],
-    clients:    clients    ?? [],
-    produits:   produits   ?? [],
+    commandes:     commandes     ?? [],
+    factures:      factures      ?? [],
+    devis:         devis         ?? [],
+    livraisons:    livraisons    ?? [],
+    clients:       clients       ?? [],
+    produits:      produits      ?? [],
+    contremarques: contremarques ?? [],
     kpis: {
-      ca_mois:              Math.round(ca_mois * 100) / 100,
-      soldes_en_attente:    Math.round(soldes * 100) / 100,
-      commandes_actives:    (commandes ?? []).length,
-      devis_ouverts:        (devis ?? []).length,
-      livraisons_prevues:   (livraisons ?? []).length,
-      produits_catalogue:   (produits ?? []).length,
+      ca_mois:                  Math.round(ca_mois * 100) / 100,
+      soldes_en_attente:        Math.round(soldes * 100) / 100,
+      commandes_actives:        (commandes ?? []).length,
+      devis_ouverts:            (devis ?? []).length,
+      livraisons_prevues:       (livraisons ?? []).length,
+      produits_catalogue:       (produits ?? []).length,
+      contremarques_en_attente: (contremarques ?? []).length,
     },
   }
 }
@@ -110,6 +118,14 @@ function buildSystemPrompt(context: any, wd: any, isPro: boolean): string {
   // deno-lint-ignore no-explicit-any
   const produitsBlock = fmt(wd?.produits || [], 'Produits du catalogue', (p: any) =>
     `${p.name}${p.category?' ['+p.category+']':''} — ${p.unit_price_ht}€`)
+  // deno-lint-ignore no-explicit-any
+  const contremarquesBlock = fmt(wd?.contremarques || [], 'Contremarques en attente / commandées', (c: any) => {
+    // deno-lint-ignore no-explicit-any
+    const order = (c as any).orders
+    const orderNum = order?.order_number || '?'
+    const client = order?.customers ? `${order.customers.first_name||''} ${order.customers.last_name||''}`.trim() : 'Client inconnu'
+    return `Commande ${orderNum} (${client}) — ${c.status}${c.notes?' — '+c.notes:''}`
+  })
 
   const toolsBlock = isPro ? `
 ## Outils disponibles
@@ -125,6 +141,7 @@ function buildSystemPrompt(context: any, wd: any, isPro: boolean): string {
 - \`search_quotes\` — devis ouverts
 - \`search_deliveries\` — livraisons par statut/date
 - \`list_sav_tickets\` — tickets SAV ouverts
+- \`list_contremarques\` — contremarques en attente / commandées
 - \`get_financial_summary\` — CA et soldes sur une période
 - \`search_suppliers\` — fournisseurs
 - \`search_purchase_orders\` — bons de commande fournisseurs
@@ -184,6 +201,7 @@ ${toolsBlock}
 - Devis ouverts : ${k.devis_ouverts ?? 0}
 - Livraisons prévues : ${k.livraisons_prevues ?? 0}
 - Produits au catalogue : ${k.produits_catalogue ?? 0}
+- Contremarques en attente/commandées : ${k.contremarques_en_attente ?? 0}
 
 ${commandesBlock}
 
@@ -196,6 +214,8 @@ ${livraisonsBlock}
 ${clientsBlock}
 
 ${facturesBlock}
+
+${contremarquesBlock}
 
 > Ces données sont un snapshot. Pour des données à jour ou des recherches précises, utilise les outils.`
 }
@@ -313,6 +333,7 @@ const NEO_TOOLS = [
   { type:'function', function:{ name:'search_quotes', description:'Chercher des devis ouverts ou par client.', parameters:{ type:'object', properties:{ query:{ type:'string' }, status:{ type:'string', description:'draft, sent, accepted, rejected, expired' }, limit:{ type:'number' } } } } },
   { type:'function', function:{ name:'search_deliveries', description:'Chercher des livraisons par statut ou date.', parameters:{ type:'object', properties:{ status:{ type:'string', description:'a_planifier, planifiee, en_cours, livree' }, date:{ type:'string', description:'YYYY-MM-DD — livraisons à partir de cette date' }, limit:{ type:'number' } } } } },
   { type:'function', function:{ name:'list_sav_tickets', description:'Lister les tickets SAV ouverts (ou par statut).', parameters:{ type:'object', properties:{ status:{ type:'string', description:'ouvert, en_cours, en_attente, resolu, ferme. Par défaut: tickets non résolus.' }, limit:{ type:'number' } } } } },
+  { type:'function', function:{ name:'list_contremarques', description:'Lister les contremarques (produits commandés en attente de réception fournisseur). Filtre par statut possible.', parameters:{ type:'object', properties:{ status:{ type:'string', description:'en_attente, commandee, recue, annulee. Par défaut: en_attente et commandee.' }, limit:{ type:'number' } } } } },
   { type:'function', function:{ name:'get_financial_summary', description:'Résumé financier: CA encaissé et soldes en attente sur une période.', parameters:{ type:'object', properties:{ start_date:{ type:'string', description:'YYYY-MM-DD, défaut: 1er du mois' }, end_date:{ type:'string', description:'YYYY-MM-DD, défaut: aujourd\'hui' } } } } },
   { type:'function', function:{ name:'search_suppliers', description:'Chercher des fournisseurs par nom.', parameters:{ type:'object', properties:{ query:{ type:'string' } } } } },
   { type:'function', function:{ name:'search_purchase_orders', description:'Chercher des bons de commande fournisseurs.', parameters:{ type:'object', properties:{ status:{ type:'string', description:'brouillon, envoye, confirme, recu, annule' } } } } },
@@ -566,6 +587,25 @@ async function executeTool(supabase: any, workspaceId: string, toolName: string,
         return (data as any[]).map((t:any) => {
           const c = t.customers ? `${t.customers.first_name||''} ${t.customers.last_name||''}`.trim() : '?'
           return `${t.ticket_number} | ${c} | ${t.status} | ${t.priority} | ${t.type} | ${t.orders?.order_number||'?'} | ${t.description?.slice(0,60)||''}`
+        }).join('\n')
+      }
+
+      case 'list_contremarques': {
+        let q = supabase.from('contremarques')
+          .select('id,status,notes,created_at,orders(order_number,customers(first_name,last_name))')
+          .eq('workspace_id', workspaceId)
+          .order('created_at', { ascending: false })
+          .limit(toolArgs.limit || 10)
+        if (toolArgs.status) q = q.eq('status', toolArgs.status)
+        else q = q.in('status', ['en_attente', 'commandee'])
+        const { data } = await q
+        if (!data?.length) return 'Aucune contremarque en attente.'
+        // deno-lint-ignore no-explicit-any
+        return (data as any[]).map((c:any) => {
+          // deno-lint-ignore no-explicit-any
+          const o = c.orders as any
+          const client = o?.customers ? `${o.customers.first_name||''} ${o.customers.last_name||''}`.trim() : '?'
+          return `Commande ${o?.order_number||'?'} | ${client} | ${c.status}${c.notes?' | '+c.notes:''}`
         }).join('\n')
       }
 

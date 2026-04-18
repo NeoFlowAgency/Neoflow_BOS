@@ -706,37 +706,107 @@ export default function VenteRapide() {
         </div>
       </div>
 
-      {/* Modale choix variante */}
+      {/* Modale choix variante — matrice visuelle taille × confort */}
       {variantPickerProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl p-5 w-full sm:max-w-sm">
-            <h3 className="font-semibold mb-1">Choisir la taille / le confort</h3>
-            <p className="text-sm text-gray-500 mb-4">{variantPickerProduct.name}</p>
-            {variantPickerLoading ? (
-              <p className="text-sm text-gray-400 text-center py-4">Chargement...</p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {variantsForPicker.map(v => (
-                  <button key={v.id}
-                    onClick={() => {
-                      doAddToCart(variantPickerProduct, v)
-                      setVariantPickerProduct(null)
-                      setVariantsForPicker([])
-                    }}
-                    className="w-full flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-blue-50 text-sm transition-colors">
-                    <span>{v.size}{v.comfort ? ` — ${v.comfort}` : ''}</span>
-                    <span className="font-semibold">{Number(v.price).toFixed(2)} €</span>
-                  </button>
-                ))}
-                {variantsForPicker.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-4">Aucune variante disponible</p>
-                )}
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl p-5 w-full sm:max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex items-start justify-between mb-1">
+              <div>
+                <h3 className="font-bold text-[#040741] text-base">{variantPickerProduct.name}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Choisissez la taille et le confort</p>
               </div>
-            )}
-            <button onClick={() => { setVariantPickerProduct(null); setVariantsForPicker([]) }}
-              className="w-full mt-3 py-2 text-gray-500 text-sm hover:text-gray-700">
-              Annuler
-            </button>
+              <button
+                onClick={() => { setVariantPickerProduct(null); setVariantsForPicker([]) }}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex-shrink-0"
+              >✕</button>
+            </div>
+
+            {variantPickerLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="w-6 h-6 border-2 border-[#313ADF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : variantsForPicker.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Aucune variante disponible</p>
+            ) : (() => {
+              // Construire la matrice taille × confort
+              const sizes    = [...new Set(variantsForPicker.map(v => v.size).filter(Boolean))].sort()
+              const comforts = [...new Set(variantsForPicker.map(v => v.comfort).filter(Boolean))].sort()
+              const noComfort = variantsForPicker.every(v => !v.comfort)
+
+              if (noComfort || comforts.length === 0) {
+                // Pas de confort : liste simple en grid
+                return (
+                  <div className="overflow-y-auto mt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {variantsForPicker.map(v => (
+                        <button key={v.id}
+                          onClick={() => { doAddToCart(variantPickerProduct, v); setVariantPickerProduct(null); setVariantsForPicker([]) }}
+                          className="flex flex-col items-center justify-center p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-[#313ADF] hover:text-white hover:border-[#313ADF] transition-all group"
+                        >
+                          <span className="font-bold text-sm group-hover:text-white text-[#040741]">{v.size || '—'}</span>
+                          <span className="text-xs text-gray-500 group-hover:text-white/80 mt-0.5">{Number(v.price).toFixed(2)} €</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              }
+
+              // Matrice taille × confort
+              const variantMap = {}
+              for (const v of variantsForPicker) {
+                variantMap[`${v.size}__${v.comfort}`] = v
+              }
+
+              const COMFORT_COLORS = {
+                souple: 'bg-blue-50 border-blue-200 hover:bg-blue-500',
+                medium: 'bg-purple-50 border-purple-200 hover:bg-purple-500',
+                ferme:  'bg-orange-50 border-orange-200 hover:bg-orange-500',
+              }
+
+              return (
+                <div className="overflow-auto mt-3">
+                  <table className="w-full border-separate border-spacing-1">
+                    <thead>
+                      <tr>
+                        <th className="text-xs text-gray-400 font-medium text-left px-1 pb-1">Taille</th>
+                        {comforts.map(c => (
+                          <th key={c} className="text-xs font-semibold text-center pb-1 capitalize text-gray-600">{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sizes.map(size => (
+                        <tr key={size}>
+                          <td className="text-xs font-bold text-[#040741] pr-2 whitespace-nowrap">{size}</td>
+                          {comforts.map(comfort => {
+                            const v = variantMap[`${size}__${comfort}`]
+                            const colorCls = COMFORT_COLORS[comfort] || 'bg-gray-50 border-gray-200 hover:bg-[#313ADF]'
+                            return (
+                              <td key={comfort} className="text-center">
+                                {v ? (
+                                  <button
+                                    onClick={() => { doAddToCart(variantPickerProduct, v); setVariantPickerProduct(null); setVariantsForPicker([]) }}
+                                    className={`w-full flex flex-col items-center justify-center px-2 py-2 rounded-xl border transition-all group ${colorCls} hover:text-white`}
+                                  >
+                                    <span className="text-xs font-bold group-hover:text-white text-[#040741]">{Number(v.price).toFixed(0)} €</span>
+                                  </button>
+                                ) : (
+                                  <div className="w-full px-2 py-2 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center">
+                                    <span className="text-gray-300 text-xs">—</span>
+                                  </div>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-gray-400 text-center mt-3">Touchez une cellule pour ajouter au panier</p>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
