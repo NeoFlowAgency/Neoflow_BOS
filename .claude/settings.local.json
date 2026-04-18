@@ -31,7 +31,8 @@
       "Bash(gh api:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(node -e \"const gsap = require\\('./node_modules/gsap'\\); console.log\\(Object.keys\\(gsap\\).filter\\(k => k.toLowerCase\\(\\).includes\\('scroll'\\)\\)\\)\")"
+      "Bash(node -e \"const gsap = require\\('./node_modules/gsap'\\); console.log\\(Object.keys\\(gsap\\).filter\\(k => k.toLowerCase\\(\\).includes\\('scroll'\\)\\)\\)\")",
+      "Bash(supabase functions:*)"
     ]
   }
 }
