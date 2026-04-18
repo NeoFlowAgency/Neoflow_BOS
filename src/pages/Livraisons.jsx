@@ -313,7 +313,7 @@ export default function Livraisons() {
 
       // SMS post-livraison (non-bloquant)
       const customerPhone = livraisonTarget.order?.customer?.phone || livraisonTarget.invoice?.customer?.phone
-      if (customerPhone && workspace.sms_api_key) {
+      if (customerPhone) {
         const prenom = livraisonTarget.order?.customer?.first_name || livraisonTarget.invoice?.customer?.first_name || ''
         sendSms(workspace.id, customerPhone, {
           template: 'post_delivery',
@@ -343,7 +343,6 @@ export default function Livraisons() {
   const handleSendRappelSms = async (delivery) => {
     const phone = delivery.order?.customer?.phone || delivery.invoice?.customer?.phone
     if (!phone) return toast.error('Aucun téléphone client pour cette livraison')
-    if (!workspace.sms_api_key) return toast.error('Clé API SMS non configurée dans les paramètres')
     setSmsRappelLoading(delivery.id)
     try {
       const prenom = delivery.order?.customer?.first_name || delivery.invoice?.customer?.first_name || ''
@@ -513,18 +512,16 @@ export default function Livraisons() {
                   </svg>
                   Demarrer la livraison
                 </button>
-                {workspace.sms_api_key && (
-                  <button
-                    onClick={() => handleSendRappelSms(delivery)}
-                    disabled={smsRappelLoading === delivery.id}
-                    className="w-full py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    {smsRappelLoading === delivery.id ? 'Envoi...' : 'Rappel SMS J-1'}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleSendRappelSms(delivery)}
+                  disabled={smsRappelLoading === delivery.id}
+                  className="w-full py-2 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  {smsRappelLoading === delivery.id ? 'Envoi...' : 'Rappel SMS J-1'}
+                </button>
               </>
             )}
             {delivery.status === 'en_cours' && (

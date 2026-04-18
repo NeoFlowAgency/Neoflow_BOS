@@ -396,7 +396,7 @@ export default function CreerCommande() {
       )
 
       // SMS confirmation commande (non-bloquant)
-      if (smsConsent && client.telephone && workspace.sms_api_key) {
+      if (smsConsent && client.telephone) {
         sendSms(workspace.id, client.telephone, {
           template: 'order_confirm',
           variables: {
