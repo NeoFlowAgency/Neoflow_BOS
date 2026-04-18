@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listSAVTickets } from '../services/savService'
+import { listSAVTickets, listCentNuitsAlerts } from '../services/savService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
 
@@ -48,12 +48,29 @@ export default function ListeSAV() {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  const [centNuits, setCentNuits] = useState([])
+  const [centNuitsLoading, setCentNuitsLoading] = useState(false)
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    if (workspace?.id) loadTickets()
+    if (workspace?.id) {
+      loadTickets()
+      loadCentNuits()
+    }
   }, [workspace?.id, statusFilter, typeFilter])
+
+  const loadCentNuits = async () => {
+    setCentNuitsLoading(true)
+    try {
+      const data = await listCentNuitsAlerts(workspace.id)
+      setCentNuits(data)
+    } catch {
+      // silencieux
+    } finally {
+      setCentNuitsLoading(false)
+    }
+  }
 
   const loadTickets = async () => {
     setLoading(true)
@@ -122,6 +139,51 @@ export default function ListeSAV() {
           </div>
         ))}
       </div>
+
+      {/* Alerte 100 nuits */}
+      {(centNuitsLoading || centNuits.length > 0) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <h3 className="text-sm font-bold text-amber-800">Alerte Échange Confort — 100 nuits</h3>
+            <span className="ml-auto text-xs text-amber-600 font-semibold">{centNuits.length} commande{centNuits.length > 1 ? 's' : ''}</span>
+          </div>
+          {centNuitsLoading ? (
+            <p className="text-xs text-amber-600">Chargement…</p>
+          ) : (
+            <div className="space-y-2">
+              {centNuits.map(order => {
+                const client = order.customers
+                  ? `${order.customers.first_name || ''} ${order.customers.last_name || ''}`.trim()
+                  : 'Client inconnu'
+                const daysLeft = 100 - order.days_since_delivery
+                const urgent = daysLeft <= 10
+                return (
+                  <div key={order.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-2.5 border border-amber-100 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#040741] truncate">{client}</p>
+                      <p className="text-xs text-gray-500">{order.order_number} — livré il y a {order.days_since_delivery} j</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`text-xs font-bold px-2 py-1 rounded-lg ${urgent ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {daysLeft} j restants
+                      </span>
+                      <button
+                        onClick={() => navigate('/sav/nouveau', { state: { orderId: order.id, customerId: order.customers?.id, type: 'garantie' } })}
+                        className="text-xs text-[#313ADF] font-semibold hover:underline whitespace-nowrap"
+                      >
+                        Ouvrir SAV
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filtres + Recherche */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">

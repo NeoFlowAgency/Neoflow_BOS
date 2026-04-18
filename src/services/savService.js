@@ -300,6 +300,34 @@ export async function generateAvoir(ticketId, userId) {
   return invoice
 }
 
+// ── Alerte "100 nuits" — commandes livrées dont le délai approche ────────────
+
+export async function listCentNuitsAlerts(workspaceId) {
+  const now = new Date()
+  // Fenêtre : livrées il y a entre 80 et 100 jours
+  const from = new Date(now.getTime() - 100 * 86400000).toISOString()
+  const to   = new Date(now.getTime() -  80 * 86400000).toISOString()
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      id, order_number, delivered_at, status,
+      customers (id, first_name, last_name, phone)
+    `)
+    .eq('workspace_id', workspaceId)
+    .not('delivered_at', 'is', null)
+    .gte('delivered_at', from)
+    .lte('delivered_at', to)
+    .order('delivered_at', { ascending: true })
+
+  if (error) throw error
+  return (data || []).map(order => ({
+    ...order,
+    days_since_delivery: Math.floor((now - new Date(order.delivered_at)) / 86400000),
+    exchange_deadline: new Date(new Date(order.delivered_at).getTime() + 100 * 86400000),
+  }))
+}
+
 // ── Compter les tickets ouverts (pour badge sidebar) ──────────────────────────
 
 export async function countOpenSAVTickets(workspaceId) {
