@@ -57,22 +57,24 @@ serve(async (req) => {
       })
     }
 
+    // Clé API Brevo centralisée (secret NeoFlow, pas par workspace)
+    const brevoApiKey = Deno.env.get('BREVO_SMS_API_KEY') || ''
+    if (!brevoApiKey) {
+      return new Response(JSON.stringify({ error: 'Service SMS non configuré' }), {
+        status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // Récupérer les paramètres SMS du workspace
     const { data: ws, error: wsError } = await supabase
       .from('workspaces')
-      .select('sms_api_key, sms_sender_name, name, sms_template_order_confirm, sms_template_delivery_reminder, sms_template_post_delivery')
+      .select('sms_sender_name, name, sms_template_order_confirm, sms_template_delivery_reminder, sms_template_post_delivery')
       .eq('id', workspace_id)
       .single()
 
     if (wsError || !ws) {
       return new Response(JSON.stringify({ error: 'Workspace introuvable' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    if (!ws.sms_api_key) {
-      return new Response(JSON.stringify({ error: 'Aucune clé API SMS configurée pour ce workspace' }), {
-        status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
@@ -109,13 +111,13 @@ serve(async (req) => {
     const brevoResp = await fetch(BREVO_SMS_URL, {
       method: 'POST',
       headers: {
-        'api-key': ws.sms_api_key,
+        'api-key': brevoApiKey,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       body: JSON.stringify({
         sender: (ws.sms_sender_name || 'NeoFlow').slice(0, 11),
-        recipient: phone,
+        recipient:  phone,
         content: finalMessage.slice(0, 160),
       }),
     })
