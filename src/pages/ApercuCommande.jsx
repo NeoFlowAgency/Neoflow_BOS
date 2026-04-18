@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getOrder, updateOrderStatus, createPayment, listPayments, deleteOrder, generateInvoiceFromOrder } from '../services/orderService'
+import { generatePdf } from '../services/edgeFunctionService'
 import { debitStock, listStockLocations } from '../services/stockService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
 import { useToast } from '../contexts/ToastContext'
@@ -278,30 +279,14 @@ export default function ApercuCommande() {
   }
 
   const handlePrintBonCommande = async () => {
+    setPdfLoading(true)
     try {
-      setPdfLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Non authentifié')
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            document_type: 'order',
-            document_id: order.id,
-          }),
-        }
-      )
-
-      const data = await response.json()
-      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
-
-      window.open(data.pdf_url, '_blank')
+      const result = await generatePdf('order', order.id)
+      if (!result?.pdf_url) throw new Error('Réponse PDF invalide')
+      const link = document.createElement('a')
+      link.href = result.pdf_url
+      link.download = `bon-commande-${order.order_number || order.id?.slice(0, 8)}.pdf`
+      link.click()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la génération du bon de commande')
     } finally {
@@ -310,21 +295,14 @@ export default function ApercuCommande() {
   }
 
   const handlePrintBonLivraison = async () => {
+    setBonLivraisonLoading(true)
     try {
-      setBonLivraisonLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Non authentifié')
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ document_type: 'delivery_note', document_id: order.id }),
-        }
-      )
-      const data = await response.json()
-      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
-      window.open(data.pdf_url, '_blank')
+      const result = await generatePdf('delivery_note', order.id)
+      if (!result?.pdf_url) throw new Error('Réponse PDF invalide')
+      const link = document.createElement('a')
+      link.href = result.pdf_url
+      link.download = `bon-livraison-${order.order_number || order.id?.slice(0, 8)}.pdf`
+      link.click()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la génération du bon de livraison')
     } finally {
@@ -333,21 +311,14 @@ export default function ApercuCommande() {
   }
 
   const handlePrintEtiquettes = async () => {
+    setEtiquettesLoading(true)
     try {
-      setEtiquettesLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Non authentifié')
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pdf`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ document_type: 'label', document_id: order.id }),
-        }
-      )
-      const data = await response.json()
-      if (!response.ok || data.error) throw new Error(data.error || 'Erreur génération PDF')
-      window.open(data.pdf_url, '_blank')
+      const result = await generatePdf('label', order.id)
+      if (!result?.pdf_url) throw new Error('Réponse PDF invalide')
+      const link = document.createElement('a')
+      link.href = result.pdf_url
+      link.download = `etiquettes-${order.order_number || order.id?.slice(0, 8)}.pdf`
+      link.click()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la génération des étiquettes')
     } finally {

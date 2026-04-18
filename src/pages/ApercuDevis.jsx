@@ -88,11 +88,11 @@ export default function ApercuDevis() {
     setActionLoading('pdf')
     try {
       const result = await generatePdf('quote', devis.id)
-      if (result?.pdf_url) {
-        window.open(result.pdf_url, '_blank')
-      } else {
-        throw new Error('URL PDF non disponible')
-      }
+      if (!result?.pdf_url) throw new Error('Réponse PDF invalide')
+      const link = document.createElement('a')
+      link.href = result.pdf_url
+      link.download = `devis-${devis.quote_ref || devis.id?.slice(0, 8)}.pdf`
+      link.click()
     } catch (err) {
       toast.error(err.message || 'Erreur lors de la génération du PDF')
     } finally {
