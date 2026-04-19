@@ -25,14 +25,14 @@ const ENTITY_FIELDS: Record<string, { key: string; label: string; required?: boo
     { key: 'address',    label: 'Adresse' },
   ],
   produits: [
-    { key: 'name',           label: 'Nom produit',      required: true },
+    { key: 'name',           label: 'Nom produit',     required: true },
     { key: 'reference',      label: 'Référence / SKU' },
     { key: 'description',    label: 'Description' },
-    { key: 'unit_price_ht',  label: 'Prix HT (€)',      type: 'number' },
-    { key: 'tax_rate',       label: 'TVA (%)',           type: 'number' },
-    { key: 'cost_price_ht',  label: "Prix d'achat HT",  type: 'number' },
+    { key: 'unit_price_ht',  label: 'Prix HT (€)',     type: 'number' },
+    { key: 'tax_rate',       label: 'TVA (%)',          type: 'number' },
+    { key: 'cost_price_ht',  label: "Prix d'achat HT", type: 'number' },
     { key: 'category',       label: 'Catégorie' },
-    { key: 'warranty_years', label: 'Garantie (ans)',   type: 'number' },
+    { key: 'warranty_years', label: 'Garantie (ans)',  type: 'number' },
   ],
   fournisseurs: [
     { key: 'name',         label: 'Nom société',  required: true },
@@ -68,74 +68,113 @@ serve(async (req: Request) => {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) throw new Error('OPENROUTER_API_KEY non configurée')
 
-    const schemaDesc = fields
-      .map(f => `• ${f.key} — "${f.label}"${f.required ? ' [REQUIS]' : ''}${f.type === 'number' ? ' [NUMÉRIQUE]' : ''}`)
-      .join('\n')
+    const schemaLines = fields.map(f =>
+      `  - ${f.key}${f.required ? ' [REQUIS]' : ''} : "${f.label}"${f.type === 'number' ? ' → nombre décimal' : ''}`
+    ).join('\n')
 
-    const headersDesc = (headers as string[])
-      .map((h, i) => `${i + 1}. "${h}"`)
-      .join('\n')
-
-    const sampleDesc = JSON.stringify((sampleRows as unknown[]).slice(0, 3), null, 2)
-
+    const headersWithIndex = (headers as string[]).map((h, i) => `  ${i + 1}. "${h}"`).join('\n')
+    const sampleJSON = JSON.stringify((sampleRows as unknown[]).slice(0, 5), null, 2)
     const existingMappings = currentMapping?.mappings ?? currentMapping ?? null
+    const isCorrection = !!(userMessage && existingMappings)
 
-    const prompt = userMessage && existingMappings
-      ? `Tu es un expert en migration de données. Tu dois MODIFIER un mapping existant selon une correction utilisateur.
+    // ── Correction prompt (minimal, surgical) ──────────────��───────────────────
+    const correctionPrompt = `Tu es un assistant de migration de données. Modifie ce mapping JSON selon la correction demandée.
 
-MAPPING ACTUEL (JSON) :
+MAPPING ACTUEL :
 ${JSON.stringify(existingMappings, null, 2)}
 
-CORRECTION DEMANDÉE PAR L'UTILISATEUR : "${userMessage}"
+CORRECTION : "${userMessage}"
 
-COLONNES DISPONIBLES DANS LE FICHIER :
-${headersDesc}
+COLONNES DISPONIBLES :
+${headersWithIndex}
 
-SCHÉMA CIBLE (pour référence) :
-${schemaDesc}
+RÈGLE : Modifie UNIQUEMENT ce que la correction demande. Garde tous les autres champs exactement identiques.
 
-INSTRUCTIONS STRICTES :
-- Prends le mapping actuel comme base
-- Applique UNIQUEMENT la modification demandée par l'utilisateur
-- Garde TOUS les autres champs identiques
-- Ne réanalyse pas depuis zéro
-- L'explanation doit confirmer en français ce qui a été modifié
-
-RÉPONDRE UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
+Réponds UNIQUEMENT avec le JSON modifié (sans markdown) :
 {
-  "mappings": [ /* mapping complet modifié */ ],
-  "explanation": "Confirmation de la modification en français..."
+  "mappings": [...],
+  "explanation": "Ce qui a été modifié, en français, 1 phrase."
 }`
-      : `Tu es un expert en migration de données entre ERP/e-commerce et NeoFlow BOS.
 
-TÂCHE : Analyser les colonnes d'un fichier CSV/Excel et créer un mapping intelligent vers le schéma NeoFlow.
+    // ── Initial analysis prompt (chain-of-thought) ─────────────────────��───────
+    const analysisSystemPrompt = `Tu es un expert en migration de données depuis des logiciels métier (ERP, CRM, e-commerce) vers NeoFlow BOS, un logiciel de gestion commerciale français.
 
-SCHÉMA CIBLE (entité : ${entityType}) :
-${schemaDesc}
+Tu connais parfaitement les exports de : Dolibarr, EBP, Sage, WooCommerce, Shopify, Odoo, PrestaShop, Cegid, QuickBooks.
+Tu sais que :
+- Les colonnes numériques peuvent utiliser la virgule comme séparateur décimal
+- Les colonnes peuvent avoir des accents ou des underscores
+- Un même concept peut avoir des noms très différents selon le logiciel source
+- Plusieurs colonnes source peuvent être fusionnées en un seul champ NeoFlow`
 
-COLONNES DU FICHIER SOURCE :
-${headersDesc}
+    const analysisUserPrompt = `## DONNÉES À ANALYSER
 
-DONNÉES EXEMPLE (3 premières lignes) :
-${sampleDesc}
+Entité cible : **${entityType}**
 
-RÈGLES :
-1. Analyser le NOM des colonnes ET le contenu des données pour déduire leur sens
-2. Plusieurs colonnes source peuvent alimenter un seul champ cible (elles seront concaténées)
-3. Pour les champs numériques, utiliser transform "number" (enlève €, %, convertit virgule en point)
-4. TOUJOURS inclure tous les champs cibles dans la réponse, même ceux sans correspondance (sourceColumns vide)
-5. L'explication doit être en français, 2-3 phrases max, mentionner les fusions et champs non trouvés
+### Schéma NeoFlow cible :
+${schemaLines}
 
-RÉPONDRE UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
+### Colonnes du fichier source (${(headers as string[]).length} colonnes) :
+${headersWithIndex}
+
+### Données exemple (${Math.min((sampleRows as unknown[]).length, 5)} premières lignes) :
+\`\`\`json
+${sampleJSON}
+\`\`\`
+
+---
+
+## INSTRUCTIONS
+
+Procède en 3 étapes mentales AVANT de répondre :
+
+**Étape 1 – Analyse sémantique**
+Pour chaque colonne source, détermine son sens réel en croisant son nom ET son contenu.
+Exemple : "regular_price" avec valeur "299,00" → Prix HT probable (si pas de "prix_ttc" visible).
+Cherche les colonnes ambiguës, les données encodées, les unités.
+
+**Étape 2 – Mapping optimal**
+Mappe chaque champ NeoFlow vers la/les meilleure(s) colonne(s) source.
+Si plusieurs colonnes contribuent au même champ (ex: 3 colonnes description), utilise transform "concat".
+Si une colonne contient des chiffres avec virgule/symbole €, utilise transform "number".
+Si un champ NeoFlow n'a aucune correspondance évidente, laisse sourceColumns vide.
+
+${entityType === 'produits' ? `**Étape 3 – Détection variantes**
+Examine si des lignes ont le MÊME nom de produit mais des caractéristiques DIFFÉRENTES (taille/dimensions, confort/fermeté, couleur).
+IMPORTANT : ne déclare detected=true QUE SI tu es certain qu'il y a de vraies variantes (même produit, tailles différentes).
+Si oui : identifie la colonne source qui contient la taille/dimension (ex: "160x200", "140x190" — une seule valeur par ligne).
+Si la taille est répartie sur 2 colonnes (largeur + longueur séparées), indique la colonne la plus utile.
+Remplis le champ "variantSuggestion" en conséquence.` : ''}
+
+---
+
+## FORMAT DE RÉPONSE
+
+Réponds UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
 {
   "mappings": [
-    { "targetField": "name", "sourceColumns": ["Nom produit"], "transform": "direct" },
-    { "targetField": "description", "sourceColumns": ["Desc taille", "Desc matière"], "transform": "concat", "concatSeparator": " — " },
-    { "targetField": "unit_price_ht", "sourceColumns": ["Prix"], "transform": "number" },
+    { "targetField": "name", "sourceColumns": ["post_title"], "transform": "direct" },
+    { "targetField": "description", "sourceColumns": ["post_excerpt", "_description_complementaire"], "transform": "concat", "concatSeparator": " — " },
+    { "targetField": "unit_price_ht", "sourceColumns": ["regular_price"], "transform": "number" },
     { "targetField": "tax_rate", "sourceColumns": [], "transform": "direct" }
-  ],
-  "explanation": "Explication en français..."
+  ],${entityType === 'produits' ? `
+  "variantSuggestion": {
+    "detected": false,
+    "reason": "Tous les noms de produits sont uniques dans l'échantillon",
+    "sizeColumn": null,
+    "comfortColumn": null,
+    "priceColumn": null,
+    "purchasePriceColumn": null,
+    "skuSupplierColumn": null
+  },` : ''}
+  "explanation": "Résumé en français : champs mappés, fusions effectuées, champs non trouvés. 2-3 phrases max."
 }`
+
+    const messages = isCorrection
+      ? [{ role: 'user', content: correctionPrompt }]
+      : [
+          { role: 'system', content: analysisSystemPrompt },
+          { role: 'user', content: analysisUserPrompt },
+        ]
 
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -146,22 +185,20 @@ RÉPONDRE UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
         'X-Title': 'NeoFlow BOS Import',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+        model: 'openai/gpt-4o',
+        messages,
         temperature: 0.1,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     })
 
     if (!resp.ok) {
       const errText = await resp.text()
-      throw new Error(`OpenRouter erreur ${resp.status}: ${errText.slice(0, 200)}`)
+      throw new Error(`OpenRouter ${resp.status}: ${errText.slice(0, 200)}`)
     }
 
     const aiResult = await resp.json()
     const content: string = aiResult.choices?.[0]?.message?.content || ''
-
-    // Strip potential markdown fences
     const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
 
     let parsed
@@ -171,7 +208,7 @@ RÉPONDRE UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
       throw new Error('Réponse IA invalide : ' + cleaned.slice(0, 300))
     }
 
-    // Ensure all target fields are present
+    // Ensure all target fields are present in mappings
     const existingKeys = new Set((parsed.mappings as { targetField: string }[]).map(m => m.targetField))
     for (const f of fields) {
       if (!existingKeys.has(f.key)) {

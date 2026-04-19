@@ -339,7 +339,7 @@ export default function Import() {
           },
           body: JSON.stringify({
             headers: fileData.headers,
-            sampleRows: fileData.rows.slice(0, 5),
+            sampleRows: fileData.rows.slice(0, 10),
             entityType: entity,
             userMessage: message ?? undefined,
             currentMapping: current ?? undefined,
@@ -351,10 +351,21 @@ export default function Import() {
       if (json.error) throw new Error(json.error)
       setAiMapping(json)
 
-      // Auto-detect variants from AI response
+      // Auto-detect variants — validate against real data (guard against AI false positives)
       if (json.variantSuggestion?.detected) {
-        setVariantMode(true)
-        setVariantConfig(json.variantSuggestion)
+        const sizeCol = json.variantSuggestion.sizeColumn
+        // sizeColumn must be an actual column in the file (guards against hallucinations)
+        const sizeColValid = !!(sizeCol && fileData.headers.includes(sizeCol))
+        const nameMapping = json.mappings?.find(m => m.targetField === 'name')
+        const nameCol = nameMapping?.sourceColumns?.[0]
+        let hasDuplicates = false
+        if (nameCol && sizeColValid) {
+          const names = fileData.rows.map(r => String(r[nameCol] ?? '').trim()).filter(Boolean)
+          hasDuplicates = new Set(names).size < names.length
+        }
+        const activate = hasDuplicates && sizeColValid
+        setVariantMode(activate)
+        setVariantConfig(activate ? json.variantSuggestion : null)
       } else {
         setVariantMode(false)
         setVariantConfig(null)
@@ -407,7 +418,8 @@ export default function Import() {
           const record = { workspace_id: workspace.id }
           cfg.fields.forEach(f => { if (data[f.key] !== undefined) record[f.key] = data[f.key] })
           if (record.tax_rate == null) record.tax_rate = 20
-          record.eco_participation_amount = 0
+          record.eco_participation_amount = record.eco_participation_amount ?? 0
+          record.has_variants = true
 
           const { data: prod, error: prodErr } = await supabase
             .from('products').insert(record).select('id').single()
@@ -423,23 +435,30 @@ export default function Import() {
           // Build variant batch from original rows
           const variantBatch = groupRows.map((row) => {
             const raw = fileData.rows[row._row - 1]
+            const rawSize = variantConfig.sizeColumn ? String(raw[variantConfig.sizeColumn] ?? '').trim() : ''
+            const rawComfort = variantConfig.comfortColumn ? String(raw[variantConfig.comfortColumn] ?? '').trim() : ''
             return {
               product_id: prod.id,
               workspace_id: workspace.id,
-              size:           variantConfig.sizeColumn          ? parseStr(raw[variantConfig.sizeColumn])          : null,
-              comfort:        variantConfig.comfortColumn       ? parseStr(raw[variantConfig.comfortColumn])       : null,
-              price:          variantConfig.priceColumn         ? parseNum(raw[variantConfig.priceColumn])         : row.unit_price_ht,
-              purchase_price: variantConfig.purchasePriceColumn ? parseNum(raw[variantConfig.purchasePriceColumn]) : row.cost_price_ht,
-              sku_supplier:   variantConfig.skuSupplierColumn   ? parseStr(raw[variantConfig.skuSupplierColumn])   : null,
+              size:           rawSize || 'Standard',
+              comfort:        rawComfort || null,
+              price:          (variantConfig.priceColumn ? parseNum(raw[variantConfig.priceColumn]) : null) ?? row.unit_price_ht ?? 0,
+              purchase_price: variantConfig.purchasePriceColumn ? parseNum(raw[variantConfig.purchasePriceColumn]) : (row.cost_price_ht ?? null),
+              sku_supplier:   variantConfig.skuSupplierColumn ? (String(raw[variantConfig.skuSupplierColumn] ?? '').trim() || null) : null,
               is_archived: false,
             }
           })
 
+          let variantInserted = 0
           for (let i = 0; i < variantBatch.length; i += BATCH_SIZE) {
             const chunk = variantBatch.slice(i, i + BATCH_SIZE)
             const { error: varErr } = await supabase.from('product_variants').insert(chunk)
             if (varErr) errors += chunk.length
-            else imported += chunk.length
+            else { imported += chunk.length; variantInserted += chunk.length }
+          }
+          // Rollback orphan product if NO variant was successfully created
+          if (variantInserted === 0 && variantBatch.length > 0) {
+            await supabase.from('products').delete().eq('id', prod.id)
           }
 
           processed += groupRows.length

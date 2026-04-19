@@ -321,10 +321,13 @@ export default function Produits() {
                   <div className="md:hidden">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-[#040741]">{p.name}</p>
                           {p.reference && (
                             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{p.reference}</span>
+                          )}
+                          {p.has_variants && (
+                            <span className="text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full font-medium">variantes</span>
                           )}
                         </div>
                         {p.category && (
@@ -381,7 +384,12 @@ export default function Produits() {
                       <span className="text-xs text-gray-400 font-mono">{p.reference || '-'}</span>
                     </div>
                     <div className="col-span-3">
-                      <p className="font-bold text-[#040741]">{p.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-[#040741]">{p.name}</p>
+                        {p.has_variants && (
+                          <span className="text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full font-medium">variantes</span>
+                        )}
+                      </div>
                       {p.description && <p className="text-gray-400 text-xs truncate mt-0.5">{p.description}</p>}
                     </div>
                     <div className="col-span-2">
