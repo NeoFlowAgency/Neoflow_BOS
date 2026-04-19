@@ -38,8 +38,9 @@ const ENTITY_CONFIGS = {
       { key: 'unit_price_ht',  label: 'Prix HT (€)',     type: 'number' },
       { key: 'tax_rate',       label: 'TVA (%)',          type: 'number' },
       { key: 'cost_price_ht',  label: "Prix d'achat HT", type: 'number' },
-      { key: 'category',       label: 'Catégorie' },
-      { key: 'warranty_years', label: 'Garantie (ans)',  type: 'number' },
+      { key: 'category',                  label: 'Catégorie' },
+      { key: 'warranty_years',            label: 'Garantie (ans)',       type: 'number' },
+      { key: 'eco_participation_amount',  label: 'Éco-participation (€)', type: 'number' },
     ],
   },
   fournisseurs: {
@@ -353,7 +354,7 @@ export default function Import() {
 
       // Auto-detect variants — validate against real data (guard against AI false positives)
       if (json.variantSuggestion?.detected) {
-        const sizeCol = json.variantSuggestion.sizeColumn
+        const sizeCol = (json.variantSuggestion.sizeColumn ?? '').trim() || null
         // sizeColumn must be an actual column in the file (guards against hallucinations)
         const sizeColValid = !!(sizeCol && fileData.headers.includes(sizeCol))
         const nameMapping = json.mappings?.find(m => m.targetField === 'name')
@@ -365,7 +366,20 @@ export default function Import() {
         }
         const activate = hasDuplicates && sizeColValid
         setVariantMode(activate)
-        setVariantConfig(activate ? json.variantSuggestion : null)
+        if (activate) {
+          const vs = json.variantSuggestion
+          const trimCol = (v) => (v ?? '').trim() || null
+          setVariantConfig({
+            ...vs,
+            sizeColumn:         trimCol(vs.sizeColumn),
+            comfortColumn:      trimCol(vs.comfortColumn),
+            priceColumn:        trimCol(vs.priceColumn),
+            purchasePriceColumn:trimCol(vs.purchasePriceColumn),
+            skuSupplierColumn:  trimCol(vs.skuSupplierColumn),
+          })
+        } else {
+          setVariantConfig(null)
+        }
       } else {
         setVariantMode(false)
         setVariantConfig(null)
@@ -474,7 +488,7 @@ export default function Import() {
             cfg.fields.forEach(f => { if (data[f.key] !== undefined) record[f.key] = data[f.key] })
             if (entity === 'produits') {
               if (record.tax_rate == null) record.tax_rate = 20
-              record.eco_participation_amount = 0
+              if (record.eco_participation_amount == null) record.eco_participation_amount = 0
             }
             if (entity === 'fournisseurs') {
               if (!record.country) record.country = 'France'

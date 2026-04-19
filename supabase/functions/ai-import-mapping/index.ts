@@ -31,8 +31,9 @@ const ENTITY_FIELDS: Record<string, { key: string; label: string; required?: boo
     { key: 'unit_price_ht',  label: 'Prix HT (€)',     type: 'number' },
     { key: 'tax_rate',       label: 'TVA (%)',          type: 'number' },
     { key: 'cost_price_ht',  label: "Prix d'achat HT", type: 'number' },
-    { key: 'category',       label: 'Catégorie' },
-    { key: 'warranty_years', label: 'Garantie (ans)',  type: 'number' },
+    { key: 'category',                 label: 'Catégorie' },
+    { key: 'warranty_years',           label: 'Garantie (ans)',        type: 'number' },
+    { key: 'eco_participation_amount', label: 'Éco-participation (€)', type: 'number' },
   ],
   fournisseurs: [
     { key: 'name',         label: 'Nom société',  required: true },
