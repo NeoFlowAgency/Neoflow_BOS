@@ -185,10 +185,10 @@ Réponds UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
         'X-Title': 'NeoFlow BOS Import',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages,
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 1500,
       }),
     })
 
