@@ -65,6 +65,7 @@ export default function Produits() {
         .eq('workspace_id', workspace?.id)
         .or('is_archived.is.null,is_archived.eq.false')
         .order('created_at', { ascending: false })
+        .limit(5000)
 
       if (error) throw error
       setProduits(data || [])
