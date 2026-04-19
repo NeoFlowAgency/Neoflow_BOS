@@ -671,7 +671,7 @@ export default function Import() {
                   onKeyDown={e => {
                     if (e.key === 'Enter' && aiMessage.trim()) callAI(aiMessage, aiMapping)
                   }}
-                  placeholder='Ex : "La TVA s\'appelle Taux dans mon fichier"'
+                  placeholder={`Ex : "La TVA s'appelle Taux dans mon fichier"`}
                   className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#313ADF]/20 focus:border-[#313ADF] outline-none bg-white"
                 />
                 <button
