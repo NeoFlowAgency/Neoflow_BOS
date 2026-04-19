@@ -78,7 +78,35 @@ serve(async (req: Request) => {
 
     const sampleDesc = JSON.stringify((sampleRows as unknown[]).slice(0, 3), null, 2)
 
-    const prompt = `Tu es un expert en migration de données entre ERP/e-commerce et NeoFlow BOS.
+    const existingMappings = currentMapping?.mappings ?? currentMapping ?? null
+
+    const prompt = userMessage && existingMappings
+      ? `Tu es un expert en migration de données. Tu dois MODIFIER un mapping existant selon une correction utilisateur.
+
+MAPPING ACTUEL (JSON) :
+${JSON.stringify(existingMappings, null, 2)}
+
+CORRECTION DEMANDÉE PAR L'UTILISATEUR : "${userMessage}"
+
+COLONNES DISPONIBLES DANS LE FICHIER :
+${headersDesc}
+
+SCHÉMA CIBLE (pour référence) :
+${schemaDesc}
+
+INSTRUCTIONS STRICTES :
+- Prends le mapping actuel comme base
+- Applique UNIQUEMENT la modification demandée par l'utilisateur
+- Garde TOUS les autres champs identiques
+- Ne réanalyse pas depuis zéro
+- L'explanation doit confirmer en français ce qui a été modifié
+
+RÉPONDRE UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
+{
+  "mappings": [ /* mapping complet modifié */ ],
+  "explanation": "Confirmation de la modification en français..."
+}`
+      : `Tu es un expert en migration de données entre ERP/e-commerce et NeoFlow BOS.
 
 TÂCHE : Analyser les colonnes d'un fichier CSV/Excel et créer un mapping intelligent vers le schéma NeoFlow.
 
@@ -90,7 +118,7 @@ ${headersDesc}
 
 DONNÉES EXEMPLE (3 premières lignes) :
 ${sampleDesc}
-${currentMapping ? `\nMAPPING ACTUEL À AFFINER :\n${JSON.stringify(currentMapping, null, 2)}\n` : ''}${userMessage ? `\nCORRECTION DEMANDÉE : "${userMessage}"\n` : ''}
+
 RÈGLES :
 1. Analyser le NOM des colonnes ET le contenu des données pour déduire leur sens
 2. Plusieurs colonnes source peuvent alimenter un seul champ cible (elles seront concaténées)
