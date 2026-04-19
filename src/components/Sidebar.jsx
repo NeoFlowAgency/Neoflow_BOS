@@ -214,6 +214,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       ...(canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
       ...(canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
       { to: '/dashboard-financier',  label: 'Stats',        icon: ICONS.stats },
+      ...(role !== 'livreur' ? [{ to: '/import', label: 'Import données', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> }] : []),
       ...(planType === 'enterprise' ? [{ to: '/admin-workspaces', label: 'Mes magasins', icon: ICONS.suppliers }] : []),
       { to: '/settings',             label: 'Paramètres',   icon: ICONS.settings },
       ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ICONS.admin }] : []),
@@ -734,7 +735,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           />
 
           {/* Import données */}
-          {['proprietaire', 'manager'].includes(role) && (
+          {role !== 'livreur' && (
             <NavItem
               to="/import"
               icon={
