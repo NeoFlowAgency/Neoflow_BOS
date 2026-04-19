@@ -65,8 +65,8 @@ serve(async (req: Request) => {
       })
     }
 
-    const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY non configurée')
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY non configurée')
 
     const schemaLines = fields.map(f =>
       `  - ${f.key}${f.required ? ' [REQUIS]' : ''} : "${f.label}"${f.type === 'number' ? ' → nombre décimal' : ''}`
@@ -169,36 +169,36 @@ Réponds UNIQUEMENT avec ce JSON valide (SANS markdown, SANS backticks) :
   "explanation": "Résumé en français : champs mappés, fusions effectuées, champs non trouvés. 2-3 phrases max."
 }`
 
-    const messages = isCorrection
-      ? [{ role: 'user', content: correctionPrompt }]
-      : [
-          { role: 'system', content: analysisSystemPrompt },
-          { role: 'user', content: analysisUserPrompt },
-        ]
+    const anthropicBody = isCorrection
+      ? {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: correctionPrompt }],
+        }
+      : {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1500,
+          system: analysisSystemPrompt,
+          messages: [{ role: 'user', content: analysisUserPrompt }],
+        }
 
-    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://bos.neoflow-agency.cloud',
-        'X-Title': 'NeoFlow BOS Import',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages,
-        temperature: 0.1,
-        max_tokens: 1500,
-      }),
+      body: JSON.stringify(anthropicBody),
     })
 
     if (!resp.ok) {
       const errText = await resp.text()
-      throw new Error(`OpenRouter ${resp.status}: ${errText.slice(0, 200)}`)
+      throw new Error(`Anthropic ${resp.status}: ${errText.slice(0, 200)}`)
     }
 
     const aiResult = await resp.json()
-    const content: string = aiResult.choices?.[0]?.message?.content || ''
+    const content: string = aiResult.content?.[0]?.text || ''
     const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
 
     let parsed
