@@ -96,6 +96,16 @@ La sidebar et toutes les routes protégées vérifient `isModuleEnabled()` avant
 
 Accessible dans `Settings > Modules` — uniquement pour le propriétaire.
 
+### Indépendance et dépendances
+
+Chaque module doit pouvoir fonctionner seul. Un workspace peut n'activer que "Livraisons" sans rien d'autre.
+
+Dépendances obligatoires (activation automatique silencieuse) :
+- **Livraisons** → active automatiquement **Commandes** (une livraison est liée à une commande)
+- **Fournisseurs** → active automatiquement **Stock** (un bon de commande fournisseur impacte le stock)
+
+Tous les autres modules sont strictement indépendants.
+
 ---
 
 ## 4. Base de données — nouvelles tables
