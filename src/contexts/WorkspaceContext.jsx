@@ -120,6 +120,13 @@ export function WorkspaceProvider({ children }) {
   const hasNeoCredits = neoCredits?.monthly_allowance === -1 || neoCreditsBalance > 0
   const isUnlimitedCredits = neoCredits?.monthly_allowance === -1
 
+  // Modules activés
+  const isModuleEnabled = (key) => {
+    const modules = currentWorkspace?.modules
+    if (!modules) return true
+    return modules[key] === true
+  }
+
   return (
     <WorkspaceContext.Provider value={{
       workspaces,
@@ -145,7 +152,9 @@ export function WorkspaceProvider({ children }) {
       loading,
       error,
       switchWorkspace,
-      refreshWorkspaces
+      refreshWorkspaces,
+      isModuleEnabled,
+      modules: currentWorkspace?.modules ?? {},
     }}>
       {children}
     </WorkspaceContext.Provider>
