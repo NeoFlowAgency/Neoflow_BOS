@@ -56,6 +56,7 @@ export const createWorkspace = async (name, userId, options = {}) => {
     invoice_footer: options.invoice_footer || null,
     quote_footer: options.quote_footer || null,
     owner_user_id: userId,
+    modules: options.modules || undefined,
     plan_type: 'standard',
     subscription_status: stripeEnabled ? 'incomplete' : 'active',
     is_active: !stripeEnabled,
