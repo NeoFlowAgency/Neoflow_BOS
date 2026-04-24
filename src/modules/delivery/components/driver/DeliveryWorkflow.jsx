@@ -1,6 +1,8 @@
 // src/modules/delivery/components/driver/DeliveryWorkflow.jsx
 import { useState } from 'react'
 import { confirmLoading, transitionDelivery, reportProblem, completeDelivery, uploadDeliveryPhoto, uploadSignature, updateDelivery } from '../../services/deliveryService'
+import { useWorkspace } from '../../../contexts/WorkspaceContext'
+import { sendSms } from '../../../services/edgeFunctionService'
 import SignatureCanvas from './SignatureCanvas'
 import PhotoCapture from './PhotoCapture'
 import PaymentCapture from './PaymentCapture'
@@ -16,6 +18,7 @@ const PROBLEM_TYPES = [
 ]
 
 export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
+  const { workspace } = useWorkspace()
   const [step, setStep] = useState('preparation')
   const [loading, setLoading] = useState(false)
   const [checkedItems, setCheckedItems] = useState({})
@@ -41,6 +44,20 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
     try {
       await confirmLoading(delivery.id)
       await transitionDelivery(delivery.id, 'en_route')
+      // SMS en route si activé et pas déjà envoyé
+      if (workspace?.sms_driver_en_route_enabled && !delivery.sms_en_route_sent) {
+        const phone = customer?.phone
+        const prenom = customer?.first_name ?? 'client'
+        const heure = delivery.time_slot ?? 'dans la journée'
+        const template = workspace.sms_template_driver_en_route
+          ?.replace('{prenom}', prenom)
+          ?.replace('{heure_estimee}', heure)
+          ?.replace('{magasin}', workspace.name)
+        if (phone && template) {
+          sendSms(workspace.id, phone, { message: template }).catch(() => {})
+          updateDelivery(delivery.id, { sms_en_route_sent: true }).catch(() => {})
+        }
+      }
       setStep('en_route')
     } finally {
       setLoading(false)
@@ -67,6 +84,19 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
       if (photoFile) await uploadDeliveryPhoto(delivery.id, photoFile)
       if (signatureDataUrl) await uploadSignature(delivery.id, signatureDataUrl)
       await completeDelivery(delivery.id)
+      // SMS avis Google — uniquement si aucun problème signalé
+      if (!delivery.problem_type && !delivery.sms_review_sent) {
+        const phone = customer?.phone
+        const prenom = customer?.first_name ?? 'client'
+        const template = workspace?.sms_template_post_delivery
+          ?.replace('{prenom}', prenom)
+          ?.replace('{lien_avis_google}', workspace.google_review_url ?? '')
+          ?.replace('{magasin}', workspace?.name ?? '')
+        if (phone && template) {
+          sendSms(workspace.id, phone, { message: template }).catch(() => {})
+          updateDelivery(delivery.id, { sms_review_sent: true }).catch(() => {})
+        }
+      }
       setStep('termine')
     } finally {
       setLoading(false)
