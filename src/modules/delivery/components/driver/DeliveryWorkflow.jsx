@@ -1,8 +1,8 @@
 // src/modules/delivery/components/driver/DeliveryWorkflow.jsx
 import { useState } from 'react'
 import { confirmLoading, transitionDelivery, reportProblem, completeDelivery, uploadDeliveryPhoto, uploadSignature, updateDelivery } from '../../services/deliveryService'
-import { useWorkspace } from '../../../contexts/WorkspaceContext'
-import { sendSms } from '../../../services/edgeFunctionService'
+import { useWorkspace } from '../../../../contexts/WorkspaceContext'
+import { sendSms } from '../../../../services/edgeFunctionService'
 import SignatureCanvas from './SignatureCanvas'
 import PhotoCapture from './PhotoCapture'
 import PaymentCapture from './PaymentCapture'
