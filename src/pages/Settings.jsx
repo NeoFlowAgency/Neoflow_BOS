@@ -15,6 +15,16 @@ const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'S
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF']
 const COUNTRIES = ['France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada', 'Autre']
 
+const AVAILABLE_MODULES = [
+  { key: 'livraisons', label: 'Livraisons', description: 'Planification, GPS live, interface livreur mobile', icon: '🚛', requires: ['commandes'] },
+  { key: 'commandes', label: 'Commandes', description: 'Gestion des commandes clients', icon: '📋', requires: [] },
+  { key: 'ventes_rapides', label: 'Ventes rapides', description: 'Point de vente rapide en magasin', icon: '⚡', requires: [] },
+  { key: 'devis', label: 'Devis', description: 'Création et suivi des devis clients', icon: '📄', requires: [] },
+  { key: 'stock', label: 'Stock', description: 'Gestion des niveaux de stock et emplacements', icon: '📦', requires: [] },
+  { key: 'fournisseurs', label: 'Fournisseurs', description: 'Fournisseurs et bons de commande', icon: '🏭', requires: ['stock'] },
+  { key: 'sav', label: 'SAV', description: 'Suivi du service après-vente', icon: '🔧', requires: [] },
+]
+
 export default function Settings() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -44,7 +54,8 @@ export default function Settings() {
     bank_iban: '', bank_bic: '', bank_account_holder: '',
     payment_terms: '', invoice_footer: '', quote_footer: '',
     sms_sender_name: 'NeoFlow', google_review_link: '',
-    sms_template_order_confirm: '', sms_template_delivery_reminder: '', sms_template_post_delivery: ''
+    sms_template_order_confirm: '', sms_template_delivery_reminder: '', sms_template_post_delivery: '',
+    sms_driver_en_route_enabled: false, sms_template_driver_en_route: ''
   })
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState(null)
@@ -80,6 +91,10 @@ export default function Settings() {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
   const [pushChecked, setPushChecked] = useState(false)
+
+  // Modules
+  const [localModules, setLocalModules] = useState(null)
+  const [modulesSaving, setModulesSaving] = useState(false)
 
   // Delete account
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -126,6 +141,8 @@ export default function Settings() {
         sms_template_order_confirm: currentWorkspace.sms_template_order_confirm || '',
         sms_template_delivery_reminder: currentWorkspace.sms_template_delivery_reminder || '',
         sms_template_post_delivery: currentWorkspace.sms_template_post_delivery || '',
+        sms_driver_en_route_enabled: currentWorkspace.sms_driver_en_route_enabled ?? false,
+        sms_template_driver_en_route: currentWorkspace.sms_template_driver_en_route || '',
       })
       setLogoPreview(currentWorkspace.logo_url || null)
       const ws = currentWorkspace.workspace_settings || {}
@@ -140,6 +157,11 @@ export default function Settings() {
       })
       loadMembers()
       loadInvitations()
+    }
+    if (currentWorkspace?.modules) {
+      setLocalModules({ ...currentWorkspace.modules })
+    } else if (currentWorkspace) {
+      setLocalModules({})
     }
   }, [currentWorkspace?.id])
 
@@ -415,6 +437,8 @@ export default function Settings() {
         sms_template_order_confirm: wsForm.sms_template_order_confirm.trim() || null,
         sms_template_delivery_reminder: wsForm.sms_template_delivery_reminder.trim() || null,
         sms_template_post_delivery: wsForm.sms_template_post_delivery.trim() || null,
+        sms_driver_en_route_enabled: wsForm.sms_driver_en_route_enabled,
+        sms_template_driver_en_route: wsForm.sms_template_driver_en_route.trim() || null,
         logo_url: logoUrl,
       })
       setLogoFile(null)
@@ -632,6 +656,11 @@ export default function Settings() {
       key: 'stock', label: 'Stock',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1.795 9.857A2 2 0 008.764 20h6.472a2 2 0 001.969-2.143L19 8" />,
       desc: "Seuils d'alerte"
+    }] : []),
+    ...(isOwner ? [{
+      key: 'modules', label: 'Modules',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />,
+      desc: 'Fonctionnalités activées'
     }] : []),
     ...(isOwner ? [{
       key: 'abonnement', label: 'Abonnement',
@@ -1615,6 +1644,29 @@ export default function Settings() {
                   disabled={!isAdmin}
                   availableVars={['prenom', 'lien_avis', 'magasin']}
                 />
+                <div className="border-t border-gray-100 pt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-semibold text-sm text-[#040741]">SMS livreur en route</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Envoie un SMS au client quand le livreur part pour sa livraison</p>
+                    </div>
+                    <div
+                      className={`w-11 h-6 rounded-full transition-colors cursor-pointer ${wsForm.sms_driver_en_route_enabled ? 'bg-[#313ADF]' : 'bg-gray-300'}`}
+                      onClick={() => isAdmin && setWsForm({ ...wsForm, sms_driver_en_route_enabled: !wsForm.sms_driver_en_route_enabled })}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform m-0.5 ${wsForm.sms_driver_en_route_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                  </div>
+                  {wsForm.sms_driver_en_route_enabled && (
+                    <SmsTemplateEditor
+                      label="Message livreur en route"
+                      value={wsForm.sms_template_driver_en_route}
+                      onChange={v => setWsForm({ ...wsForm, sms_template_driver_en_route: v })}
+                      disabled={!isAdmin}
+                      availableVars={['prenom', 'heure_estimee', 'magasin']}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2148,6 +2200,80 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Modules */}
+      {activeTab === 'modules' && isOwner && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-[#040741]">Modules activés</h2>
+            <p className="text-gray-500 text-sm mt-1">Activez ou désactivez les fonctionnalités selon vos besoins. La sidebar se met à jour instantanément.</p>
+          </div>
+
+          {localModules && (
+            <div className="grid grid-cols-1 gap-3">
+              {AVAILABLE_MODULES.map(mod => {
+                const enabled = localModules[mod.key] ?? true
+                return (
+                  <div
+                    key={mod.key}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                      enabled ? 'border-[#313ADF] bg-[#313ADF]/5' : 'border-gray-200 bg-gray-50'
+                    }`}
+                    onClick={() => {
+                      setLocalModules(prev => {
+                        const next = { ...prev, [mod.key]: !prev[mod.key] }
+                        if (!prev[mod.key] && mod.requires.length) {
+                          mod.requires.forEach(dep => { next[dep] = true })
+                        }
+                        return next
+                      })
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{mod.icon}</span>
+                      <div>
+                        <p className={`font-semibold text-sm ${enabled ? 'text-[#040741]' : 'text-gray-400'}`}>{mod.label}</p>
+                        <p className={`text-xs mt-0.5 ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>{mod.description}</p>
+                        {mod.requires.length > 0 && !localModules[mod.key] && (
+                          <p className="text-xs text-[#313ADF] mt-0.5">
+                            Active aussi : {mod.requires.map(r => AVAILABLE_MODULES.find(m => m.key === r)?.label).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${enabled ? 'bg-[#313ADF]' : 'bg-gray-300'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform m-0.5 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={async () => {
+              setModulesSaving(true)
+              try {
+                const { error } = await supabase
+                  .from('workspaces')
+                  .update({ modules: localModules })
+                  .eq('id', currentWorkspace.id)
+                if (error) throw error
+                await refreshWorkspaces()
+                toast.success('Modules mis à jour')
+              } catch (err) {
+                toast.error(err.message || 'Erreur lors de la sauvegarde')
+              } finally {
+                setModulesSaving(false)
+              }
+            }}
+            disabled={modulesSaving}
+            className="px-6 py-2.5 bg-[#313ADF] text-white rounded-xl font-semibold text-sm hover:bg-[#4149e8] disabled:opacity-50 transition-colors"
+          >
+            {modulesSaving ? 'Sauvegarde...' : 'Enregistrer'}
+          </button>
         </div>
       )}
 
