@@ -86,19 +86,35 @@ function AlertBanner({ alerts }) {
         <div
           key={i}
           onClick={a.onClick}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium ${a.onClick ? 'cursor-pointer' : ''}
-            ${a.type === 'error'   ? 'bg-red-50 border-red-200 text-red-700'    : ''}
-            ${a.type === 'warning' ? 'bg-orange-50 border-orange-200 text-orange-700' : ''}
-            ${a.type === 'info'    ? 'bg-blue-50 border-blue-200 text-blue-700' : ''}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${a.onClick ? 'cursor-pointer hover:shadow-sm' : ''}
+            ${a.type === 'error'   ? 'bg-red-50 border-red-200 text-red-700'       : ''}
+            ${a.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' : ''}
+            ${a.type === 'info'    ? 'bg-blue-50 border-blue-200 text-blue-700'    : ''}
           `}
         >
           <span className="flex-shrink-0">
-            {a.type === 'error'   && '🔴'}
-            {a.type === 'warning' && '⚠️'}
-            {a.type === 'info'    && 'ℹ️'}
+            {a.type === 'error' && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {a.type === 'warning' && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )}
+            {a.type === 'info' && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
           </span>
           <span className="flex-1">{a.message}</span>
-          {a.onClick && <span className="text-xs opacity-60">→</span>}
+          {a.onClick && (
+            <svg className="w-4 h-4 opacity-50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
         </div>
       ))}
     </div>
@@ -453,55 +469,54 @@ export default function Dashboard() {
 
   // ── Vue MANAGER / PROPRIÉTAIRE / VENDEUR ─────────────────────────────────
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
-            Bonjour, {userName} !
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {workspace?.name}
-          </p>
+    <div className="min-h-screen">
+      {/* ── Bandeau header navy ──────────────────────────────── */}
+      <div className="bg-gradient-to-br from-[#040741] to-[#0d1260] px-5 md:px-8 pt-6 pb-5">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <p className="text-blue-300 text-xs font-medium uppercase tracking-widest mb-1">
+              {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">
+              Bonjour, {userName} !
+            </h1>
+            <p className="text-blue-200/60 text-sm mt-0.5">{workspace?.name}</p>
+          </div>
+          <button
+            onClick={() => navigate('/vente-rapide')}
+            className="flex items-center gap-2 bg-white text-[#313ADF] px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-50 transition-colors shadow-lg flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span className="hidden sm:inline">Vente rapide</span>
+            <span className="sm:hidden">Vente</span>
+          </button>
         </div>
-        <button
-          onClick={() => navigate('/vente-rapide')}
-          className="flex items-center gap-2 bg-[#313ADF] text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#040741] transition-colors shadow-sm flex-shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span className="hidden sm:inline">Vente rapide</span>
-          <span className="sm:hidden">Vente</span>
-        </button>
-      </div>
 
-      {/* ── Alertes critiques ────────────────────────────── */}
-      <AlertBanner alerts={alerts} />
-
-      {/* ── Aujourd'hui ──────────────────────────────────── */}
-      <div className="mb-6">
-        <h2 className="text-base font-bold text-[#040741] mb-3 flex items-center gap-2">
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          Aujourd'hui
-        </h2>
+        {/* Aujourd'hui — 3 stats dans le bandeau */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-green-700">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
+            <p className="text-xl md:text-2xl font-bold text-white">
               {todayStats.caToday.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
             </p>
-            <p className="text-xs text-gray-500 mt-1">Encaissé</p>
+            <p className="text-blue-200 text-xs mt-0.5">Encaissé</p>
           </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-[#313ADF]">{todayStats.ventesToday}</p>
-            <p className="text-xs text-gray-500 mt-1">Ventes terminées</p>
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
+            <p className="text-xl md:text-2xl font-bold text-white">{todayStats.ventesToday}</p>
+            <p className="text-blue-200 text-xs mt-0.5">Ventes</p>
           </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-gray-600">{todayStats.livraisonsToday}</p>
-            <p className="text-xs text-gray-500 mt-1">Livraisons prévues</p>
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
+            <p className="text-xl md:text-2xl font-bold text-white">{todayStats.livraisonsToday}</p>
+            <p className="text-blue-200 text-xs mt-0.5">Livraisons</p>
           </div>
         </div>
       </div>
+
+      {/* ── Corps de page ────────────────────────────────── */}
+      <div className="p-4 md:p-8">
+        {/* ── Alertes critiques ────────────────────────────── */}
+        <AlertBanner alerts={alerts} />
 
       {/* ── KPIs mensuels ────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -795,6 +810,7 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+      </div>{/* fin p-4 md:p-8 */}
     </div>
   )
 }
