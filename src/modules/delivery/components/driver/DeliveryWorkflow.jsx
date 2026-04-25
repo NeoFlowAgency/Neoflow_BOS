@@ -185,13 +185,19 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
                 <p className="font-semibold text-gray-900">{customer.address}</p>
               </div>
             )}
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer?.address ?? '')}`}
-              target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full py-5 bg-[#313ADF] text-white rounded-xl font-semibold text-lg"
-            >
-              <Navigation size={24} /> Naviguer
-            </a>
+            {customer?.address ? (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 w-full py-5 bg-[#313ADF] text-white rounded-xl font-semibold text-lg"
+              >
+                <Navigation size={24} /> Naviguer
+              </a>
+            ) : (
+              <div className="w-full py-5 bg-gray-200 text-gray-400 rounded-xl font-semibold text-lg text-center">
+                Adresse non renseignée
+              </div>
+            )}
             {customer?.phone && (
               <a
                 href={`tel:${customer.phone}`}

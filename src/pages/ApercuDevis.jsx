@@ -281,19 +281,24 @@ export default function ApercuDevis() {
                 <tr className="border-b-2 border-[#040741]">
                   <th className="text-left py-3 font-bold text-[#040741]">Description</th>
                   <th className="text-center py-3 font-bold text-[#040741]">Qté</th>
-                  <th className="text-right py-3 font-bold text-[#040741]">Prix unit. HT</th>
-                  <th className="text-right py-3 font-bold text-[#040741]">Total HT</th>
+                  <th className="text-right py-3 font-bold text-[#040741]">Prix unit. TTC</th>
+                  <th className="text-right py-3 font-bold text-[#040741]">Total TTC</th>
                 </tr>
               </thead>
               <tbody>
-                {lignes.map((ligne, index) => (
+                {lignes.map((ligne, index) => {
+                  const tva = (ligne.tax_rate || 20) / 100
+                  const unitTtc = (ligne.unit_price_ht ?? ligne.unit_price ?? 0) * (1 + tva)
+                  const totalTtc = (ligne.total_ht ?? ligne.total_price ?? 0) * (1 + tva)
+                  return (
                   <tr key={index} className="border-b border-gray-100">
                     <td className="py-3 text-[#040741]">{ligne.description || 'Produit'}</td>
                     <td className="py-3 text-center text-gray-600">{ligne.quantity}</td>
-                    <td className="py-3 text-right text-gray-600">{(ligne.unit_price_ht ?? ligne.unit_price ?? 0).toFixed(2)} €</td>
-                    <td className="py-3 text-right font-medium text-[#040741]">{(ligne.total_ht ?? ligne.total_price ?? 0).toFixed(2)} €</td>
+                    <td className="py-3 text-right text-gray-600">{unitTtc.toFixed(2)} €</td>
+                    <td className="py-3 text-right font-medium text-[#040741]">{totalTtc.toFixed(2)} €</td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -301,18 +306,14 @@ export default function ApercuDevis() {
           {/* Totaux */}
           <div className="flex justify-end mb-8">
             <div className="w-72 bg-gray-50 rounded-xl p-4">
-              <div className="flex justify-between py-2 text-gray-600">
-                <span>Sous-total HT</span>
-                <span>{(devis.subtotal_ht ?? devis.subtotal ?? 0).toFixed(2)} €</span>
-              </div>
               {(devis.discount_global || 0) > 0 && (
                 <div className="flex justify-between py-2 text-green-600">
                   <span>Remise</span>
                   <span>-{(devis.discount_global ?? 0).toFixed(2)} €</span>
                 </div>
               )}
-              <div className="flex justify-between py-2 text-gray-600">
-                <span>TVA</span>
+              <div className="flex justify-between py-2 text-xs text-gray-400">
+                <span>dont TVA</span>
                 <span>{(devis.total_tva ?? devis.tax_amount ?? 0).toFixed(2)} €</span>
               </div>
               <div className="flex justify-between py-3 border-t border-gray-200 mt-2">

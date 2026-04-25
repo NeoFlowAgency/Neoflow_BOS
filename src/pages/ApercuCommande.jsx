@@ -577,24 +577,29 @@ export default function ApercuCommande() {
                     <th className="text-center py-2 text-xs font-semibold text-gray-500">Qte</th>
                     <th className="text-right py-2 text-xs font-semibold text-gray-500">Prix unit.</th>
                     {showMargins && <th className="text-right py-2 text-xs font-semibold text-gray-500">Cout</th>}
-                    <th className="text-right py-2 text-xs font-semibold text-gray-500">Total HT</th>
+                    <th className="text-right py-2 text-xs font-semibold text-gray-500">Total TTC</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, i) => (
+                  {items.map((item, i) => {
+                    const tva = (item.tax_rate || 20) / 100
+                    const unitTtc = (item.unit_price_ht || 0) * (1 + tva)
+                    const totalTtc = (item.total_ht || 0) * (1 + tva)
+                    return (
                     <tr key={i} className="border-b border-gray-50">
                       <td className="py-3">
                         <p className="font-medium text-[#040741] text-sm">{item.description || item.product?.name || 'Produit'}</p>
                         {item.product?.reference && <p className="text-xs text-gray-400">{item.product.reference}</p>}
                       </td>
                       <td className="py-3 text-center text-sm text-gray-600">{item.quantity}</td>
-                      <td className="py-3 text-right text-sm text-gray-600">{(item.unit_price_ht || 0).toFixed(2)} EUR</td>
+                      <td className="py-3 text-right text-sm text-gray-600">{unitTtc.toFixed(2)} EUR</td>
                       {showMargins && (
                         <td className="py-3 text-right text-sm text-gray-400">{(item.cost_price_ht || 0).toFixed(2)} EUR</td>
                       )}
-                      <td className="py-3 text-right text-sm font-semibold text-[#040741]">{(item.total_ht || 0).toFixed(2)} EUR</td>
+                      <td className="py-3 text-right text-sm font-semibold text-[#040741]">{totalTtc.toFixed(2)} EUR</td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -602,18 +607,14 @@ export default function ApercuCommande() {
             {/* Totaux */}
             <div className="flex justify-end mt-4">
               <div className="w-64 space-y-2">
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Sous-total HT</span>
-                  <span>{(order.subtotal_ht || 0).toFixed(2)} EUR</span>
-                </div>
                 {(order.discount_global || 0) > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Remise</span>
                     <span>-{(order.discount_global || 0).toFixed(2)} EUR</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>TVA</span>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>dont TVA</span>
                   <span>{(order.total_tva || 0).toFixed(2)} EUR</span>
                 </div>
                 <div className="flex justify-between font-bold text-[#040741] border-t border-gray-200 pt-2">
