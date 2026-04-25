@@ -53,7 +53,7 @@ const ACTION_OPTIONS = [
 ]
 
 export default function ApercuSAV() {
-  const { id } = useParams()
+  const { savId: id } = useParams()
   const navigate = useNavigate()
   const { workspace, isAdmin } = useWorkspace()
   const toast = useToast()
