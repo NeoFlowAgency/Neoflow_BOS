@@ -46,7 +46,11 @@ export default function CreerCommande() {
   const [notes, setNotes] = useState('')
 
   // Stock
-  const [stockMap, setStockMap] = useState({}) // productId -> totalAvailable
+  const [stockMap, setStockMap] = useState({}) // productId -> { store, warehouse, total }
+
+  // Champs livraison étendus
+  const [deliveryExtras, setDeliveryExtras] = useState({ batiment: '', etage: '', code: '', notes_livreur: '' })
+  const [showDeliveryExtras, setShowDeliveryExtras] = useState(false)
 
   // Clients récents
   const [recentClients, setRecentClients] = useState([])
@@ -97,14 +101,18 @@ export default function CreerCommande() {
         .order('name')
       setProduits(data || [])
 
-      // Load stock levels
+      // Load stock levels groupés par type (store / warehouse)
       const levelsData = await getStockLevels(workspace.id)
       const sMap = {}
       for (const sl of levelsData) {
         if (!sl.product) continue
         const pid = sl.product.id
-        if (!sMap[pid]) sMap[pid] = 0
-        sMap[pid] += (sl.quantity || 0) - (sl.reserved_quantity || 0)
+        const type = sl.location?.type || 'warehouse'
+        const available = (sl.quantity || 0) - (sl.reserved_quantity || 0)
+        if (!sMap[pid]) sMap[pid] = { store: 0, warehouse: 0, total: 0 }
+        if (type === 'store') sMap[pid].store += available
+        else sMap[pid].warehouse += available
+        sMap[pid].total += available
       }
       setStockMap(sMap)
     } catch (err) {
@@ -220,6 +228,18 @@ export default function CreerCommande() {
       ? gross * ((l.discount_item || 0) / 100)
       : Math.min(l.discount_item || 0, gross)
     return round(gross - disc)
+  }
+
+  // TTC helpers (affichage client)
+  const unitPriceTtc = (l) => round(l.unit_price * (1 + (l.tax_rate || 20) / 100))
+  const lineTotalTtc = (l) => round(lineTotal(l) * (1 + (l.tax_rate || 20) / 100))
+
+  const handlePriceChangeTtc = (ligneId, newPriceTtc) => {
+    const priceTtc = parseFloat(newPriceTtc) || 0
+    const ligne = lignes.find(l => l.id === ligneId)
+    const taxRate = ligne?.tax_rate || 20
+    const priceHt = round(priceTtc / (1 + taxRate / 100))
+    setLignes(prev => prev.map(l => l.id === ligneId ? { ...l, unit_price: priceHt } : l))
   }
 
   const calculerTotaux = () => {
@@ -406,8 +426,29 @@ export default function CreerCommande() {
         }).catch(() => {})
       }
 
+      // Auto-création livraison si type livraison + date souhaitée
+      if (deliveryType === 'delivery' && wishedDeliveryDate) {
+        const deliveryNotes = [
+          deliveryExtras.batiment ? `Bât. ${deliveryExtras.batiment}` : '',
+          deliveryExtras.etage ? `Étage ${deliveryExtras.etage}` : '',
+          deliveryExtras.code ? `Code ${deliveryExtras.code}` : '',
+          deliveryExtras.notes_livreur || '',
+        ].filter(Boolean).join(' — ')
+
+        await supabase.from('deliveries').insert({
+          workspace_id: workspace.id,
+          order_id: order.id,
+          status: 'planifiee',
+          scheduled_date: wishedDeliveryDate,
+          delivery_address: client.adresse || null,
+          delivery_notes: deliveryNotes || null,
+        })
+      }
+
       setWishedDeliveryDate('')
       setMaxDeliveryDate('')
+      setDeliveryExtras({ batiment: '', etage: '', code: '', notes_livreur: '' })
+      setShowDeliveryExtras(false)
       setOldFurnitureOption('keep')
       setSmsConsent(false)
       setSmsPartnerConsent(false)
@@ -604,9 +645,9 @@ export default function CreerCommande() {
         <div className="hidden md:grid grid-cols-12 gap-3 mb-3 px-2">
           <div className="col-span-4 text-sm font-medium text-gray-500">Produit</div>
           <div className="col-span-1 text-sm font-medium text-gray-500 text-center">Qté</div>
-          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Prix HT</div>
+          <div className="col-span-2 text-sm font-medium text-gray-500 text-center">Prix TTC</div>
           <div className="col-span-3 text-sm font-medium text-gray-500 text-center">Remise ligne</div>
-          <div className="col-span-1 text-sm font-medium text-gray-500 text-center">Total HT</div>
+          <div className="col-span-1 text-sm font-medium text-gray-500 text-center">Total TTC</div>
           <div className="col-span-1"></div>
         </div>
 
@@ -641,11 +682,22 @@ export default function CreerCommande() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-                  {ligne.produit_id && stockMap[ligne.produit_id] !== undefined && stockMap[ligne.produit_id] < ligne.quantity && (
-                    <p className={`text-xs mt-1 font-medium ${stockMap[ligne.produit_id] <= 0 ? 'text-red-500' : 'text-orange-500'}`}>
-                      {stockMap[ligne.produit_id] <= 0 ? 'Rupture de stock' : `Stock faible: ${stockMap[ligne.produit_id]} dispo.`}
-                    </p>
-                  )}
+                  {ligne.produit_id && stockMap[ligne.produit_id] !== undefined && (() => {
+                    const s = stockMap[ligne.produit_id]
+                    if (s.total <= 0) return (
+                      <p className="text-xs mt-1 font-medium text-red-500">Rupture de stock</p>
+                    )
+                    const parts = []
+                    if (s.store > 0) parts.push(`${s.store} magasin`)
+                    if (s.warehouse > 0) parts.push(`${s.warehouse} dépôt`)
+                    const stockLabel = parts.length > 0 ? parts.join(' · ') : `${s.total} dispo.`
+                    const isLow = s.total < ligne.quantity
+                    return (
+                      <p className={`text-xs mt-1 font-medium ${isLow ? 'text-orange-500' : 'text-emerald-600'}`}>
+                        {isLow ? '⚠ ' : ''}Stock : {stockLabel}
+                      </p>
+                    )
+                  })()}
                   {/* Select variante si le produit en a */}
                   {(() => {
                     const produit = produits.find(p => p.id === ligne.produit_id)
@@ -688,7 +740,7 @@ export default function CreerCommande() {
                   <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-3 text-center font-semibold text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
                 </div>
                 <div className="hidden md:block md:col-span-2">
-                  <input type="number" step="0.01" min={0} value={ligne.unit_price || ''} onChange={(e) => handlePriceChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" placeholder="0.00" />
+                  <input type="number" step="0.01" min={0} value={ligne.unit_price ? unitPriceTtc(ligne) : ''} onChange={(e) => handlePriceChangeTtc(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-center text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" placeholder="0.00" />
                 </div>
                 <div className="hidden md:block md:col-span-3">
                   <div className="flex items-center gap-1">
@@ -697,7 +749,7 @@ export default function CreerCommande() {
                   </div>
                 </div>
                 <div className="hidden md:block md:col-span-1">
-                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 py-3 text-center font-bold text-[#313ADF] text-sm">{lineTotal(ligne).toFixed(2)}</div>
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-2 py-3 text-center font-bold text-[#313ADF] text-sm">{lineTotalTtc(ligne).toFixed(2)}</div>
                 </div>
                 <div className="hidden md:flex md:col-span-1 justify-center">
                   <button type="button" onClick={() => supprimerLigne(ligne.id)} disabled={lignes.length <= 1} className={`p-2 rounded-lg transition-colors ${lignes.length <= 1 ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}>
@@ -713,8 +765,8 @@ export default function CreerCommande() {
                   <input type="number" min={1} value={ligne.quantity} onChange={(e) => handleQuantiteChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center font-semibold text-[#040741] text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-gray-500 mb-1 block">Prix HT</span>
-                  <input type="number" step="0.01" min={0} value={ligne.unit_price || ''} onChange={(e) => handlePriceChange(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center text-[#040741] text-xs focus:outline-none" placeholder="0.00" />
+                  <span className="text-xs font-medium text-gray-500 mb-1 block">Prix TTC</span>
+                  <input type="number" step="0.01" min={0} value={ligne.unit_price ? unitPriceTtc(ligne) : ''} onChange={(e) => handlePriceChangeTtc(ligne.id, e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-center text-[#040741] text-xs focus:outline-none" placeholder="0.00" />
                 </div>
                 <div>
                   <span className="text-xs font-medium text-gray-500 mb-1 block">Remise</span>
@@ -725,7 +777,7 @@ export default function CreerCommande() {
                 </div>
                 <div>
                   <span className="text-xs font-medium text-gray-500 mb-1 block">Total</span>
-                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-1 py-2.5 text-center font-bold text-[#313ADF] text-xs">{lineTotal(ligne).toFixed(2)} €</div>
+                  <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-1 py-2.5 text-center font-bold text-[#313ADF] text-xs">{lineTotalTtc(ligne).toFixed(2)} €</div>
                 </div>
               </div>
             </div>
@@ -943,6 +995,46 @@ export default function CreerCommande() {
                 className="w-full border rounded-xl px-3 py-2 text-sm" />
             </div>
           </div>
+
+          {/* Champs livraison étendus */}
+          <button
+            type="button"
+            onClick={() => setShowDeliveryExtras(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-[#313ADF] font-medium hover:underline mt-1"
+          >
+            <svg className={`w-3.5 h-3.5 transition-transform ${showDeliveryExtras ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            {showDeliveryExtras ? 'Masquer' : 'Informations accès livraison'}
+          </button>
+          {showDeliveryExtras && (
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Bâtiment</label>
+                <input type="text" value={deliveryExtras.batiment}
+                  onChange={e => setDeliveryExtras(p => ({ ...p, batiment: e.target.value }))}
+                  placeholder="Bât. A" className="w-full border rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Étage</label>
+                <input type="text" value={deliveryExtras.etage}
+                  onChange={e => setDeliveryExtras(p => ({ ...p, etage: e.target.value }))}
+                  placeholder="2e étage" className="w-full border rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Code d'accès</label>
+                <input type="text" value={deliveryExtras.code}
+                  onChange={e => setDeliveryExtras(p => ({ ...p, code: e.target.value }))}
+                  placeholder="1234#" className="w-full border rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Notes livreur</label>
+                <input type="text" value={deliveryExtras.notes_livreur}
+                  onChange={e => setDeliveryExtras(p => ({ ...p, notes_livreur: e.target.value }))}
+                  placeholder="Sonner chez Dupont…" className="w-full border rounded-xl px-3 py-2 text-sm" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Reprise ancien matelas */}
