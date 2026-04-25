@@ -469,54 +469,55 @@ export default function Dashboard() {
 
   // ── Vue MANAGER / PROPRIÉTAIRE / VENDEUR ─────────────────────────────────
   return (
-    <div className="min-h-screen">
-      {/* ── Bandeau header navy ──────────────────────────────── */}
-      <div className="bg-gradient-to-br from-[#040741] to-[#0d1260] px-5 md:px-8 pt-6 pb-5">
-        <div className="flex items-start justify-between gap-4 mb-5">
-          <div>
-            <p className="text-blue-300 text-xs font-medium uppercase tracking-widest mb-1">
-              {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </p>
-            <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-              Bonjour, {userName} !
-            </h1>
-            <p className="text-blue-200/60 text-sm mt-0.5">{workspace?.name}</p>
-          </div>
-          <button
-            onClick={() => navigate('/vente-rapide')}
-            className="flex items-center gap-2 bg-white text-[#313ADF] px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-50 transition-colors shadow-lg flex-shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span className="hidden sm:inline">Vente rapide</span>
-            <span className="sm:hidden">Vente</span>
-          </button>
+    <div className="p-4 md:p-8 min-h-screen">
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#040741]">
+            Bonjour, {userName} !
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {workspace?.name}
+          </p>
         </div>
+        <button
+          onClick={() => navigate('/vente-rapide')}
+          className="flex items-center gap-2 bg-[#313ADF] text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-[#040741] transition-colors shadow-sm flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span className="hidden sm:inline">Vente rapide</span>
+          <span className="sm:hidden">Vente</span>
+        </button>
+      </div>
 
-        {/* Aujourd'hui — 3 stats dans le bandeau */}
+      {/* ── Alertes critiques ────────────────────────────── */}
+      <AlertBanner alerts={alerts} />
+
+      {/* ── Aujourd'hui ──────────────────────────────────── */}
+      <div className="mb-6">
+        <h2 className="text-base font-bold text-[#040741] mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          Aujourd'hui
+        </h2>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
-            <p className="text-xl md:text-2xl font-bold text-white">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-green-700">
               {todayStats.caToday.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
             </p>
-            <p className="text-blue-200 text-xs mt-0.5">Encaissé</p>
+            <p className="text-xs text-gray-500 mt-1">Encaissé</p>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
-            <p className="text-xl md:text-2xl font-bold text-white">{todayStats.ventesToday}</p>
-            <p className="text-blue-200 text-xs mt-0.5">Ventes</p>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-[#313ADF]">{todayStats.ventesToday}</p>
+            <p className="text-xs text-gray-500 mt-1">Ventes terminées</p>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3.5 text-center border border-white/10">
-            <p className="text-xl md:text-2xl font-bold text-white">{todayStats.livraisonsToday}</p>
-            <p className="text-blue-200 text-xs mt-0.5">Livraisons</p>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-gray-600">{todayStats.livraisonsToday}</p>
+            <p className="text-xs text-gray-500 mt-1">Livraisons prévues</p>
           </div>
         </div>
       </div>
-
-      {/* ── Corps de page ────────────────────────────────── */}
-      <div className="p-4 md:p-8">
-        {/* ── Alertes critiques ────────────────────────────── */}
-        <AlertBanner alerts={alerts} />
 
       {/* ── KPIs mensuels ────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -810,7 +811,6 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
-      </div>{/* fin p-4 md:p-8 */}
     </div>
   )
 }
