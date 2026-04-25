@@ -10,12 +10,23 @@ const LEGAL_FORMS = ['SAS', 'SARL', 'EURL', 'SCI', 'Auto-entrepreneur', 'SA', 'S
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF']
 const COUNTRIES = ['France', 'Belgique', 'Suisse', 'Luxembourg', 'Canada', 'Autre']
 
+const AVAILABLE_MODULES = [
+  { key: 'livraisons', label: 'Livraisons', description: 'Planification, GPS live, interface livreur mobile', icon: '🚛', requires: ['commandes'] },
+  { key: 'commandes', label: 'Commandes', description: 'Gestion des commandes clients', icon: '📋', requires: [] },
+  { key: 'ventes_rapides', label: 'Ventes rapides', description: 'Point de vente rapide en magasin', icon: '⚡', requires: [] },
+  { key: 'devis', label: 'Devis', description: 'Création et suivi des devis clients', icon: '📄', requires: [] },
+  { key: 'stock', label: 'Stock', description: 'Gestion des niveaux de stock et emplacements', icon: '📦', requires: [] },
+  { key: 'fournisseurs', label: 'Fournisseurs', description: 'Fournisseurs et bons de commande', icon: '🏭', requires: ['stock'] },
+  { key: 'sav', label: 'SAV', description: 'Suivi du service après-vente', icon: '🔧', requires: [] },
+]
+
 const STEPS = [
   { id: 1, label: 'Infos générales' },
   { id: 2, label: 'Infos légales' },
   { id: 3, label: 'Documents' },
   { id: 4, label: 'Situation' },
-  { id: 5, label: 'Abonnement' },
+  { id: 5, label: 'Modules' },
+  { id: 6, label: 'Abonnement' },
 ]
 
 export default function WorkspaceOnboarding() {
@@ -27,6 +38,22 @@ export default function WorkspaceOnboarding() {
   const [error, setError] = useState('')
   const [billing, setBilling] = useState('monthly')
   const [selectedPlan, setSelectedPlan] = useState('basic')
+
+  const [selectedModules, setSelectedModules] = useState({
+    livraisons: true, commandes: true, ventes_rapides: true,
+    devis: true, stock: true, fournisseurs: true, sav: true,
+  })
+
+  const toggleModule = (key) => {
+    setSelectedModules(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      const mod = AVAILABLE_MODULES.find(m => m.key === key)
+      if (!prev[key] && mod?.requires?.length) {
+        mod.requires.forEach(dep => { next[dep] = true })
+      }
+      return next
+    })
+  }
 
   const [form, setForm] = useState({
     // Step 1
@@ -167,6 +194,7 @@ export default function WorkspaceOnboarding() {
         ca_annuel_estime: form.ca_annuel_estime ? parseFloat(form.ca_annuel_estime) : null,
         surface_magasin: form.surface_magasin ? parseInt(form.surface_magasin, 10) : null,
         specialite: form.specialite.trim() || null,
+        modules: selectedModules,
       })
 
       // Save new workspace ID so the context auto-selects it after Stripe redirect
@@ -239,7 +267,7 @@ export default function WorkspaceOnboarding() {
         </div>
 
         <div className="px-6 md:px-10 pb-8 pt-4">
-          {checkoutCanceled && step === 5 && (
+          {checkoutCanceled && step === 6 && (
             <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -436,8 +464,55 @@ export default function WorkspaceOnboarding() {
             </div>
           )}
 
-          {/* ── STEP 5 : Abonnement ── */}
+          {/* ── STEP 5 : Modules ── */}
           {step === 5 && (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-[#040741]">Modules activés</h2>
+                <p className="text-sm text-gray-500 mt-1">Choisissez les fonctionnalités dont vous avez besoin. Modifiable à tout moment dans les paramètres.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                {AVAILABLE_MODULES.map(mod => (
+                  <div
+                    key={mod.key}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                      selectedModules[mod.key]
+                        ? 'border-[#313ADF] bg-[#313ADF]/5'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                    onClick={() => toggleModule(mod.key)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{mod.icon}</span>
+                      <div>
+                        <p className={`font-semibold text-sm ${selectedModules[mod.key] ? 'text-[#040741]' : 'text-gray-400'}`}>
+                          {mod.label}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${selectedModules[mod.key] ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {mod.description}
+                        </p>
+                        {mod.requires.length > 0 && selectedModules[mod.key] && (
+                          <p className="text-xs text-[#313ADF] mt-0.5">
+                            Active aussi : {mod.requires.map(r => AVAILABLE_MODULES.find(m => m.key === r)?.label).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${
+                      selectedModules[mod.key] ? 'bg-[#313ADF]' : 'bg-gray-300'
+                    }`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform m-0.5 ${
+                        selectedModules[mod.key] ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 6 : Abonnement ── */}
+          {step === 6 && (
             <div className="space-y-5">
               <h2 className="text-xl font-bold text-[#040741] mb-4">Choisir votre plan</h2>
 
@@ -571,13 +646,13 @@ export default function WorkspaceOnboarding() {
             )}
 
             <div className="flex items-center gap-3">
-              {(step === 3 || step === 4) && (
+              {(step === 3 || step === 4 || step === 5) && (
                 <button onClick={handleSkipStep} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
                   Passer cette étape
                 </button>
               )}
 
-              {step < 5 ? (
+              {step < 6 ? (
                 <button
                   onClick={handleNext}
                   className="px-6 py-2.5 bg-[#313ADF] text-white rounded-xl font-semibold text-sm hover:bg-[#4149e8] transition-colors flex items-center gap-2"

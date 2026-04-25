@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   const [stockAlertCount, setStockAlertCount] = useState(0)
   const [savAlertCount, setSavAlertCount] = useState(0)
   const wsDropdownRef = useRef(null)
-  const { currentWorkspace, workspaces, switchWorkspace, role, planType } = useWorkspace()
+  const { currentWorkspace, workspaces, switchWorkspace, role, planType, isModuleEnabled } = useWorkspace()
 
   // Auto-expand groups when on related routes
   const ventesRoutes = ['/vente-rapide', '/commandes', '/factures', '/devis']
@@ -208,11 +208,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     // PLUS sheet commun aux rôles avec gestion boutique
     const boutiqueSheet = [
       { to: '/produits',             label: 'Produits',     icon: ICONS.products },
-      { to: '/stock',                label: 'Stock',        icon: ICONS.stock, badge: stockAlertCount },
-      { to: '/livraisons',           label: 'Livraisons',   icon: ICONS.delivery },
+      ...(isModuleEnabled('stock') ? [{ to: '/stock', label: 'Stock', icon: ICONS.stock, badge: stockAlertCount }] : []),
+      ...(isModuleEnabled('livraisons') ? [{ to: '/livraisons', label: 'Livraisons', icon: ICONS.delivery }] : []),
       { to: '/contremarques', label: 'Contremarques', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7l2 2 4-4" /></svg> },
-      ...(canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
-      ...(canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
+      ...(isModuleEnabled('sav') && canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
+      ...(isModuleEnabled('fournisseurs') && canManageSuppliers(role) ? [{ to: '/fournisseurs', label: 'Fournisseurs', icon: ICONS.suppliers }] : []),
       { to: '/dashboard-financier',  label: 'Stats',        icon: ICONS.stats },
       ...(role !== 'livreur' ? [{ to: '/import', label: 'Import données', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> }] : []),
       ...(planType === 'enterprise' ? [{ to: '/admin-workspaces', label: 'Mes magasins', icon: ICONS.suppliers }] : []),
@@ -222,10 +222,10 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
     // Sheet ventes (commandes + facturation)
     const ventesSheet = [
-      { to: '/vente-rapide', label: 'Vente rapide', icon: ICONS.flash },
-      { to: '/commandes',    label: 'Commandes',    icon: ICONS.orders },
-      { to: '/factures',     label: 'Factures',     icon: ICONS.invoices },
-      { to: '/devis',        label: 'Devis',        icon: ICONS.quotes },
+      ...(isModuleEnabled('ventes_rapides') ? [{ to: '/vente-rapide', label: 'Vente rapide', icon: ICONS.flash }] : []),
+      ...(isModuleEnabled('commandes') ? [{ to: '/commandes', label: 'Commandes', icon: ICONS.orders }] : []),
+      { to: '/factures', label: 'Factures', icon: ICONS.invoices },
+      ...(isModuleEnabled('devis') ? [{ to: '/devis', label: 'Devis', icon: ICONS.quotes }] : []),
     ]
 
     if (role === 'livreur') {
@@ -262,11 +262,11 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           { type: 'sheet', sheetKey: 'plus',    label: 'Plus',     icon: ICONS.more,
             sheet: [
               { to: '/factures',  label: 'Factures',   icon: ICONS.invoices },
-              { to: '/devis',     label: 'Devis',      icon: ICONS.quotes },
+              ...(isModuleEnabled('devis') ? [{ to: '/devis', label: 'Devis', icon: ICONS.quotes }] : []),
               { to: '/produits',  label: 'Produits',   icon: ICONS.products },
-              { to: '/stock',     label: 'Stock',      icon: ICONS.stock, badge: stockAlertCount },
-              { to: '/livraisons',label: 'Livraisons', icon: ICONS.delivery },
-              ...(canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
+              ...(isModuleEnabled('stock') ? [{ to: '/stock', label: 'Stock', icon: ICONS.stock, badge: stockAlertCount }] : []),
+              ...(isModuleEnabled('livraisons') ? [{ to: '/livraisons', label: 'Livraisons', icon: ICONS.delivery }] : []),
+              ...(isModuleEnabled('sav') && canUseSAV(role) ? [{ to: '/sav', label: 'SAV', icon: ICONS.sav, badge: savAlertCount }] : []),
               { to: '/settings',  label: 'Paramètres', icon: ICONS.settings },
             ]
           },
@@ -576,27 +576,31 @@ export default function Sidebar({ isOpen, setIsOpen }) {
             isExpanded={ventesOpen}
             onToggle={() => setVentesOpen(!ventesOpen)}
           >
-            <NavItem
-              to="/vente-rapide"
-              indent
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              }
-              label="Vente rapide"
-            />
-            <NavItem
-              to="/commandes"
-              end
-              indent
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              }
-              label="Commandes"
-            />
+            {isModuleEnabled('ventes_rapides') && (
+              <NavItem
+                to="/vente-rapide"
+                indent
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                }
+                label="Vente rapide"
+              />
+            )}
+            {isModuleEnabled('commandes') && (
+              <NavItem
+                to="/commandes"
+                end
+                indent
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                }
+                label="Commandes"
+              />
+            )}
             <NavItem
               to="/factures"
               end
@@ -608,17 +612,19 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               }
               label="Factures"
             />
-            <NavItem
-              to="/devis"
-              end
-              indent
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              }
-              label="Devis"
-            />
+            {isModuleEnabled('devis') && (
+              <NavItem
+                to="/devis"
+                end
+                indent
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                }
+                label="Devis"
+              />
+            )}
           </NavGroup>
 
           {/* Clients */}
@@ -653,18 +659,20 @@ export default function Sidebar({ isOpen, setIsOpen }) {
               }
               label="Produits"
             />
-            <NavItem
-              to="/stock"
-              indent
-              badge={stockAlertCount}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                </svg>
-              }
-              label="Stock"
-            />
-            {canManageSuppliers(role) && (
+            {isModuleEnabled('stock') && (
+              <NavItem
+                to="/stock"
+                indent
+                badge={stockAlertCount}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  </svg>
+                }
+                label="Stock"
+              />
+            )}
+            {isModuleEnabled('fournisseurs') && canManageSuppliers(role) && (
               <NavItem
                 to="/fournisseurs"
                 indent
@@ -679,16 +687,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           </NavGroup>
 
           {/* Livraisons */}
-          <NavItem
-            to="/livraisons"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-            }
-            label="Livraisons"
-          />
-          {role === 'livreur' && (
+          {isModuleEnabled('livraisons') && (
+            <NavItem
+              to="/livraisons"
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              }
+              label="Livraisons"
+            />
+          )}
+          {isModuleEnabled('livraisons') && role === 'livreur' && (
             <NavItem
               to="/livraisons/ma-journee"
               indent
@@ -709,16 +719,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
           />
 
           {/* SAV */}
-          <NavItem
-            to="/sav"
-            badge={savAlertCount}
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            }
-            label="SAV"
-          />
+          {isModuleEnabled('sav') && (
+            <NavItem
+              to="/sav"
+              badge={savAlertCount}
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              }
+              label="SAV"
+            />
+          )}
 
           {/* Neo IA */}
           <NavItem
