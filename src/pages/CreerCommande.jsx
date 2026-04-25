@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { createOrder } from '../services/orderService'
-import { addOrderPayment } from '../services/orderPaymentService'
 import { getStockLevels } from '../services/stockService'
 import { listVariants } from '../services/variantService'
 import { useWorkspace } from '../contexts/WorkspaceContext'
@@ -62,12 +61,8 @@ export default function CreerCommande() {
   // Reprise ancien matelas
   const [oldFurnitureOption, setOldFurnitureOption] = useState('keep')
 
-  // Consentements RGPD
+  // Consentement RGPD
   const [smsConsent, setSmsConsent] = useState(false)
-  const [smsPartnerConsent, setSmsPartnerConsent] = useState(false)
-
-  // Acompte multi-mode
-  const [acompteRows, setAcompteRows] = useState([{ mode: 'cb', amount: '' }])
 
   useEffect(() => {
     if (workspace?.id) {
@@ -389,17 +384,6 @@ export default function CreerCommande() {
         sms_partner_consent: smsPartnerConsent,
       })
 
-      // Enregistrer les acomptes
-      for (const row of acompteRows) {
-        if (parseFloat(row.amount) > 0) {
-          await addOrderPayment(workspace.id, order.id, user.id, {
-            payment_type: 'acompte',
-            mode: row.mode,
-            amount: parseFloat(row.amount),
-          })
-        }
-      }
-
       // Notify managers/owners of new order (non-blocking)
       const clientLabel = client.prenom || client.nom
         ? `${client.prenom} ${client.nom}`.trim()
@@ -451,8 +435,6 @@ export default function CreerCommande() {
       setShowDeliveryExtras(false)
       setOldFurnitureOption('keep')
       setSmsConsent(false)
-      setSmsPartnerConsent(false)
-      setAcompteRows([{ mode: 'cb', amount: '' }])
 
       toast.success('Commande creee avec succes !')
       navigate(`/commandes/${order.id}`)
@@ -629,6 +611,50 @@ export default function CreerCommande() {
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
             />
           </div>
+
+          {/* Accès livraison — uniquement si type livraison */}
+          {deliveryType === 'delivery' && (
+            <div className="md:col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowDeliveryExtras(v => !v)}
+                className="flex items-center gap-1.5 text-xs text-[#313ADF] font-medium hover:underline mb-2"
+              >
+                <svg className={`w-3.5 h-3.5 transition-transform ${showDeliveryExtras ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                {showDeliveryExtras ? 'Masquer' : 'Informations accès (bâtiment, code…)'}
+              </button>
+              {showDeliveryExtras && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Bâtiment</label>
+                    <input type="text" value={deliveryExtras.batiment}
+                      onChange={e => setDeliveryExtras(p => ({ ...p, batiment: e.target.value }))}
+                      placeholder="Bât. A" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Étage</label>
+                    <input type="text" value={deliveryExtras.etage}
+                      onChange={e => setDeliveryExtras(p => ({ ...p, etage: e.target.value }))}
+                      placeholder="2e étage" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Code d'accès</label>
+                    <input type="text" value={deliveryExtras.code}
+                      onChange={e => setDeliveryExtras(p => ({ ...p, code: e.target.value }))}
+                      placeholder="1234#" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Notes livreur</label>
+                    <input type="text" value={deliveryExtras.notes_livreur}
+                      onChange={e => setDeliveryExtras(p => ({ ...p, notes_livreur: e.target.value }))}
+                      placeholder="Sonner chez Dupont…" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -682,11 +708,10 @@ export default function CreerCommande() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-                  {ligne.produit_id && stockMap[ligne.produit_id] !== undefined && (() => {
+                  {ligne.produit_id && (() => {
                     const s = stockMap[ligne.produit_id]
-                    if (s.total <= 0) return (
-                      <p className="text-xs mt-1 font-medium text-red-500">Rupture de stock</p>
-                    )
+                    if (!s) return <p className="text-xs mt-1 text-gray-400">Stock : non renseigné</p>
+                    if (s.total <= 0) return <p className="text-xs mt-1 font-medium text-red-500">⚠ Rupture de stock</p>
                     const parts = []
                     if (s.store > 0) parts.push(`${s.store} magasin`)
                     if (s.warehouse > 0) parts.push(`${s.warehouse} dépôt`)
@@ -839,24 +864,16 @@ export default function CreerCommande() {
           </div>
 
           {/* Type livraison */}
-          <div className="mb-6">
+          <div className="mb-5">
             <label className="block text-sm font-semibold text-[#040741] mb-3">Type de retrait / livraison</label>
             <div className="flex gap-2 flex-wrap">
               {[
-                { value: 'none', label: 'Sans', color: 'gray' },
-                { value: 'delivery', label: 'Livraison', color: 'blue' },
-                { value: 'pickup', label: 'Retrait en magasin', color: 'green' }
+                { value: 'none', label: 'Sans' },
+                { value: 'delivery', label: 'Livraison' },
+                { value: 'pickup', label: 'Retrait en magasin' }
               ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setDeliveryType(opt.value)}
-                  className={`px-4 py-2 rounded-xl font-medium text-sm transition-all ${
-                    deliveryType === opt.value
-                      ? 'bg-[#313ADF] text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
+                <button key={opt.value} type="button" onClick={() => setDeliveryType(opt.value)}
+                  className={`px-4 py-2 rounded-xl font-medium text-sm transition-all ${deliveryType === opt.value ? 'bg-[#313ADF] text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                   {opt.label}
                 </button>
               ))}
@@ -865,28 +882,73 @@ export default function CreerCommande() {
 
           {/* Frais de livraison */}
           {deliveryType === 'delivery' && (
-            <div className="mb-6">
+            <div className="mb-5">
               <label className="block text-sm font-semibold text-[#040741] mb-2">Frais de livraison (€ TTC)</label>
-              <input
-                type="number" min={0} step="0.01"
-                value={deliveryFees || ''}
+              <input type="number" min={0} step="0.01" value={deliveryFees || ''}
                 onChange={e => setDeliveryFees(parseFloat(e.target.value) || 0)}
                 placeholder="0.00"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
-              />
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
             </div>
           )}
+
+          {/* Dates souhaitée / limite — livraison OU retrait */}
+          {(deliveryType === 'delivery' || deliveryType === 'pickup') && (
+            <div className="mb-5 bg-gray-50 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-700">
+                {deliveryType === 'delivery' ? 'Dates de livraison' : 'Date de retrait'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Date souhaitée</label>
+                  <input type="date" value={wishedDeliveryDate}
+                    onChange={e => setWishedDeliveryDate(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Date limite</label>
+                  <input type="date" value={maxDeliveryDate}
+                    onChange={e => setMaxDeliveryDate(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reprise & recyclage — uniquement livraison */}
+          {deliveryType === 'delivery' && (
+            <div className="mb-5 bg-gray-50 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-semibold text-gray-700">Reprise &amp; recyclage des anciens meubles</p>
+              {[
+                { value: 'keep', label: 'Le client souhaite conserver ses anciens meubles' },
+                { value: 'ess', label: 'En faire don et confier la reprise à une ESS' },
+                { value: 'dechetterie', label: 'Les déposer en déchetterie ou point de collecte' },
+                { value: 'reprise', label: 'En confier la reprise gratuite à notre magasin' },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name="old_furniture" value={opt.value}
+                    checked={oldFurnitureOption === opt.value}
+                    onChange={e => setOldFurnitureOption(e.target.value)} className="mt-0.5" />
+                  <span className="text-sm text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {/* Consentement RGPD */}
+          <div className="mb-5">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={smsConsent} onChange={e => setSmsConsent(e.target.checked)}
+                className="w-4 h-4 accent-[#313ADF]" />
+              <span className="text-sm text-gray-700">J'accepte de recevoir vos offres commerciales par courrier, SMS et email</span>
+            </label>
+          </div>
 
           {/* Notes */}
           <div>
             <label className="block text-sm font-semibold text-[#040741] mb-2">Notes (optionnel)</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Informations complementaires..."
-              rows={3}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 resize-none"
-            />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
+              placeholder="Informations complémentaires…" rows={3}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 resize-none" />
           </div>
         </div>
 
@@ -966,152 +1028,6 @@ export default function CreerCommande() {
               </>
             )}
           </button>
-        </div>
-      </div>
-
-      {/* Section Informations literie */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-6 mb-6 space-y-4">
-        <h2 className="text-xl font-bold text-[#040741] flex items-center gap-2">
-          <svg className="w-6 h-6 text-[#313ADF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          Informations literie
-        </h2>
-
-        {/* Dates de livraison */}
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-          <p className="text-sm font-semibold text-gray-700">Livraison</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Date souhaitée</label>
-              <input type="date" value={wishedDeliveryDate}
-                onChange={e => setWishedDeliveryDate(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Date limite</label>
-              <input type="date" value={maxDeliveryDate}
-                onChange={e => setMaxDeliveryDate(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 text-sm" />
-            </div>
-          </div>
-
-          {/* Champs livraison étendus */}
-          <button
-            type="button"
-            onClick={() => setShowDeliveryExtras(v => !v)}
-            className="flex items-center gap-1.5 text-xs text-[#313ADF] font-medium hover:underline mt-1"
-          >
-            <svg className={`w-3.5 h-3.5 transition-transform ${showDeliveryExtras ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            {showDeliveryExtras ? 'Masquer' : 'Informations accès livraison'}
-          </button>
-          {showDeliveryExtras && (
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Bâtiment</label>
-                <input type="text" value={deliveryExtras.batiment}
-                  onChange={e => setDeliveryExtras(p => ({ ...p, batiment: e.target.value }))}
-                  placeholder="Bât. A" className="w-full border rounded-xl px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Étage</label>
-                <input type="text" value={deliveryExtras.etage}
-                  onChange={e => setDeliveryExtras(p => ({ ...p, etage: e.target.value }))}
-                  placeholder="2e étage" className="w-full border rounded-xl px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Code d'accès</label>
-                <input type="text" value={deliveryExtras.code}
-                  onChange={e => setDeliveryExtras(p => ({ ...p, code: e.target.value }))}
-                  placeholder="1234#" className="w-full border rounded-xl px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Notes livreur</label>
-                <input type="text" value={deliveryExtras.notes_livreur}
-                  onChange={e => setDeliveryExtras(p => ({ ...p, notes_livreur: e.target.value }))}
-                  placeholder="Sonner chez Dupont…" className="w-full border rounded-xl px-3 py-2 text-sm" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Reprise ancien matelas */}
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-gray-700">Reprise &amp; recyclage des anciens meubles</p>
-          {[
-            { value: 'keep', label: 'Le client souhaite conserver ses anciens meubles' },
-            { value: 'ess', label: 'En faire don et confier la reprise à une ESS' },
-            { value: 'dechetterie', label: 'Les déposer en déchetterie ou point de collecte' },
-            { value: 'reprise', label: 'En confier la reprise gratuite à notre magasin' },
-          ].map(opt => (
-            <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name="old_furniture"
-                value={opt.value} checked={oldFurnitureOption === opt.value}
-                onChange={e => setOldFurnitureOption(e.target.value)}
-                className="mt-0.5" />
-              <span className="text-sm text-gray-700">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-
-        {/* Consentements RGPD */}
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-gray-700">Consentements (RGPD)</p>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={smsConsent} onChange={e => setSmsConsent(e.target.checked)} />
-            <span className="text-sm text-gray-700">
-              J'accepte de recevoir vos offres commerciales par courrier, SMS, email
-            </span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={smsPartnerConsent} onChange={e => setSmsPartnerConsent(e.target.checked)} />
-            <span className="text-sm text-gray-700">
-              J'accepte de recevoir les offres commerciales de vos partenaires
-            </span>
-          </label>
-        </div>
-
-        {/* Acompte multi-mode */}
-        <div className="bg-blue-50 rounded-2xl p-4 space-y-3">
-          <p className="text-sm font-semibold text-[#313ADF]">Acompte encaissé aujourd'hui</p>
-          {acompteRows.map((row, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <select value={row.mode}
-                onChange={e => setAcompteRows(prev => prev.map((r, j) => j === i ? { ...r, mode: e.target.value } : r))}
-                className="border rounded-xl px-3 py-2 text-sm w-36 bg-white">
-                <option value="cb">CB</option>
-                <option value="cash">Espèces</option>
-                <option value="cheque">Chèque</option>
-                <option value="virement">Virement</option>
-                <option value="financement">Financement</option>
-              </select>
-              <input type="number" step="0.01" min="0"
-                placeholder="0,00 €"
-                value={row.amount}
-                onChange={e => setAcompteRows(prev => prev.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))}
-                className="flex-1 border rounded-xl px-3 py-2 text-sm bg-white" />
-              {acompteRows.length > 1 && (
-                <button type="button" onClick={() => setAcompteRows(prev => prev.filter((_, j) => j !== i))}
-                  className="text-red-400 text-sm">✕</button>
-              )}
-            </div>
-          ))}
-          <button type="button"
-            onClick={() => setAcompteRows(prev => [...prev, { mode: 'cb', amount: '' }])}
-            className="text-xs text-[#313ADF] hover:underline">
-            + Ajouter un mode de paiement
-          </button>
-          {(() => {
-            const totalAcompte = acompteRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
-            const solde = Math.max(0, totaux.totalTtc - totalAcompte)
-            return totalAcompte > 0 ? (
-              <p className="text-sm font-semibold text-gray-700 text-right">
-                À encaisser à la livraison : <span className="text-[#313ADF]">{solde.toFixed(2)} €</span>
-              </p>
-            ) : null
-          })()}
         </div>
       </div>
 
