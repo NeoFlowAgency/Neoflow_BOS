@@ -29,7 +29,7 @@ const STATUS_FLOW = {
 
 const STATUS_FILTERS = [
   { value: '', label: 'Tous' },
-  { value: 'pret_a_livrer', label: '✓ Prêt à livrer', special: true },
+  { value: 'pret_a_livrer', label: 'Prêt à livrer', special: true },
   { value: 'confirme', label: 'Confirmé' },
   { value: 'en_preparation', label: 'En préparation' },
   { value: 'en_livraison', label: 'En livraison' },
@@ -128,11 +128,11 @@ export default function ListeCommandes() {
 
     const ratio = paid / total
     if (ratio >= 1) {
-      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Paye</span>
+      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Payé</span>
     } else if (ratio > 0) {
       return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Partiel</span>
     }
-    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">Non paye</span>
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">Non payé</span>
   }
 
   return (
@@ -233,14 +233,14 @@ export default function ListeCommandes() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left py-4 px-6 font-semibold text-[#040741] text-sm">Numero</th>
+                  <th className="text-left py-4 px-6 font-semibold text-[#040741] text-sm">N°</th>
                   <th className="text-left py-4 px-4 font-semibold text-[#040741] text-sm">Client</th>
                   <th className="text-left py-4 px-4 font-semibold text-[#040741] text-sm">Date</th>
                   <th className="text-right py-4 px-4 font-semibold text-[#040741] text-sm">Total TTC</th>
-                  <th className="text-right py-4 px-4 font-semibold text-[#040741] text-sm">Paye</th>
-                  <th className="text-right py-4 px-4 font-semibold text-[#040741] text-sm">Reste</th>
+                  <th className="text-right py-4 px-4 font-semibold text-[#040741] text-sm">Payé</th>
+                  <th className="text-right py-4 px-4 font-semibold text-[#040741] text-sm">Reste dû</th>
                   <th className="text-center py-4 px-4 font-semibold text-[#040741] text-sm">Statut</th>
-                  <th className="text-center py-4 px-4 font-semibold text-[#040741] text-sm">Paiement</th>
+                  <th className="text-center py-4 px-4 font-semibold text-[#040741] text-sm">Règlement</th>
                   <th className="py-4 px-4"></th>
                 </tr>
               </thead>
@@ -271,14 +271,14 @@ export default function ListeCommandes() {
                       {new Date(order.created_at).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="py-4 px-4 text-right font-semibold text-[#040741] text-sm">
-                      {(order.total_ttc || 0).toFixed(2)} EUR
+                      {(order.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
                     </td>
                     <td className="py-4 px-4 text-right text-green-600 text-sm font-medium">
-                      {(order.amount_paid || 0).toFixed(2)} EUR
+                      {(order.amount_paid || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
                     </td>
                     <td className="py-4 px-4 text-right text-sm font-medium">
                       <span className={(order.remaining_amount || 0) > 0 ? 'text-orange-600' : 'text-gray-400'}>
-                        {(order.remaining_amount || 0).toFixed(2)} EUR
+                        {(order.remaining_amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center" onClick={e => e.stopPropagation()}>
@@ -372,7 +372,7 @@ export default function ListeCommandes() {
                     <span className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('fr-FR')}</span>
                     <div className="flex items-center gap-2">
                       {getPaymentBadge(order)}
-                      <span className="font-bold text-[#040741]">{(order.total_ttc || 0).toFixed(2)} EUR</span>
+                      <span className="font-bold text-[#040741]">{(order.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €</span>
                     </div>
                   </div>
                   {(order.remaining_amount || 0) > 0 && (
