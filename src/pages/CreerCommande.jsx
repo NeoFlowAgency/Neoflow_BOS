@@ -381,7 +381,7 @@ export default function CreerCommande() {
         max_delivery_date: maxDeliveryDate || null,
         old_furniture_option: oldFurnitureOption,
         sms_consent: smsConsent,
-        sms_partner_consent: smsPartnerConsent,
+        sms_partner_consent: false,
       })
 
       // Notify managers/owners of new order (non-blocking)
