@@ -20,16 +20,20 @@ const TABS = [
   { key: 'fleet',        label: 'Flotte'           },
 ]
 
+// Guard wrapper — vérifie le rôle AVANT de rendre le composant avec les hooks
 export default function DeliveryManagerPage() {
-  const { workspace, role } = useWorkspace()
-  const [tab, setTab] = useState('dashboard')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
-  const [workspaceMembers, setWorkspaceMembers] = useState([])
-
-  // Guard rôle
+  const { role } = useWorkspace()
   if (!['proprietaire', 'manager'].includes(role)) {
     return <Navigate to="/livraisons/ma-tournee" replace />
   }
+  return <DeliveryManagerInner />
+}
+
+function DeliveryManagerInner() {
+  const { workspace } = useWorkspace()
+  const [tab, setTab] = useState('dashboard')
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [workspaceMembers, setWorkspaceMembers] = useState([])
 
   const { deliveries, refresh } = useDeliveries(workspace?.id, { date: selectedDate })
   const driverPositions = useWatchDrivers(workspace?.id)

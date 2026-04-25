@@ -21,13 +21,24 @@ export default function DriverPage() {
   }, [])
 
   const today = new Date().toISOString().split('T')[0]
-  const { deliveries, refresh } = useDeliveries(workspace?.id, {
-    assignedTo: currentUserId,
-    date: today,
-  })
+  // N'interroge Supabase qu'une fois l'ID livreur résolu — sinon on chargerait
+  // toutes les livraisons du workspace sans filtre assigned_to
+  const { deliveries, refresh } = useDeliveries(
+    currentUserId ? workspace?.id : null,
+    { assignedTo: currentUserId, date: today }
+  )
 
   // GPS actif uniquement si tournée démarrée
   useShareLocation(workspace?.id, currentUserId, activeDelivery?.id ?? null, tourneeActive)
+
+  // Attend que l'ID livreur soit disponible
+  if (!currentUserId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#313ADF] border-t-transparent" />
+      </div>
+    )
+  }
 
   if (activeDelivery) {
     return (

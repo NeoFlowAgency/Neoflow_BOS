@@ -29,6 +29,7 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
   const [showProblemModal, setShowProblemModal] = useState(false)
   const [problemType, setProblemType] = useState('')
   const [problemDesc, setProblemDesc] = useState('')
+  const [signatureRefused, setSignatureRefused] = useState(false)
 
   const orderItems = delivery.order?.order_items ?? []
   const customer = delivery.order?.customer
@@ -255,7 +256,12 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
             {/* Signature */}
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Signature du client</p>
-              {signatureDataUrl ? (
+              {signatureRefused ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
+                  <p className="text-sm text-orange-700 font-medium">Signature refusée par le client</p>
+                  <button onClick={() => setSignatureRefused(false)} className="text-xs text-orange-600 underline">Annuler</button>
+                </div>
+              ) : signatureDataUrl ? (
                 <div className="space-y-2">
                   <img src={signatureDataUrl} alt="Signature" className="w-full border border-gray-200 rounded-xl bg-white" />
                   <button onClick={() => setSignatureDataUrl(null)} className="text-sm text-[#313ADF] underline">
@@ -263,7 +269,15 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
                   </button>
                 </div>
               ) : (
-                <SignatureCanvas onSave={setSignatureDataUrl} onCancel={null} />
+                <div className="space-y-2">
+                  <SignatureCanvas onSave={setSignatureDataUrl} onCancel={null} />
+                  <button
+                    onClick={() => setSignatureRefused(true)}
+                    className="w-full py-2 text-sm text-orange-600 border border-orange-200 rounded-xl"
+                  >
+                    Client refuse de signer
+                  </button>
+                </div>
               )}
             </div>
 
@@ -288,7 +302,7 @@ export default function DeliveryWorkflow({ delivery, onClose, workspaceId }) {
             {/* CTA */}
             <button
               onClick={handleComplete}
-              disabled={!signatureDataUrl || loading}
+              disabled={(!signatureDataUrl && !signatureRefused) || loading}
               className="w-full py-4 bg-[#313ADF] text-white rounded-xl font-bold text-lg disabled:opacity-40 active:bg-[#2830c0]"
             >
               {loading ? 'Enregistrement...' : 'Livraison terminée ✅'}

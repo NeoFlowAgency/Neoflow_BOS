@@ -215,7 +215,7 @@ export default function ApercuCommande() {
     if (workspaceMembers.length === 0) {
       const { data } = await supabase
         .from('workspace_users')
-        .select('user_id, role, profiles:user_id(full_name)')
+        .select('user_id, role, profile:profiles(full_name)')
         .eq('workspace_id', workspace.id)
       setWorkspaceMembers(data || [])
     }

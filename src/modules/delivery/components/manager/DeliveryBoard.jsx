@@ -12,11 +12,12 @@ import DeliveryStatusBadge from '../shared/DeliveryStatusBadge'
 import { Calendar, Clock, Truck, User, X, Check } from 'lucide-react'
 
 const COLUMNS = [
-  { key: 'a_planifier',  label: 'À planifier',    color: 'bg-gray-100 text-gray-700'   },
-  { key: 'planifiee',    label: 'Planifiée',       color: 'bg-blue-100 text-blue-700'   },
-  { key: 'en_route',     label: 'En route',        color: 'bg-amber-100 text-amber-700' },
+  { key: 'a_planifier',  label: 'À planifier',    color: 'bg-gray-100 text-gray-700'    },
+  { key: 'planifiee',    label: 'Planifiée',       color: 'bg-blue-100 text-blue-700'    },
+  { key: 'en_route',     label: 'En route',        color: 'bg-amber-100 text-amber-700'  },
   { key: 'chez_client',  label: 'Chez le client',  color: 'bg-orange-100 text-orange-700'},
-  { key: 'livree',       label: 'Livrée',          color: 'bg-green-100 text-green-700' },
+  { key: 'livree',       label: 'Livrée',          color: 'bg-green-100 text-green-700'  },
+  { key: 'probleme',     label: '⚠️ Problème',     color: 'bg-red-100 text-red-700'      },
 ]
 
 function DeliveryCard({ delivery, onClick }) {

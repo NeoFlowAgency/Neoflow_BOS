@@ -6,7 +6,9 @@ export default function PaymentCapture({ remainingAmount, onPayment, onSkip }) {
   const [method, setMethod] = useState(null)
   const [amount, setAmount] = useState(remainingAmount?.toFixed(2) ?? '')
 
-  const canConfirm = method && parseFloat(amount) > 0
+  const parsedAmount = parseFloat(amount) || 0
+  const cashLimitExceeded = method === 'cash' && parsedAmount > 1000
+  const canConfirm = method && parsedAmount > 0 && !cashLimitExceeded
 
   return (
     <div className="space-y-5">
@@ -43,17 +45,22 @@ export default function PaymentCapture({ remainingAmount, onPayment, onSkip }) {
             type="number"
             value={amount}
             onChange={e => setAmount(e.target.value)}
-            className="w-full text-2xl font-semibold text-center border border-gray-300
-                       rounded-xl py-3 focus:outline-none focus:border-[#313ADF]"
+            className={`w-full text-2xl font-semibold text-center border rounded-xl py-3 focus:outline-none
+              ${cashLimitExceeded ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[#313ADF]'}`}
             step="0.01"
             min="0"
           />
+          {cashLimitExceeded && (
+            <p className="mt-2 text-sm text-red-600 font-medium">
+              ⚠️ Légal : le paiement en espèces est limité à 1 000 € pour les particuliers (art. L.112-6 CMF). Proposez un autre moyen de paiement.
+            </p>
+          )}
         </div>
       )}
 
       <button
         disabled={!canConfirm}
-        onClick={() => onPayment({ method, amount: parseFloat(amount) })}
+        onClick={() => onPayment({ method, amount: parsedAmount })}
         className="w-full py-4 bg-[#313ADF] text-white rounded-xl font-semibold text-lg
                    disabled:opacity-40 disabled:cursor-not-allowed active:bg-[#2830c0]"
       >
@@ -61,7 +68,7 @@ export default function PaymentCapture({ remainingAmount, onPayment, onSkip }) {
       </button>
 
       <button onClick={onSkip} className="w-full py-3 text-gray-500 text-sm underline">
-        Aucun paiement ce soir
+        Aucun paiement à encaisser
       </button>
     </div>
   )

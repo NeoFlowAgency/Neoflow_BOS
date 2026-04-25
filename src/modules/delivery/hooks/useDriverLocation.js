@@ -2,9 +2,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../../lib/supabase'
 
+const GPS_COOLDOWN_MS = 15_000 // 1 insert max toutes les 15 secondes
+
 export function useShareLocation(workspaceId, driverId, deliveryId, active) {
   const watchRef = useRef(null)
   const prevPos = useRef(null)
+  const lastInsertRef = useRef(0)
 
   const stop = useCallback(() => {
     if (watchRef.current !== null) {
@@ -18,6 +21,10 @@ export function useShareLocation(workspaceId, driverId, deliveryId, active) {
 
     watchRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
+        const now = Date.now()
+        if (now - lastInsertRef.current < GPS_COOLDOWN_MS) return
+        lastInsertRef.current = now
+
         const { latitude: lat, longitude: lng } = pos.coords
         const isMoving = prevPos.current
           ? haversine(prevPos.current, { lat, lng }) > 0.01
