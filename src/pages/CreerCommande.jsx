@@ -782,7 +782,7 @@ export default function CreerCommande() {
               </div>
             </div>
             {totaux.montantRemise > 0 && (
-              <p className="mt-2 text-sm text-green-600">Remise appliquée : -{totaux.montantRemise.toFixed(2)} EUR</p>
+              <p className="mt-2 text-sm text-green-600">Remise appliquée : -{totaux.montantRemise.toFixed(2)} €</p>
             )}
           </div>
 
@@ -850,27 +850,27 @@ export default function CreerCommande() {
           <div className="space-y-4">
             <div className="flex justify-between text-white/70">
               <span>Sous-total HT</span>
-              <span>{totaux.subtotal.toFixed(2)} EUR</span>
+              <span>{totaux.subtotal.toFixed(2)} €</span>
             </div>
             {totaux.remiseLigne > 0 && (
               <div className="flex justify-between text-green-400">
                 <span>Remises lignes</span>
-                <span>- {totaux.remiseLigne.toFixed(2)} EUR</span>
+                <span>- {totaux.remiseLigne.toFixed(2)} €</span>
               </div>
             )}
             {totaux.montantRemise > 0 && (
               <div className="flex justify-between text-green-400">
                 <span>Remise globale</span>
-                <span>- {totaux.montantRemise.toFixed(2)} EUR</span>
+                <span>- {totaux.montantRemise.toFixed(2)} €</span>
               </div>
             )}
             <div className="flex justify-between text-white/70">
               <span>Total HT</span>
-              <span>{totaux.totalHt.toFixed(2)} EUR</span>
+              <span>{totaux.totalHt.toFixed(2)} €</span>
             </div>
             <div className="flex justify-between text-white/70">
               <span>TVA</span>
-              <span>{totaux.totalTva.toFixed(2)} EUR</span>
+              <span>{totaux.totalTva.toFixed(2)} €</span>
             </div>
             {lignes.some(l => l.eco_participation > 0) && (
               <div className="flex justify-between text-white/70">
@@ -881,13 +881,13 @@ export default function CreerCommande() {
             {totaux.fraisLivraison > 0 && (
               <div className="flex justify-between text-white/70">
                 <span>Frais de livraison</span>
-                <span>+ {totaux.fraisLivraison.toFixed(2)} EUR</span>
+                <span>+ {totaux.fraisLivraison.toFixed(2)} €</span>
               </div>
             )}
             <div className="border-t border-white/20 pt-4 mt-4">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold">Total TTC</span>
-                <span className="text-3xl font-bold text-[#313ADF]">{totaux.totalTtc.toFixed(2)} EUR</span>
+                <span className="text-3xl font-bold text-[#313ADF]">{totaux.totalTtc.toFixed(2)} €</span>
               </div>
             </div>
           </div>

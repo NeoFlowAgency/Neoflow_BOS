@@ -340,7 +340,7 @@ export default function VenteRapide() {
           </div>
           <h2 className="text-2xl font-bold text-[#040741] mb-2">Vente enregistree !</h2>
           <p className="text-gray-500 mb-2">Commande {lastOrder.order_number}</p>
-          <p className="text-3xl font-bold text-[#313ADF] mb-8">{lastOrder.total_ttc?.toFixed(2)} EUR TTC</p>
+          <p className="text-3xl font-bold text-[#313ADF] mb-8">{lastOrder.total_ttc?.toFixed(2)} € TTC</p>
 
           <div className="flex gap-3">
             <button
@@ -464,7 +464,7 @@ export default function VenteRapide() {
                     )}
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-[#313ADF] font-bold">
-                        {(produit.unit_price_ht || 0).toFixed(2)} EUR HT
+                        {(produit.unit_price_ht || 0).toFixed(2)} € HT
                       </p>
                       {stockMap[produit.id] !== undefined && (
                         <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
@@ -557,7 +557,7 @@ export default function VenteRapide() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0 mr-2">
                         <p className="font-medium text-[#040741] text-sm truncate">{item.description}</p>
-                        <p className="text-xs text-gray-400">{item.unit_price_ht.toFixed(2)} EUR HT x {item.quantity}</p>
+                        <p className="text-xs text-gray-400">{item.unit_price_ht.toFixed(2)} € HT x {item.quantity}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => modifierQuantite(item.cart_key, -1)} className="w-7 h-7 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100">-</button>
@@ -567,7 +567,7 @@ export default function VenteRapide() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
-                      <p className="font-bold text-[#313ADF] text-sm ml-2 w-20 text-right">{lineTotal(item).toFixed(2)} EUR</p>
+                      <p className="font-bold text-[#313ADF] text-sm ml-2 w-20 text-right">{lineTotal(item).toFixed(2)} €</p>
                     </div>
                     {/* Per-line discount */}
                     <div className="flex items-center gap-1.5">
@@ -621,7 +621,7 @@ export default function VenteRapide() {
                     />
                   </div>
                   {totaux.montantRemise > 0 && (
-                    <span className="text-xs text-green-600 font-medium">-{totaux.montantRemise.toFixed(2)} EUR</span>
+                    <span className="text-xs text-green-600 font-medium">-{totaux.montantRemise.toFixed(2)} €</span>
                   )}
                 </div>
               </div>
@@ -654,28 +654,28 @@ export default function VenteRapide() {
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-white/60 text-sm">
                 <span>Sous-total HT</span>
-                <span>{totaux.subtotal.toFixed(2)} EUR</span>
+                <span>{totaux.subtotal.toFixed(2)} €</span>
               </div>
               {totaux.remiseLigne > 0 && (
                 <div className="flex justify-between text-green-400 text-sm">
                   <span>Remises lignes</span>
-                  <span>-{totaux.remiseLigne.toFixed(2)} EUR</span>
+                  <span>-{totaux.remiseLigne.toFixed(2)} €</span>
                 </div>
               )}
               {totaux.montantRemise > 0 && (
                 <div className="flex justify-between text-green-400 text-sm">
                   <span>Remise globale</span>
-                  <span>-{totaux.montantRemise.toFixed(2)} EUR</span>
+                  <span>-{totaux.montantRemise.toFixed(2)} €</span>
                 </div>
               )}
               <div className="flex justify-between text-white/60 text-sm">
                 <span>TVA</span>
-                <span>{totaux.totalTva.toFixed(2)} EUR</span>
+                <span>{totaux.totalTva.toFixed(2)} €</span>
               </div>
               <div className="border-t border-white/20 pt-3 mt-3">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-lg">Total TTC</span>
-                  <span className="text-2xl font-bold">{totaux.totalTtc.toFixed(2)} EUR</span>
+                  <span className="text-2xl font-bold">{totaux.totalTtc.toFixed(2)} €</span>
                 </div>
               </div>
             </div>
@@ -698,7 +698,7 @@ export default function VenteRapide() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Encaisser {totaux.totalTtc.toFixed(2)} EUR
+                  Encaisser {totaux.totalTtc.toFixed(2)} €
                 </>
               )}
             </button>

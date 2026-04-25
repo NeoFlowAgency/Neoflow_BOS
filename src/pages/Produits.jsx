@@ -249,7 +249,7 @@ export default function Produits() {
             </svg>
             <input
               type="text"
-              placeholder="Rechercher par nom, reference..."
+              placeholder="Rechercher par nom, référence..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-[#040741] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#313ADF]/30 focus:border-[#313ADF]"
@@ -294,7 +294,7 @@ export default function Produits() {
           <div className={`hidden md:grid gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-500 ${showMargins ? 'grid-cols-16' : 'grid-cols-12'}`}>
             <div className="col-span-1">Ref</div>
             <div className="col-span-3">Nom</div>
-            <div className="col-span-2">Categorie</div>
+            <div className="col-span-2">Catégorie</div>
             <div className="col-span-2 text-right">Prix HT</div>
             <div className="col-span-1 text-center">TVA</div>
             {showMargins && (

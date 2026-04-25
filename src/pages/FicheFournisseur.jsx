@@ -255,7 +255,7 @@ export default function FicheFournisseur() {
                         <span className="text-xs text-gray-400">
                           {po.expected_date ? `Prévue le ${new Date(po.expected_date).toLocaleDateString('fr-FR')}` : new Date(po.created_at).toLocaleDateString('fr-FR')}
                         </span>
-                        <span className="text-sm font-medium text-[#040741]">{(po.total_ht || 0).toFixed(2)} EUR HT</span>
+                        <span className="text-sm font-medium text-[#040741]">{(po.total_ht || 0).toFixed(2)} € HT</span>
                       </div>
                     </button>
                   )
@@ -283,7 +283,7 @@ export default function FicheFournisseur() {
                     <p className="text-sm font-medium text-[#040741]">{ps.product?.name}</p>
                     <div className="flex items-center justify-between mt-1">
                       {ps.product?.reference && <span className="text-xs text-gray-400">{ps.product.reference}</span>}
-                      {ps.supplier_cost_ht && <span className="text-xs font-medium text-[#313ADF]">{ps.supplier_cost_ht.toFixed(2)} EUR</span>}
+                      {ps.supplier_cost_ht && <span className="text-xs font-medium text-[#313ADF]">{ps.supplier_cost_ht.toFixed(2)} €</span>}
                     </div>
                     {ps.supplier_reference && <p className="text-xs text-gray-400 mt-0.5">Ref: {ps.supplier_reference}</p>}
                     {ps.is_primary && <span className="text-xs bg-[#313ADF]/10 text-[#313ADF] px-1.5 py-0.5 rounded mt-1 inline-block">Principal</span>}

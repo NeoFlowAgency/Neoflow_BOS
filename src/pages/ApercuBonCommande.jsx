@@ -267,10 +267,10 @@ export default function ApercuBonCommande() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right text-gray-600">
-                          {(item.unit_cost_ht || 0).toFixed(2)} EUR
+                          {(item.unit_cost_ht || 0).toFixed(2)} €
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-[#040741]">
-                          {(item.total_ht || 0).toFixed(2)} EUR
+                          {(item.total_ht || 0).toFixed(2)} €
                         </td>
                       </tr>
                     )
@@ -279,15 +279,15 @@ export default function ApercuBonCommande() {
                 <tfoot className="bg-gray-50">
                   <tr>
                     <td colSpan={4} className="px-6 py-3 text-right text-sm font-semibold text-gray-500">Total HT</td>
-                    <td className="px-6 py-3 text-right font-bold text-[#040741]">{(po.total_ht || 0).toFixed(2)} EUR</td>
+                    <td className="px-6 py-3 text-right font-bold text-[#040741]">{(po.total_ht || 0).toFixed(2)} €</td>
                   </tr>
                   <tr>
                     <td colSpan={4} className="px-6 py-2 text-right text-sm text-gray-400">TVA</td>
-                    <td className="px-6 py-2 text-right text-gray-500">{((po.total_ttc || 0) - (po.total_ht || 0)).toFixed(2)} EUR</td>
+                    <td className="px-6 py-2 text-right text-gray-500">{((po.total_ttc || 0) - (po.total_ht || 0)).toFixed(2)} €</td>
                   </tr>
                   <tr>
                     <td colSpan={4} className="px-6 py-3 text-right text-sm font-bold text-[#040741]">Total TTC</td>
-                    <td className="px-6 py-3 text-right font-bold text-lg text-[#313ADF]">{(po.total_ttc || 0).toFixed(2)} EUR</td>
+                    <td className="px-6 py-3 text-right font-bold text-lg text-[#313ADF]">{(po.total_ttc || 0).toFixed(2)} €</td>
                   </tr>
                 </tfoot>
               </table>

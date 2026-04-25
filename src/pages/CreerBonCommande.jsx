@@ -290,7 +290,7 @@ export default function CreerBonCommande() {
               <div className="md:col-span-2">
                 <span className="md:hidden text-xs font-medium text-gray-500 mb-1 block">Total HT</span>
                 <div className="bg-[#313ADF]/10 border border-[#313ADF]/20 rounded-xl px-3 py-3 text-center font-bold text-[#313ADF]">
-                  {(ligne.unit_cost_ht * ligne.quantity_ordered).toFixed(2)} EUR
+                  {(ligne.unit_cost_ht * ligne.quantity_ordered).toFixed(2)} €
                 </div>
               </div>
 
@@ -375,16 +375,16 @@ export default function CreerBonCommande() {
             </div>
             <div className="flex justify-between text-white/70">
               <span>Total HT</span>
-              <span>{totaux.totalHt.toFixed(2)} EUR</span>
+              <span>{totaux.totalHt.toFixed(2)} €</span>
             </div>
             <div className="flex justify-between text-white/70">
               <span>TVA</span>
-              <span>{totaux.totalTva.toFixed(2)} EUR</span>
+              <span>{totaux.totalTva.toFixed(2)} €</span>
             </div>
             <div className="border-t border-white/20 pt-4 mt-4">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold">Total TTC</span>
-                <span className="text-3xl font-bold text-[#313ADF]">{totaux.totalTtc.toFixed(2)} EUR</span>
+                <span className="text-3xl font-bold text-[#313ADF]">{totaux.totalTtc.toFixed(2)} €</span>
               </div>
             </div>
           </div>

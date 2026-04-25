@@ -391,7 +391,7 @@ export default function DashboardFinancier() {
     return (
       <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#313ADF] border-t-transparent mb-4"></div>
-        <p className="text-gray-500">Chargement des donnees...</p>
+        <p className="text-gray-500">Chargement des données...</p>
       </div>
     )
   }
@@ -402,7 +402,7 @@ export default function DashboardFinancier() {
         <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-xl">
           <p className="font-medium">{error}</p>
           <button onClick={fetchDashboardData} className="mt-2 text-sm underline hover:no-underline">
-            Reessayer
+            Réessayer
           </button>
         </div>
       </div>
@@ -429,7 +429,7 @@ export default function DashboardFinancier() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <span className="text-white/80 text-sm font-medium">Benefice (commandes terminees)</span>
+              <span className="text-white/80 text-sm font-medium">Bénéfice (commandes terminées)</span>
             </div>
             <p className="text-2xl font-bold">{formatCurrency(stats.beneficeTotal)}</p>
             <p className="text-white/60 text-xs mt-1">Marge {stats.margeGlobale}% · CA {formatCurrency(stats.caTotal)}</p>

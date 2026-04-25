@@ -515,7 +515,7 @@ export default function ApercuCommande() {
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-[#040741]">Progression du paiement</span>
               <span className="text-sm font-medium text-[#040741]">
-                {(order.amount_paid || 0).toFixed(2)} / {(order.total_ttc || 0).toFixed(2)} EUR
+                {(order.amount_paid || 0).toFixed(2)} / {(order.total_ttc || 0).toFixed(2)} €
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -527,7 +527,7 @@ export default function ApercuCommande() {
             <div className="flex justify-between mt-2">
               <span className="text-xs text-gray-400">{Math.round(paymentRatio * 100)}% paye</span>
               {(order.remaining_amount || 0) > 0 && (
-                <span className="text-xs font-medium text-orange-600">Restant : {(order.remaining_amount || 0).toFixed(2)} EUR</span>
+                <span className="text-xs font-medium text-orange-600">Restant : {(order.remaining_amount || 0).toFixed(2)} €</span>
               )}
             </div>
           </div>
@@ -592,11 +592,11 @@ export default function ApercuCommande() {
                         {item.product?.reference && <p className="text-xs text-gray-400">{item.product.reference}</p>}
                       </td>
                       <td className="py-3 text-center text-sm text-gray-600">{item.quantity}</td>
-                      <td className="py-3 text-right text-sm text-gray-600">{unitTtc.toFixed(2)} EUR</td>
+                      <td className="py-3 text-right text-sm text-gray-600">{unitTtc.toFixed(2)} €</td>
                       {showMargins && (
-                        <td className="py-3 text-right text-sm text-gray-400">{(item.cost_price_ht || 0).toFixed(2)} EUR</td>
+                        <td className="py-3 text-right text-sm text-gray-400">{(item.cost_price_ht || 0).toFixed(2)} €</td>
                       )}
-                      <td className="py-3 text-right text-sm font-semibold text-[#040741]">{totalTtc.toFixed(2)} EUR</td>
+                      <td className="py-3 text-right text-sm font-semibold text-[#040741]">{totalTtc.toFixed(2)} €</td>
                     </tr>
                     )
                   })}
@@ -610,22 +610,22 @@ export default function ApercuCommande() {
                 {(order.discount_global || 0) > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Remise</span>
-                    <span>-{(order.discount_global || 0).toFixed(2)} EUR</span>
+                    <span>-{(order.discount_global || 0).toFixed(2)} €</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>dont TVA</span>
-                  <span>{(order.total_tva || 0).toFixed(2)} EUR</span>
+                  <span>{(order.total_tva || 0).toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between font-bold text-[#040741] border-t border-gray-200 pt-2">
                   <span>Total TTC</span>
-                  <span className="text-[#313ADF]">{(order.total_ttc || 0).toFixed(2)} EUR</span>
+                  <span className="text-[#313ADF]">{(order.total_ttc || 0).toFixed(2)} €</span>
                 </div>
                 {showMargins && (
                   <div className="flex justify-between text-sm border-t border-gray-100 pt-2">
                     <span className="text-gray-500">Marge</span>
                     <span className={`font-semibold ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {margin.toFixed(2)} EUR
+                      {margin.toFixed(2)} €
                     </span>
                   </div>
                 )}
@@ -929,7 +929,7 @@ export default function ApercuCommande() {
                   <div key={p.id} className="bg-gray-50 rounded-xl p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-[#040741]">{(p.amount || 0).toFixed(2)} EUR</span>
+                        <span className="text-sm font-medium text-[#040741]">{(p.amount || 0).toFixed(2)} €</span>
                         <span className="text-xs text-gray-400 ml-2">
                           {p.payment_method === 'cash' ? 'Espèces' : p.payment_method === 'card' ? 'CB' : p.payment_method === 'check' ? 'Chèque' : p.payment_method === 'transfer' ? 'Virement' : 'Autre'}
                         </span>
